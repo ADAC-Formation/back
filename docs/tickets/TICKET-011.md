@@ -7,6 +7,10 @@ Infrastructure — orchestration (voir `docs/INFRASTRUCTURE.md` section 7)
 Assembler les 3 containers (db, backend, frontend) en Docker Compose pour la production, avec de vrais
 healthchecks — `depends_on` seul ne garantit pas que PostgreSQL accepte les connexions.
 
+`frontend` est en **`image:` pull** (`ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}`), pas en
+`build:` — ce repo ne contient pas le code frontend (voir `TICKET-010`). Tant que Manon n'a pas publié
+d'image réelle, utiliser un tag `dev`/`latest` provisoire pour développer et tester le reste du compose.
+
 ## Repo
 [ ] front/   [ ] back/   [x] both
 
@@ -22,6 +26,7 @@ healthchecks — `depends_on` seul ne garantit pas que PostgreSQL accepte les co
 - [ ] `db` et `backend` ne publient aucun port vers l'hôte (seul `frontend` le fait)
 - [ ] `restart: unless-stopped` sur les 3 services
 - [ ] Tous les secrets viennent de `${...}`, jamais en dur
+- [ ] `frontend` utilise `image: ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}` (pas de `build:` local)
 
 ## Branch
 `feature/devops-setup`
@@ -54,7 +59,8 @@ Conventional commits format (always in English):
 
 ## Depends on
 - TICKET-009 — Dockerfile backend
-- TICKET-010 — Dockerfile frontend
+- TICKET-010 — coordination cross-repo (une image frontend doit être disponible sur ghcr.io, même un tag
+  provisoire, pour tester le compose complet)
 
 ## Estimated time
 2h

@@ -54,10 +54,17 @@ flowchart TD
 ```
 
 ## 4. Frontend Deployment
+> Le code frontend vit dans un repo séparé (`ADAC-Formation/front`, géré par Manon) — ce repo ne le build pas,
+> il **pull** l'image déjà construite par le CI de ce repo. Les points ci-dessous sont la spec que Manon doit
+> suivre dans son repo, partagée ici pour traçabilité.
+
 - Build : `npm run build` → fichiers statiques servis par Nginx
 - Runtime : Nginx (déjà prévu dans STACK.md)
 - Env vars : `VITE_API_URL` injectée au build
-- `front/Dockerfile` : stage build (node) → stage runtime (nginx:alpine), port 80 exposé en interne au réseau Docker
+- `front/Dockerfile` (dans le repo front) : stage build (node) → stage runtime (nginx:alpine), port 80 exposé
+  en interne au réseau Docker
+- Le repo front pousse son image vers `ghcr.io/adac-formation/front` (même registry que le backend) — voir
+  section 16
 
 ## 5. Backend Deployment & Database — la décision centrale
 
@@ -100,6 +107,7 @@ Supabase Storage (déjà en place) — pas de changement. Free tier suffisant po
 
 ## 7. Docker — inventaire complet
 
+Fichiers dans **ce repo** (`back`) :
 ```text
 /
 ├── .env.example
@@ -107,20 +115,25 @@ Supabase Storage (déjà en place) — pas de changement. Free tier suffisant po
 ├── back/
 │   ├── Dockerfile
 │   └── .dockerignore
-├── front/
-│   ├── Dockerfile
-│   └── .dockerignore
 └── nginx/
     ├── nginx.conf
     └── certbot/           ← volume pour les certificats Let's Encrypt
 ```
 
+Fichiers dans le **repo front** (Manon, hors de ce repo) :
+```text
+/
+├── front/Dockerfile
+└── front/.dockerignore
+```
+
 - **`db`** — image `postgres:16` — base de données — port 5432 — **non public**, réseau interne uniquement —
   persistant (volume `postgres_data`)
-- **`backend`** — image `eclipse-temurin:21-jre` — API Spring Boot — port 8080 — **non public**, réseau interne
-  uniquement — non persistant
-- **`frontend` (Nginx)** — image `nginx:alpine` — sert le build React + reverse proxy `/api` + TLS —
-  ports 80 et 443 — public — non persistant (config montée en volume)
+- **`backend`** — construite depuis `back/Dockerfile` de ce repo — API Spring Boot — port 8080 — **non
+  public**, réseau interne uniquement — non persistant
+- **`frontend` (Nginx)** — image **pull** depuis `ghcr.io/adac-formation/front:<tag>` (construite par le CI du
+  repo front, pas buildée ici) — sert le build React + reverse proxy `/api` + TLS — ports 80 et 443 — public —
+  non persistant (config Nginx montée en volume depuis ce repo)
 
 **Réseau** : un seul réseau Docker `app_network` ; seul `frontend` publie des ports vers l'hôte.
 **Ports** : `db` et `backend` retirés de tout mapping `ports:` public en production (corrige l'exposition
@@ -266,17 +279,21 @@ en place.
 
 ## 28. Required Repository Files
 
-- `docker-compose.yml` — orchestration des 3 containers en prod — INFRA-003
-- `.env.example` — template des variables d'environnement — INFRA-003
-- `back/Dockerfile` — image backend — INFRA-002
-- `back/.dockerignore` — exclusions build backend — INFRA-002
-- `front/Dockerfile` — image frontend — INFRA-001
-- `front/.dockerignore` — exclusions build frontend — INFRA-001
+Dans **ce repo** (`back`) :
+- `docker-compose.yml` — orchestration des 3 containers en prod (pull frontend, build backend) — INFRA-011
+- `.env.example` — template des variables d'environnement — INFRA-011
+- `back/Dockerfile` — image backend — INFRA-009
+- `back/.dockerignore` — exclusions build backend — INFRA-009
 - `nginx/nginx.conf` — reverse proxy + TLS + SPA fallback — INFRA-004, INFRA-005
-- `back/src/main/resources/db/migration/` — migrations Flyway — INFRA-013
+- `back/src/main/resources/db/migration/` — migrations Flyway — INFRA-013 (déjà TICKET-004 côté tickets)
 - `docs/RESTORE.md` — runbook de restauration backup — INFRA-007
-- `.github/workflows/ci.yml` — tests + build images — INFRA-008
+- `.github/workflows/ci.yml` — tests + build image backend — INFRA-008
 - `.github/workflows/deploy.yml` — déploiement manuel déclenché — INFRA-010
+
+Dans le **repo front** (Manon, hors de ce repo — spec fournie ici pour traçabilité) :
+- `front/Dockerfile` — image frontend, poussée vers `ghcr.io/adac-formation/front`
+- `front/.dockerignore`
+- son propre `.github/workflows/ci.yml` (tests + build + push image)
 
 ## 29. Implementation Specification
 
@@ -289,16 +306,17 @@ en place.
 - Port 8080 exposé au réseau Docker interne seulement
 - Aucun secret en dur dans l'image
 
-## Docker — frontend (front/Dockerfile)
+## Docker — frontend (front/Dockerfile — dans le repo front, spec à suivre par Manon)
 - Stage build : node:20-alpine → npm run build
 - Stage runtime : nginx:alpine, sert /usr/share/nginx/html
-- Config Nginx custom montée (reverse proxy /api, TLS, SPA fallback)
+- CI du repo front pousse l'image vers ghcr.io/adac-formation/front:<tag>
 
-## docker-compose.yml
-- 3 services (db, backend, frontend) sur le réseau app_network
+## docker-compose.yml (ce repo)
+- 3 services (db, backend construits ici — frontend en `image:` pull) sur le réseau app_network
 - healthcheck + condition: service_healthy sur chaque dépendance
 - restart: unless-stopped sur les 3 services
 - volume postgres_data pour db, volume certbot pour les certificats TLS
+- Config Nginx custom (nginx/nginx.conf, dans ce repo) montée en volume dans le container frontend
 
 ## Backup script
 - Cron quotidien (VPS ou container dédié) : pg_dump → upload Supabase Storage bucket adac-backups
@@ -307,21 +325,25 @@ en place.
 
 ## 30. Required Tickets
 
+Numérotées `TICKET-XXX` dans `docs/tickets/` (voir `TICKETS.md` pour l'ordre chronologique complet) :
+
 ```text
-INFRA-001 — Créer le Dockerfile frontend
-INFRA-002 — Créer le Dockerfile backend
-INFRA-003 — Créer docker-compose.yml + .env.example (production)
-INFRA-004 — Configurer le reverse proxy Nginx (routes + SPA fallback)
-INFRA-005 — Configurer TLS (Let's Encrypt/Certbot)
-INFRA-006 — Retirer l'exposition publique des ports db/backend
-INFRA-007 — Script de sauvegarde automatique + runbook de restauration
-INFRA-008 — Pipeline CI (tests + build images)
-INFRA-009 — Provisionner le VPS + DNS
-INFRA-010 — Pipeline CD (déploiement manuel déclenché)
-INFRA-011 — Configurer uptime monitoring
-INFRA-012 — Activer unattended-upgrades sur le VPS
-INFRA-013 — Introduire Flyway pour les migrations DB
+TICKET-009 — Créer le Dockerfile backend
+TICKET-011 — Créer docker-compose.yml + .env.example (production, pull frontend / build backend)
+TICKET-037 — Configurer le reverse proxy Nginx (routes + SPA fallback)
+TICKET-038 — Configurer TLS (Let's Encrypt/Certbot)
+TICKET-039 — Retirer l'exposition publique des ports db/backend
+TICKET-040 — Script de sauvegarde automatique + runbook de restauration
+TICKET-012 — Pipeline CI (tests + build image backend)
+TICKET-002  — Provisionner le VPS + DNS
+TICKET-041 — Pipeline CD (déploiement manuel déclenché)
+TICKET-042 — Configurer uptime monitoring
+TICKET-013 — Activer unattended-upgrades sur le VPS
+TICKET-004  — Introduire Flyway pour les migrations DB
 ```
+
+**Hors de ce repo** — à faire par Manon dans `ADAC-Formation/front` (spec fournie ici, pas un ticket de ce
+repo) : Dockerfile frontend + son propre pipeline CI qui pousse l'image vers `ghcr.io/adac-formation/front`.
 
 ## 31. Required Specialized Skills
 

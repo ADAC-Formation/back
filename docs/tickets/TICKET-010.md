@@ -1,57 +1,43 @@
-# TICKET-010 — Dockerfile frontend
+# TICKET-010 — Coordination Dockerfile frontend (repo externe)
 
 ## Story
 Infrastructure — containerisation (voir `docs/INFRASTRUCTURE.md` sections 4 et 29)
 
 ## Description
-Créer le Dockerfile multi-stage du frontend React : build Vite, servi en runtime par Nginx.
+Le Dockerfile frontend ne vit **pas dans ce repo** — il doit être créé par Manon dans `ADAC-Formation/front`.
+Ce ticket est une coordination cross-repo : partager la spec avec Manon et vérifier que son repo publie bien
+une image utilisable par `docker-compose.yml` de ce repo (`TICKET-011`).
 
-## Repo
-[x] front/   [ ] back/   [ ] both
-
-## Files to create or modify
+Spec à transmettre à Manon (déjà dans `docs/INFRASTRUCTURE.md` section 4 et 29) :
 - `front/Dockerfile` — multi-stage : builder `node:20-alpine` (`npm run build`) → runtime `nginx:alpine`
 - `front/.dockerignore` — exclure `node_modules/`, `.env`, `dist/`
+- Son propre CI pousse l'image vers `ghcr.io/adac-formation/front:<tag>` (même registry que le backend)
+
+## Repo
+Aucun — coordination, pas de code dans ce repo.
 
 ## Acceptance criteria
-- [ ] `docker build ./front` produit une image sans erreur
+- [ ] La spec ci-dessus a été transmise à Manon (lien vers `docs/INFRASTRUCTURE.md`)
+- [ ] Une image existe sur `ghcr.io/adac-formation/front` (au moins un tag, ex. `latest` ou `dev`)
+- [ ] `docker pull ghcr.io/adac-formation/front:<tag>` fonctionne depuis cette machine
 - [ ] Le container démarre et sert le build React sur le port 80
-- [ ] `curl localhost` (une fois exposé) → 200 avec le HTML de l'app React
-- [ ] `VITE_API_URL` correctement injectée au moment du build
 
 ## Branch
-`feature/devops-setup`
-- [ ] Create: `git checkout -b feature/devops-setup`
-- [ ] Switch to existing: `git checkout feature/devops-setup`
+Aucune — pas de commit associé à cette tâche dans ce repo.
 
-## Write tests first (TDD)
-> Pour Docker, les "tests" sont des smoke tests reproductibles plutôt que des tests unitaires.
-
-Before finishing:
-- [ ] `docker build ./front` réussit
-- [ ] `docker run --rm -p 8081:80 <image>` puis `curl localhost:8081` → 200 avec contenu HTML React
-
-## Pre-commit review
-Once smoke tests pass, run `/review-code` on the Dockerfile.
-
-## Commit
-Run `/commit` — it follows conventional commits format automatically.
-
-Conventional commits format (always in English):
-- `chore(devops): add multi-stage frontend Dockerfile`
-
-## PR (only on last ticket of this branch)
-- [ ] This is NOT the last ticket on `feature/devops-setup` — see TICKET-012
+## Checklist opérationnelle (remplace TDD — coordination, pas de code ici)
+- [ ] Spec partagée avec Manon
+- [ ] Image confirmée disponible sur ghcr.io
 
 ## Skills to invoke
 > Auto-populated by step-09. Do not edit manually.
-- [ ] /docker — pending verification
+- [ ] (aucun — coordination, pas de code dans ce repo)
 
 ## Depends on
-- TICKET-008 — le projet React + Vite doit être buildable
+- —
 
 ## Estimated time
-1h
+0.5h
 
 ## Status
 [ ] To do   [ ] In progress   [ ] Done

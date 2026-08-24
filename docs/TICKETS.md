@@ -18,7 +18,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-007 | Config Swagger + Mail + Supabase | back | TICKET-001 | 1h | À faire |
 | TICKET-008 | Setup React + Vite + Axios | front | — | 2h | À faire |
 | TICKET-009 | Dockerfile backend | back | TICKET-001 | 1h | À faire |
-| TICKET-010 | Dockerfile frontend | front | TICKET-008 | 1h | À faire |
+| TICKET-010 | Coordination Dockerfile frontend (repo externe `front`) | — | — | 0.5h | À faire |
 | TICKET-011 | docker-compose.yml + .env.example (production) | both | TICKET-009, TICKET-010 | 2h | À faire |
 | TICKET-012 | Pipeline CI (tests + build images) | both | TICKET-009, TICKET-010 | 2h | À faire |
 | TICKET-013 | Activer unattended-upgrades sur le VPS | — | TICKET-002 | 0.5h | À faire |
@@ -99,12 +99,16 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 ## Récapitulatif
 
 - **Total tickets** : 44
-- **Backend** : 15 | **Frontend** : 15 | **Les deux (both)** : 11 | **Aucun (tâche opérationnelle)** : 3
-- **Temps estimé total** : ~76h
+- **Backend** : 15 | **Frontend (dans ce repo)** : 14 | **Les deux (both)** : 11 | **Aucun / coordination
+  (tâche opérationnelle ou cross-repo)** : 4
+- **Temps estimé total** : ~75.5h
 - **Branches Git** : feature/setup · feature/devops-setup · feature/auth · feature/users · feature/formations
   · feature/documents · feature/messagerie · feature/notifications · feature/devops-production ·
   feature/dashboard
-- **Tâches opérationnelles sans branche** (pas de code) : TICKET-002, TICKET-013, TICKET-042
+- **Tâches opérationnelles sans branche** (pas de code) : TICKET-002, TICKET-010 (coordination cross-repo),
+  TICKET-013, TICKET-042
+- **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
+  ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
 
 ## Note sur cette révision (2026-08-24)
 

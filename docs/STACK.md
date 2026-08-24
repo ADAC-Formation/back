@@ -78,6 +78,7 @@
 - Enums : `UPPER_CASE` Java → string literal JavaScript
 - Auth : cookie HttpOnly `jwt=<token>` (envoyé automatiquement par le navigateur — pas d'header manuel)
 - Commits : conventional commits (`feat` / `fix` / `docs` / `chore`)
-- Structure : monorepo — `front/` + `back/` à la racine
+- Structure : deux repos GitHub séparés (`ADAC-Formation/back` — ce repo, code + docs + infra —
+  et `ADAC-Formation/front` — géré par Manon). Le contrat partagé entre les deux est `docs/tech.md`.
 
 _Stack validée le 2026-08-19_

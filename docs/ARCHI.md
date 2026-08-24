@@ -1,25 +1,34 @@
 # Architecture — Portail de Formation ADAC
 
-## Structure du monorepo
+## Structure du projet — deux repos séparés
+
+Pas un monorepo. `ADAC-Formation/back` (ce repo) et `ADAC-Formation/front` (repo de Manon) sont deux repos
+GitHub distincts. Ce repo porte le code backend, toute la documentation partagée et l'infra de déploiement —
+`docker-compose.yml` **pull** l'image frontend déjà construite (par le CI du repo front), il ne la build pas.
 
 ```
-adac-portail/
+back/ (ce repo)
 ├── back/                        ← API Spring Boot (Charlotte)
-├── front/                       ← React + Vite (Manon — structure à définir)
 ├── nginx/
 │   └── nginx.conf               ← Config reverse proxy
 ├── docker-compose.yml
 ├── docker-compose.override.yml  ← overrides locaux (ignoré par Git)
 ├── .env.example                 ← variables d'environnement à copier
 ├── .gitignore
-├── PRD.md
-├── STACK.md
-├── DESIGN.md
-├── ARCHI.md
-├── tech.md                      ← contrat API front ↔ back
-├── STORIES.md
-├── TICKETS.md
+├── docs/
+│   ├── PRD.md
+│   ├── STACK.md
+│   ├── DESIGN.md
+│   ├── ARCHI.md
+│   ├── tech.md                  ← contrat API front ↔ back — seul fichier partagé avec Manon
+│   ├── STORIES.md
+│   ├── TICKETS.md
+│   ├── INFRA_REQUIREMENTS.md
+│   ├── INFRASTRUCTURE.md
+│   └── tickets/
 └── CLAUDE.md
+
+front/ (repo séparé — Manon, structure gérée par elle)
 ```
 
 ---
@@ -328,8 +337,8 @@ services:
       - "8080:8080"
 
   frontend:
-    build: ./front
-    depends_on:
+    image: ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}  # PULL, pas de build local — image
+    depends_on:                                                     # construite par le CI du repo front
       - backend
     ports:
       - "80:80"
@@ -382,4 +391,4 @@ server {
 
 ---
 
-_Architecture validée le 2026-08-21 — backend uniquement (front à compléter par Manon)_
+_Architecture validée le 2026-08-21, révisée le 2026-08-24 (deux repos séparés) — backend uniquement (front dans `ADAC-Formation/front`, géré par Manon)_

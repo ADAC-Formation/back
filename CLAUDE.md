@@ -9,25 +9,32 @@ Portail de gestion des formations pour l'ADAC, remplaçant les échanges email i
 - **Charlotte** → backend (`back/`)
 - **Manon** → frontend (`front/`)
 
-## Structure du monorepo
+## Structure du projet — deux repos séparés
+
+Pas un monorepo : `front` et `back` sont deux repos GitHub distincts sous l'organisation `ADAC-Formation`.
+Ce repo (`ADAC-Formation/back`) porte le code backend **et** toute la documentation/infra partagée, puisque
+c'est Charlotte qui gère le déploiement. Le seul fichier que Manon doit lire ici est `docs/tech.md`.
 
 ```
-adac-portail/
-├── front/              ← React + Vite (Manon)
-├── back/               ← Java Spring Boot 3 (Charlotte)
+back/ (ce repo)                 front/ (repo séparé — Manon)
+├── back/                       ├── src/
+│   └── ... Spring Boot         └── ... React + Vite
 ├── docs/               ← toute la documentation projet
 │   ├── PRD.md
 │   ├── STACK.md
 │   ├── ARCHI.md
-│   ├── tech.md
+│   ├── tech.md         ← seul fichier que Manon doit lire ici
 │   ├── DESIGN.md
 │   ├── DB_MODEL.mmd
 │   ├── DB_MODEL.md
 │   ├── USERFLOW.mmd
 │   ├── USERFLOW.md
 │   ├── STORIES.md
-│   └── TICKETS.md
-├── nginx/              ← Config reverse proxy
+│   ├── TICKETS.md
+│   ├── INFRA_REQUIREMENTS.md
+│   ├── INFRASTRUCTURE.md
+│   └── tickets/
+├── nginx/              ← Config reverse proxy (image frontend PULLED, pas buildée ici)
 ├── docker-compose.yml
 ├── .env.example
 └── CLAUDE.md           ← ce fichier
@@ -73,7 +80,7 @@ mvn package -DskipTests      # build JAR
 
 Swagger UI : `http://localhost:8080/swagger-ui.html`
 
-### Frontend (`front/`)
+### Frontend (repo séparé `ADAC-Formation/front`, géré par Manon)
 
 ```bash
 npm run dev                  # démarrer
@@ -82,6 +89,7 @@ npm run build                # build production
 ```
 
 App : `http://localhost:5173`
+Pas dans ce repo — cloner `ADAC-Formation/front` séparément si besoin de le lancer localement.
 
 ### Docker
 
@@ -95,3 +103,62 @@ docker-compose down          # arrêter
 JWT stocké en **cookie HttpOnly** (pas de header Authorization).
 Axios doit avoir `withCredentials: true` sur toutes les requêtes.
 Voir `tech.md` section "Configuration" pour les détails.
+
+```java
+// Le filtre lit le cookie sur chaque requête :
+Arrays.stream(request.getCookies())
+    .filter(c -> "jwt".equals(c.getName()))
+    .findFirst()
+    .ifPresent(c -> validateAndSetContext(c.getValue()));
+
+// Login → poser le cookie :
+ResponseCookie cookie = ResponseCookie.from("jwt", token)
+    .httpOnly(true)
+    .secure(true)   // false en dev
+    .sameSite("Strict")
+    .maxAge(Duration.ofHours(24))
+    .path("/")
+    .build();
+response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+```
+
+CORS configuré avec `allowCredentials = true` + origines explicites.
+
+## Backend — package racine `com.adac.portail`
+
+```
+Requête HTTP
+  → JwtAuthorizationFilter (lit et valide le cookie)
+  → Controller (@RestController)
+  → Service (interface + ServiceImpl)
+  → Repository (JpaRepository)
+  → PostgreSQL
+```
+
+Structure des packages, conventions de nommage complètes → `docs/ARCHI.md`.
+
+## Tests backend (annotations)
+
+| Couche | Annotation | Ce qu'on teste |
+|---|---|---|
+| Controller | `@WebMvcTest` | Routes, status HTTP, sérialisation JSON |
+| Service | `@ExtendWith(MockitoExtension)` | Logique métier, cas d'erreur |
+| Repository | `@DataJpaTest` | Requêtes JPQL custom |
+
+```bash
+mvn test -Dtest=NomTest       # un test spécifique
+```
+
+## Variables d'environnement (`back/.env`, copier depuis `.env.example`)
+
+| Variable | Rôle |
+|---|---|
+| `DB_URL` | JDBC URL PostgreSQL |
+| `DB_USERNAME` / `DB_PASSWORD` | Credentials DB |
+| `JWT_SECRET` | Clé secrète JWT (min 256 bits) |
+| `JWT_EXPIRATION` | Durée du token en ms (86400000 = 24h) |
+| `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP |
+| `SUPABASE_URL` / `SUPABASE_KEY` / `SUPABASE_BUCKET` | Supabase Storage |
+| `CORS_ALLOWED_ORIGINS` | Origines autorisées (ex: http://localhost:5173) |
+
+Profils Spring : `dev` (Mailtrap) et `prod` (Brevo) — configurer via `SPRING_PROFILES_ACTIVE`.
