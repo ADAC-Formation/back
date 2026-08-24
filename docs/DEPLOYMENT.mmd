@@ -1,0 +1,11 @@
+%%{init: {'theme': 'dark'}}%%
+flowchart TD
+    U[Utilisateurs] --> DNS[DNS portail.adac.asso.fr]
+    DNS --> RP[Nginx — TLS + reverse proxy]
+    RP --> FE[Frontend React — statique]
+    RP --> API[Backend Spring Boot]
+    API --> DB[(PostgreSQL — container)]
+    API --> STORAGE[Supabase Storage]
+    API --> EMAIL[Brevo — email transactionnel]
+    BACKUP[Cron pg_dump quotidien] --> DB
+    BACKUP --> STORAGE

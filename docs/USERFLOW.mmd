@@ -1,0 +1,286 @@
+%%{init: {'theme': 'dark'}}%%
+flowchart TD
+
+    START([Début])
+    START --> LOGIN[Page de connexion]
+    LOGIN --> FORGOT[Mot de passe oublié / Activer mon compte]
+    LOGIN --> CRED{Identifiants valides ?}
+    CRED -->|Non| ERR[Erreur : identifiants invalides]
+    ERR --> LOGIN
+    CRED -->|Oui| ACT_CHK{Compte activé ?}
+    ACT_CHK -->|Non| ERR_INACT[Erreur : compte non activé — consulter ses emails]
+    ERR_INACT --> LOGIN
+    ACT_CHK -->|Oui| ROL{Rôle ?}
+    ROL -->|STAGIAIRE| ST_DASH
+    ROL -->|ADMIN / Formateur| ADM_DASH
+    ROL -->|SUPER_ADMIN| SA_DASH
+
+    subgraph RESET ["🔑 Mot de passe oublié"]
+        FORGOT --> F_EMAIL[Saisir son adresse email]
+        F_EMAIL --> F_EXIST{Email connu et actif ?}
+        F_EXIST -->|Non| F_ERR[Erreur : email non reconnu]
+        F_ERR --> F_EMAIL
+        F_EXIST -->|"Oui — limite 3 envois / 15 min"| F_EM[Email : code 6 chiffres + lien /reinitialisation valide 30 min]
+        F_EM --> R_FORM[Formulaire : code + nouveau MDP + confirmation]
+        R_FORM --> R_VAL{Code valide et MDP OK ?}
+        R_VAL -->|Non / Expiré| R_RENV[Demander un nouveau code → invalide les précédents]
+        R_RENV --> F_EM
+        R_VAL -->|Oui| R_OK[Mot de passe mis à jour]
+        R_OK --> R_LOGIN["→ Connexion — bandeau : Mot de passe mis à jour"]
+        R_LOGIN --> LOGIN
+    end
+
+    subgraph ACTIVATION ["🔐 Activation de compte"]
+        UCREER[Super Admin crée le compte — isActive=false]
+        UCREER --> A_EM[Email : code 6 chiffres + lien /activation valide 30 min]
+        A_EM --> A_FORM[Formulaire : code de vérification + nouveau MDP + confirmation]
+        A_FORM --> A_COD{Code valide et non expiré ?}
+        A_COD -->|Non / Expiré| A_RENV[Demander un nouveau code → invalide les précédents]
+        A_RENV --> A_EM
+        A_COD -->|Oui| A_PASS{MDP correspondent et assez forts ?}
+        A_PASS -->|Non| A_FORM
+        A_PASS -->|Oui| A_OK[Compte activé — isActive = true]
+        A_OK --> A_LOGIN["→ Connexion — bandeau : Compte activé avec succès"]
+        A_LOGIN --> LOGIN
+    end
+
+    %% ══════════════════════════════════════════════════
+    subgraph SA ["👑 SUPER ADMIN"]
+        SA_DASH["🏠 Tableau de bord
+        [ Gestion ] [ Messages ]
+        [ Notifications ] [ Mon Profil ]"]
+
+        SA_DASH --> SA_GEST[Gestion]
+        SA_DASH --> SA_MSG[Messagerie]
+        SA_DASH --> SA_NOTIF_PAGE[Notifications — plein écran]
+        SA_DASH --> SA_PROFIL[Mon profil]
+
+        %% ── Gestion ──
+        SA_GEST --> SA_F_SECT[Formations]
+        SA_GEST --> SA_FO_SECT[Formateurs]
+        SA_GEST --> SA_ST_SECT[Stagiaires]
+
+        %% Formations
+        SA_F_SECT --> SA_F_LIST[Liste des formations — actives et archivées]
+        SA_F_LIST --> SA_F_CREATE{Créer une formation}
+        SA_F_CREATE -->|Formulaire| SA_F_FORM["Formulaire de création
+        — Intitulé de la formation (obligatoire)
+        — Date de début (obligatoire)
+        — Date de fin (obligatoire)
+        — Formateur (liste déroulante — actifs uniquement — optionnel)
+            → si vide : Super Admin assigné automatiquement
+        — Modalité : visio / présentiel / mixte (obligatoire)
+        — Documents : drag & drop (optionnel)"]
+        SA_F_CREATE -->|Import Excel| SA_F_EXCEL[Importer un fichier .xlsx]
+        SA_F_FORM --> SA_F_DET[Détail de la formation]
+        SA_F_EXCEL --> SA_F_DET
+        SA_F_LIST --> SA_F_DET
+
+        SA_F_DET --> SA_F_MODIF[Modifier la formation]
+        SA_F_MODIF --> SA_F_DET
+        SA_F_DET --> SA_F_ARCHIVE[Archiver la formation]
+        SA_F_ARCHIVE --> SA_F_ARCH_OK[Formation archivée — lecture seule]
+
+        SA_F_DET --> SA_F_ASSIGN{Attribuer un formateur}
+        SA_F_ASSIGN -->|"Aucun formateur disponible"| SA_F_AUTO[Super Admin assigné automatiquement]
+        SA_F_ASSIGN -->|Formateur sélectionné| SA_F_DET
+
+        SA_F_DET --> SA_F_UP_FORM[Déposer documents — toute la formation]
+        SA_F_DET --> SA_F_UP_ST[Déposer document — stagiaire spécifique]
+        SA_F_DET --> SA_F_ENROLL[Inscrire des stagiaires]
+        SA_F_ENROLL --> SA_F_DET
+
+        %% Formateurs
+        SA_FO_SECT --> SA_FO_LIST[Liste des formateurs — actifs et suspendus]
+        SA_FO_LIST --> SA_FO_CREATE["Créer un formateur
+        — Nom (obligatoire)
+        — Prénom (obligatoire)
+        — Email (obligatoire)"]
+        SA_FO_CREATE --> UCREER
+        SA_FO_LIST --> SA_FO_PROFIL[Profil du formateur]
+        SA_FO_PROFIL --> SA_FO_SEND[Bouton : Envoyer un message → Messagerie]
+        SA_FO_PROFIL --> SA_FO_SUSPEND[Suspendre — isActive=false]
+        SA_FO_SUSPEND --> SA_FO_LIST
+        SA_FO_LIST --> SA_FO_REACT[Réactiver un formateur suspendu]
+        SA_FO_REACT --> SA_FO_LIST
+
+        %% Stagiaires
+        SA_ST_SECT --> SA_ST_LIST[Liste des stagiaires — actifs ET désactivés]
+        SA_ST_LIST --> SA_ST_CREATE["Créer un stagiaire
+        — Nom (obligatoire)
+        — Prénom (obligatoire)
+        — Email (obligatoire)
+        — Formation(s) (liste déroulante — OBLIGATOIRE)"]
+        SA_ST_CREATE --> UCREER
+        SA_ST_LIST --> SA_ST_PROFIL[Profil du stagiaire — historique complet]
+        SA_ST_PROFIL --> SA_ST_SEND[Bouton : Envoyer un message → Messagerie]
+        SA_ST_PROFIL --> SA_ST_DEACT[Désactiver le stagiaire]
+        SA_ST_DEACT --> SA_ST_LIST
+        SA_ST_LIST --> SA_ST_REACT[Réactiver un stagiaire désactivé]
+        SA_ST_REACT --> SA_ST_LIST
+
+        %% Messagerie
+        SA_MSG --> SA_MSG_IND[Message individuel]
+        SA_MSG --> SA_MSG_GROUP[Message groupé]
+        SA_MSG_GROUP --> SA_MSG_FILTER{Filtrer les destinataires}
+        SA_MSG_FILTER -->|Par formation| SA_MF_FORM[Tous les stagiaires d'une formation]
+        SA_MSG_FILTER -->|Documents manquants| SA_MF_DOCS[Stagiaires avec documents manquants]
+        SA_MSG_FILTER -->|Sélection libre| SA_MF_LIBRE[Sélection manuelle]
+    end
+
+    %% ══════════════════════════════════════════════════
+    subgraph ADM ["🎓 FORMATEUR / ADMIN"]
+        ADM_DASH["🏠 Tableau de bord
+        [ Gestion ] [ Messages ]
+        [ Notifications ] [ Mon Profil ]"]
+
+        ADM_DASH --> ADM_GEST[Gestion]
+        ADM_DASH --> ADM_MSG[Messagerie]
+        ADM_DASH --> ADM_NOTIF_PAGE[Notifications — plein écran]
+        ADM_DASH --> ADM_PROFIL[Mon profil]
+
+        %% ── Gestion ──
+        ADM_GEST --> ADM_F_SECT[Formations]
+        ADM_GEST --> ADM_FO_SECT[Formateurs]
+        ADM_GEST --> ADM_ST_SECT[Stagiaires]
+
+        %% Formations — lecture seule + ajout fichiers
+        ADM_F_SECT --> ADM_F_LIST["Liste des formations
+        filtre par défaut : mes formations
+        peut voir toutes les formations"]
+        ADM_F_LIST --> ADM_F_DET[Détail de la formation — lecture seule]
+        ADM_F_DET --> ADM_F_UP[Ajouter des documents à la formation ✓]
+        ADM_F_DET --> ADM_F_NO["✗ Créer / Modifier / Archiver — interdit"]
+
+        %% Formateurs — lecture seule
+        ADM_FO_SECT --> ADM_FO_LIST[Liste de tous les formateurs — lecture seule]
+        ADM_FO_LIST --> ADM_FO_PROFIL[Profil du formateur — lecture seule]
+        ADM_FO_PROFIL --> ADM_FO_SEND[Bouton : Envoyer un message → Messagerie]
+
+        %% Stagiaires — lecture seule
+        ADM_ST_SECT --> ADM_ST_LIST["Liste des stagiaires actifs
+        filtre par défaut : mes stagiaires
+        peut chercher tous les stagiaires actifs
+        ✗ Ne voit pas les stagiaires désactivés"]
+        ADM_ST_LIST --> ADM_ST_PROFIL[Profil du stagiaire — lecture seule]
+        ADM_ST_PROFIL --> ADM_ST_SEND[Bouton : Envoyer un message → Messagerie]
+        ADM_ST_PROFIL --> ADM_ST_NO["✗ Modifier / Désactiver — interdit"]
+
+        %% Messagerie
+        ADM_MSG --> ADM_MSG_IND[Message individuel]
+        ADM_MSG --> ADM_MSG_GROUP[Message groupé]
+
+        ADM_MSG_IND --> ADM_MSG_DEST{Rechercher un destinataire}
+        ADM_MSG_DEST -->|Super Admin| ADM_MSG_SA[Message au Super Admin]
+        ADM_MSG_DEST -->|Tout formateur actif| ADM_MSG_FO[Message à un formateur]
+        ADM_MSG_DEST -->|Tout stagiaire actif| ADM_MSG_ST[Message à un stagiaire]
+
+        ADM_MSG_GROUP --> ADM_MSG_FILTER{Filtrer les destinataires}
+        ADM_MSG_FILTER -->|Par formation| ADM_MF_FORM[Tous les membres d'une formation]
+    end
+
+    %% ══════════════════════════════════════════════════
+    subgraph ST ["👤 STAGIAIRE"]
+        ST_DASH["🏠 Tableau de bord
+        [ Mes Formations ] [ Messages ]
+        [ Notifications ] [ Mon Profil ]"]
+
+        ST_DASH --> ST_FORM[Mes formations — inscriptions uniquement]
+        ST_DASH --> ST_MSG[Messagerie]
+        ST_DASH --> ST_NOTIF_PAGE[Notifications — plein écran]
+        ST_DASH --> ST_PROFIL[Mon profil]
+
+        %% Mes formations
+        ST_FORM --> ST_DET[Détail de la formation — lecture seule]
+        ST_DET --> ST_DL[Consulter et télécharger les documents de la formation]
+
+        %% Messagerie
+        ST_MSG --> ST_MSG_DEST{Choisir un destinataire}
+        ST_MSG_DEST -->|Super Admin| ST_MSG_SA[Message au Super Admin]
+        ST_MSG_DEST -->|Formateur de mes formations| ST_MSG_FO_DEF[Message au formateur — défaut]
+        ST_MSG_DEST -->|Autre formateur| ST_MSG_FO_ALL[Rechercher un autre formateur]
+        ST_MSG_FO_ALL --> ST_MSG_FO_DEF
+
+        %% Profil
+        ST_PROFIL --> ST_PWD[Changer mon mot de passe]
+        ST_PROFIL --> ST_NOTIF_SET[Notifications email — activer / désactiver]
+        ST_PROFIL --> ST_DOCS["Mes documents — Drag & Drop
+        déposer les fichiers demandés par formation"]
+    end
+
+    %% ══════════════════════════════════════════════════
+    subgraph NOTIF ["🔔 Système de notifications"]
+        direction TB
+        NOTE_A["📌 Cloche en-tête : affiche uniquement les NON LUES
+        — badge avec le nombre
+        — cliquer une notif → marque comme lue → disparaît de la cloche
+        — bouton Supprimer disponible sur chaque notif dans la cloche"]
+
+        NOTE_B["📌 Page Notifications plein écran :
+        — toutes les notifications conservées
+        — aucune suppression possible
+        — filtres : par date / lues / non lues"]
+
+        BELL[Cloche en-tête — badge non lus]
+        SA_DASH --> BELL
+        ADM_DASH --> BELL
+        ST_DASH --> BELL
+
+        BELL --> B_PANEL[Panneau cloche — non lues uniquement]
+        B_PANEL --> B_ITEM{Action sur une notification}
+        B_ITEM -->|Cliquer| B_NAV[Naviguer vers la formation ou le message]
+        B_NAV --> B_LU[Marquer comme lue → disparaît de la cloche]
+        B_ITEM -->|Supprimer| B_DEL[Supprimer de la cloche]
+        B_DEL --> B_PANEL
+
+        SA_NOTIF_PAGE[Page Notifications — plein écran]
+        ADM_NOTIF_PAGE[Page Notifications — plein écran]
+        ST_NOTIF_PAGE[Page Notifications — plein écran]
+
+        SA_DASH --> SA_NOTIF_PAGE
+        ADM_DASH --> ADM_NOTIF_PAGE
+        ST_DASH --> ST_NOTIF_PAGE
+
+        SA_NOTIF_PAGE --> NP_FILTER[Filtrer par date / lues / non lues]
+        ADM_NOTIF_PAGE --> NP_FILTER
+        ST_NOTIF_PAGE --> NP_FILTER
+        NP_FILTER --> NP_ITEM[Cliquer une notification → naviguer]
+        NP_ITEM --> NP_LU[Marquer comme lue]
+    end
+
+    SA_DASH --> LOGOUT_SA[Déconnexion]
+    ADM_DASH --> LOGOUT_ADM[Déconnexion]
+    ST_DASH --> LOGOUT_ST[Déconnexion]
+    LOGOUT_SA --> LOGIN
+    LOGOUT_ADM --> LOGIN
+    LOGOUT_ST --> LOGIN
+
+    classDef email fill:#78350f,stroke:#f59e0b,color:#fef3c7
+    classDef erreur fill:#7f1d1d,stroke:#f87171,color:#fee2e2
+    classDef succes fill:#14532d,stroke:#4ade80,color:#dcfce7
+    classDef terminal fill:#312e81,stroke:#818cf8,color:#e0e7ff
+    classDef decision fill:#1e3a5f,stroke:#60a5fa,color:#dbeafe
+    classDef filtre fill:#164e63,stroke:#22d3ee,color:#cffafe
+    classDef activation fill:#3b1f6e,stroke:#a78bfa,color:#ede9fe
+    classDef reinit fill:#4a1942,stroke:#e879f9,color:#fae8ff
+    classDef auto fill:#78350f,stroke:#f97316,color:#ffedd5
+    classDef interdit fill:#450a0a,stroke:#ef4444,color:#fee2e2,font-style:italic
+    classDef notif fill:#1a2744,stroke:#93c5fd,color:#dbeafe
+    classDef note fill:#1c2a1c,stroke:#4ade80,color:#bbf7d0,font-style:italic
+    classDef dashboard fill:#0f172a,stroke:#475569,color:#f8fafc
+    classDef action fill:#1c1917,stroke:#d6d3d1,color:#f5f5f4
+
+    class A_EM,F_EM email
+    class ERR,ERR_INACT,F_ERR erreur
+    class A_OK,R_OK,SA_F_ARCH_OK,SA_F_AUTO succes
+    class START,LOGOUT_SA,LOGOUT_ADM,LOGOUT_ST terminal
+    class CRED,ACT_CHK,ROL,A_COD,A_PASS,F_EXIST,R_VAL,SA_F_CREATE,SA_F_ASSIGN,ST_MSG_DEST,ADM_MSG_DEST,B_ITEM decision
+    class SA_MSG_FILTER,ADM_F_LIST,ADM_ST_LIST filtre
+    class A_FORM,A_RENV,R_FORM,R_RENV,F_EMAIL,A_LOGIN,R_LOGIN activation
+    class FORGOT,F_EMAIL reinit
+    class SA_F_AUTO auto
+    class ADM_F_NO,ADM_ST_NO interdit
+    class BELL,B_PANEL,B_ITEM,B_NAV,B_LU,B_DEL,SA_NOTIF_PAGE,ADM_NOTIF_PAGE,ST_NOTIF_PAGE,NP_FILTER,NP_ITEM,NP_LU notif
+    class NOTE_A,NOTE_B note
+    class SA_DASH,ADM_DASH,ST_DASH dashboard
+    class SA_FO_SEND,SA_ST_SEND,ADM_FO_SEND,ADM_ST_SEND action

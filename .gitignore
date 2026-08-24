@@ -1,0 +1,26 @@
+# Java / Maven
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Environment / secrets
+.env
+.env.local
+*.pem
+*.key
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local session settings (machine-specific, not shared)
+.claude/settings.local.json
+
+# Logs
+*.log

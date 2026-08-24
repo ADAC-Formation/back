@@ -1,0 +1,99 @@
+%%{init: {'theme': 'dark'}}%%
+erDiagram
+
+    users {
+        bigserial id PK
+        varchar email UK "UNIQUE NOT NULL"
+        varchar password_hash "NOT NULL"
+        varchar nom "NOT NULL"
+        varchar prenom "NOT NULL"
+        varchar role "SUPER_ADMIN | ADMIN | STAGIAIRE"
+        boolean is_active "DEFAULT true"
+        boolean email_notifications_enabled "DEFAULT true"
+        timestamptz created_at "DEFAULT NOW()"
+        timestamptz updated_at
+    }
+
+    formations {
+        bigserial id PK
+        varchar intitule "NOT NULL"
+        text description "nullable"
+        date date_debut "NOT NULL"
+        date date_fin "NOT NULL"
+        varchar modalite "VISIO | PRESENTIEL | MIXTE"
+        varchar status "ACTIVE | ARCHIVED — DEFAULT ACTIVE"
+        bigint formateur_id FK "nullable — NULL = Super Admin auto-assigné"
+        bigint created_by FK "NOT NULL"
+        timestamptz created_at "DEFAULT NOW()"
+        timestamptz updated_at
+    }
+
+    inscriptions {
+        bigserial id PK
+        bigint stagiaire_id FK "NOT NULL"
+        bigint formation_id FK "NOT NULL"
+        timestamptz inscrit_le "DEFAULT NOW()"
+    }
+
+    documents {
+        bigserial id PK
+        varchar file_name "NOT NULL"
+        text file_url "NOT NULL — URL Supabase"
+        bigint file_size "NOT NULL — en octets"
+        varchar mime_type "NOT NULL"
+        bigint uploaded_by FK "NOT NULL"
+        bigint formation_id FK "nullable"
+        bigint inscription_id FK "nullable"
+        timestamptz created_at "DEFAULT NOW()"
+    }
+
+    messages {
+        bigserial id PK
+        text content "NOT NULL"
+        bigint sender_id FK "NOT NULL"
+        boolean is_group "DEFAULT false"
+        timestamptz created_at "DEFAULT NOW()"
+    }
+
+    message_recipients {
+        bigserial id PK
+        bigint message_id FK "NOT NULL"
+        bigint recipient_id FK "NOT NULL"
+        timestamptz read_at "nullable — NULL = non lu"
+    }
+
+    notifications {
+        bigserial id PK
+        bigint recipient_id FK "NOT NULL"
+        varchar type "NEW_MESSAGE | DOCUMENT_UPLOADED | FORMATION_UPDATED"
+        varchar content "NOT NULL — texte lisible"
+        varchar entity_type "FORMATION | MESSAGE"
+        bigint entity_id "pour la navigation"
+        boolean is_read "DEFAULT false"
+        boolean deleted_from_bell "DEFAULT false"
+        timestamptz created_at "DEFAULT NOW()"
+    }
+
+    activation_tokens {
+        bigserial id PK
+        bigint user_id FK "NOT NULL"
+        varchar code "NOT NULL — 6 chiffres"
+        varchar type "ACCOUNT_ACTIVATION | PASSWORD_RESET"
+        timestamptz expires_at "NOT NULL — +30 min"
+        timestamptz used_at "nullable — NULL = non utilisé"
+        timestamptz created_at "DEFAULT NOW()"
+    }
+
+    %% ── Relations ──────────────────────────────────────
+    users ||--o{ formations : "est formateur de (formateur_id)"
+    users ||--o{ formations : "a créé (created_by)"
+    users ||--o{ inscriptions : "est inscrit comme stagiaire"
+    formations ||--o{ inscriptions : "contient des inscrits"
+    formations ||--o{ documents : "a des documents formation"
+    inscriptions ||--o{ documents : "a des documents stagiaire"
+    users ||--o{ documents : "a uploadé"
+    users ||--o{ messages : "a envoyé"
+    messages ||--o{ message_recipients : "est reçu par"
+    users ||--o{ message_recipients : "reçoit des messages"
+    users ||--o{ notifications : "reçoit des notifications"
+    users ||--o{ activation_tokens : "a des tokens"
