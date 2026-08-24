@@ -14,7 +14,7 @@ Contrat API (`docs/tech.md`) :
 - `DELETE /api/documents/{id}` — suppression (SUPER_ADMIN ou auteur)
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/DocumentController.java` — endpoints avec autorisations et Swagger

@@ -7,7 +7,7 @@
 Créer la page d'activation de compte : saisie du code à 6 chiffres reçu par email, nouveau mot de passe + confirmation, bouton "Renvoyer un code" avec feedback. Succès → redirection vers login avec bandeau de confirmation.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/auth/ActivationPage.jsx` — formulaire code + nouveau MDP + confirmation + bouton renvoyer

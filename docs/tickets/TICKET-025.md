@@ -8,7 +8,7 @@
 Créer le formulaire de création/modification d'une formation (intitulé, dates, formateur dropdown, modalité, drag & drop docs) et le bouton d'import Excel avec feedback d'erreur ligne/colonne.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/formations/CreateFormationPage.jsx` — formulaire complet (React Hook Form)

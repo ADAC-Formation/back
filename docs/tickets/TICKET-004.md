@@ -8,12 +8,12 @@ Remplacer la dépendance à `ddl-auto` par Flyway dès la première entité, pou
 et éviter d'avoir à reconstituer une migration rétroactive une fois le projet avancé.
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `pom.xml` — ajouter `flyway-core` + `flyway-database-postgresql`
 - `application.properties` — `spring.flyway.enabled=true`, `spring.jpa.hibernate.ddl-auto=validate`
-- `back/src/main/resources/db/migration/V1__init_schema.sql` — schéma initial correspondant aux entités JPA
+- `src/main/resources/db/migration/V1__init_schema.sql` — schéma initial correspondant aux entités JPA
 
 ## Acceptance criteria
 - [ ] L'application démarre avec `ddl-auto=validate` (jamais `update` en production)

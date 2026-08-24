@@ -12,7 +12,7 @@ healthchecks — `depends_on` seul ne garantit pas que PostgreSQL accepte les co
 d'image réelle, utiliser un tag `dev`/`latest` provisoire pour développer et tester le reste du compose.
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `docker-compose.yml` (racine) — services `db`, `backend`, `frontend`, réseau `app_network`, volume `postgres_data`

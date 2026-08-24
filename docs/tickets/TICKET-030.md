@@ -11,7 +11,7 @@ Contrat API (`docs/tech.md`) :
 - `GET /api/messages/group/preview` — prévisualiser les destinataires avant envoi
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/MessageController.java` — ajouter `POST /messages/group` et `GET /messages/group/preview`

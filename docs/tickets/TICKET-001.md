@@ -7,15 +7,15 @@ Foundation — structure de départ du projet backend
 Initialiser le projet Spring Boot : pom.xml avec toutes les dépendances, structure de packages, configuration application.yml pour les profils dev et prod, et classe principale avec `@EnableScheduling`.
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
-- `back/pom.xml` — dépendances Spring Boot 3, Security, JPA, Validation, Lombok, MapStruct, Swagger (springdoc-openapi), auth0 java-jwt, Mail, POI (Excel), PostgreSQL driver
-- `back/src/main/java/com/adac/portail/PortailAdacApplication.java` — `@SpringBootApplication` + `@EnableScheduling`
-- `back/src/main/resources/application.yml` — config commune (port 8080, JPA DDL-auto=validate)
-- `back/src/main/resources/application-dev.yml` — DB locale, Mailtrap, CORS localhost:5173
-- `back/src/main/resources/application-prod.yml` — DB prod, Brevo, CORS domaine prod
-- `back/.env.example` — toutes les variables d'env documentées
+- `pom.xml` — dépendances Spring Boot 3, Security, JPA, Validation, Lombok, MapStruct, Swagger (springdoc-openapi), auth0 java-jwt, Mail, POI (Excel), PostgreSQL driver
+- `src/main/java/com/adac/portail/PortailAdacApplication.java` — `@SpringBootApplication` + `@EnableScheduling`
+- `src/main/resources/application.yml` — config commune (port 8080, JPA DDL-auto=validate)
+- `src/main/resources/application-dev.yml` — DB locale, Mailtrap, CORS localhost:5173
+- `src/main/resources/application-prod.yml` — DB prod, Brevo, CORS domaine prod
+- `.env.example` — toutes les variables d'env documentées
 
 ## Acceptance criteria
 - [ ] `mvn spring-boot:run` démarre sans erreur sur le profil `dev`

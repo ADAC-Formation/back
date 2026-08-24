@@ -7,7 +7,7 @@ Foundation — configuration des services externes
 Configurer les beans de configuration pour Swagger (springdoc-openapi), JavaMailSender (profils dev/prod) et Supabase Storage. Ces beans sont injectés dans les services qui en ont besoin.
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `config/SwaggerConfig.java` — `OpenAPI` bean avec titre, version, description ADAC ; `SecurityScheme` cookie si besoin

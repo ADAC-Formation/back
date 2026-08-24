@@ -14,7 +14,7 @@ Contrat API (`docs/tech.md`) :
 - `PATCH /api/formations/{id}/archive` — archiver
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/FormationController.java` — tous les endpoints avec autorisations et Swagger

@@ -14,7 +14,7 @@ Contrat API (`docs/tech.md`) :
 - `DELETE /api/formations/{id}/inscriptions/{userId}` — désinscrire
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/FormationController.java` — ajouter `POST /formations/import`

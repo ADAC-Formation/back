@@ -14,7 +14,7 @@ Contrat API (`docs/tech.md`) :
 - `POST /api/auth/reset-password` — code + nouveau MDP
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/AuthController.java` — ajouter les 4 endpoints

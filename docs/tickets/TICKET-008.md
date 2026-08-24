@@ -7,7 +7,7 @@ Foundation — structure de départ du projet frontend
 Initialiser le projet React avec Vite, configurer Axios avec `withCredentials: true` par défaut, mettre en place React Router v6, la structure de dossiers src/, et les outils de test (Vitest + Testing Library + MSW).
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `front/package.json` — dépendances : react, react-dom, react-router-dom, axios, react-hook-form, vitest, @testing-library/react, @testing-library/user-event, msw

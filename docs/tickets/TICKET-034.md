@@ -9,7 +9,7 @@
 Créer le service email avec templates HTML pour les emails transactionnels (activation, reset) et les notifications in-app. Le toggle `emailNotificationsEnabled` est respecté uniquement pour les notifications — pas pour les emails transactionnels.
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `service/EmailService.java` (interface) + `EmailServiceImpl.java` — `sendActivationEmail(user, code)`, `sendPasswordResetEmail(user, code)`, `sendNotificationEmail(user, message)` (respecte `emailNotificationsEnabled`)

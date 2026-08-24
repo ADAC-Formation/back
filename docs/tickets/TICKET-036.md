@@ -7,7 +7,7 @@
 Ajouter le toggle "Notifications par email" sur la page profil. L'activation/désactivation est sauvegardée via `PATCH /api/users/me`. Note informative : les emails transactionnels (activation, reset) sont toujours envoyés.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/profile/ProfilePage.jsx` — ajouter la section "Préférences" avec le toggle

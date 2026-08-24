@@ -14,7 +14,7 @@ Contrat API (`docs/tech.md`) :
 - `PATCH /api/users/{id}` — modifier / suspendre / réactiver
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/UserController.java` — CRUD avec `@PreAuthorize("hasRole('SUPER_ADMIN')")` sur création/modification

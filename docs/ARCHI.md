@@ -7,8 +7,10 @@ GitHub distincts. Ce repo porte le code backend, toute la documentation partagé
 `docker-compose.yml` **pull** l'image frontend déjà construite (par le CI du repo front), il ne la build pas.
 
 ```
-back/ (ce repo)
-├── back/                        ← API Spring Boot (Charlotte)
+back/ (ce repo — le code Spring Boot est à la racine, pas dans un sous-dossier)
+├── src/                         ← API Spring Boot (Charlotte)
+├── pom.xml
+├── Dockerfile
 ├── nginx/
 │   └── nginx.conf               ← Config reverse proxy
 ├── docker-compose.yml
@@ -37,9 +39,9 @@ front/ (repo séparé — Manon, structure gérée par elle)
 
 ### Package racine : `com.adac.portail`
 
+Code à la racine de ce repo (pas de sous-dossier `back/`) :
 ```
-back/
-├── src/
+src/
 │   ├── main/
 │   │   ├── java/com/adac/portail/
 │   │   │   ├── controller/
@@ -264,7 +266,7 @@ HTTP Request
 
 ## Variables d'environnement
 
-### `back/.env` (à copier depuis `.env.example`)
+### `.env` (à copier depuis `.env.example`)
 ```properties
 # Base de données
 DB_URL=jdbc:postgresql://localhost:5432/adac_portail
@@ -348,7 +350,7 @@ volumes:
   postgres_data:
 ```
 
-### `back/Dockerfile`
+### `Dockerfile`
 ```dockerfile
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app

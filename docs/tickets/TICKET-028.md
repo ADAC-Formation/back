@@ -7,7 +7,7 @@
 Ajouter la section "Mes documents" sur la page profil du stagiaire : upload de documents personnels par formation (liés à l'inscription). Ces documents sont visibles par le SUPER_ADMIN.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/profile/ProfilePage.jsx` — ajouter section "Mes documents" (visible uniquement pour STAGIAIRE)

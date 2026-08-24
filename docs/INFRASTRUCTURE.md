@@ -97,7 +97,7 @@ une base managée (Neon EU ou Scaleway Managed PostgreSQL) devient alors justifi
 Backend :
 - Java 21, build Maven, artefact JAR unique
 - Port 8080, interne uniquement (jamais exposé publiquement — seul Nginx l'atteint)
-- `back/Dockerfile` : multi-stage, builder Maven+Java 21 → runtime JRE 21, utilisateur non-root, `HEALTHCHECK`
+- `Dockerfile` : multi-stage, builder Maven+Java 21 → runtime JRE 21, utilisateur non-root, `HEALTHCHECK`
   sur `/actuator/health`
 - Arrêt gracieux : `server.shutdown=graceful` (Spring Boot)
 
@@ -107,14 +107,13 @@ Supabase Storage (déjà en place) — pas de changement. Free tier suffisant po
 
 ## 7. Docker — inventaire complet
 
-Fichiers dans **ce repo** (`back`) :
+Fichiers dans **ce repo** (`back`, code Spring Boot à la racine — pas de sous-dossier `back/`) :
 ```text
 /
 ├── .env.example
 ├── docker-compose.yml
-├── back/
-│   ├── Dockerfile
-│   └── .dockerignore
+├── Dockerfile
+├── .dockerignore
 └── nginx/
     ├── nginx.conf
     └── certbot/           ← volume pour les certificats Let's Encrypt
@@ -129,7 +128,7 @@ Fichiers dans le **repo front** (Manon, hors de ce repo) :
 
 - **`db`** — image `postgres:16` — base de données — port 5432 — **non public**, réseau interne uniquement —
   persistant (volume `postgres_data`)
-- **`backend`** — construite depuis `back/Dockerfile` de ce repo — API Spring Boot — port 8080 — **non
+- **`backend`** — construite depuis `Dockerfile` (racine de ce repo) — API Spring Boot — port 8080 — **non
   public**, réseau interne uniquement — non persistant
 - **`frontend` (Nginx)** — image **pull** depuis `ghcr.io/adac-formation/front:<tag>` (construite par le CI du
   repo front, pas buildée ici) — sert le build React + reverse proxy `/api` + TLS — ports 80 et 443 — public —
@@ -150,9 +149,9 @@ frontend→ curl -f http://localhost/  (une fois backend healthy)
 
 **Variables d'environnement** — clarification de la propriété (corrige l'ambiguïté actuelle) :
 - `.env` (racine, non commité) : lu par `docker-compose.yml` pour l'interpolation `${...}` — c'est la
-  **seule** source de vérité en Docker (remplace toute notion de `back/.env` séparé une fois containerisé)
+  **seule** source de vérité en Docker (remplace toute notion de `.env` séparé une fois containerisé)
 - `.env.example` (racine, commité) : template sans valeurs réelles
-- `back/src/main/resources/application-*.properties` : ne contiennent que des références `${VAR}` résolues
+- `src/main/resources/application-*.properties` : ne contiennent que des références `${VAR}` résolues
   par les variables d'environnement injectées par Compose — jamais de valeur en dur
 
 ## 8. Orchestration
@@ -211,7 +210,7 @@ Charlotte en cas de suspicion de fuite — pas de rotation planifiée vu le cont
 
 ## 18. Database Migrations
 Flyway (ajout recommandé au backend) — jamais `ddl-auto=update` en production. Migrations versionnées dans
-`back/src/main/resources/db/migration/`.
+`src/main/resources/db/migration/`.
 
 ## 19. Logging
 stdout/stderr des containers (capturé par Docker), format texte simple. Rétention : logs Docker par défaut
@@ -282,10 +281,10 @@ en place.
 Dans **ce repo** (`back`) :
 - `docker-compose.yml` — orchestration des 3 containers en prod (pull frontend, build backend) — INFRA-011
 - `.env.example` — template des variables d'environnement — INFRA-011
-- `back/Dockerfile` — image backend — INFRA-009
-- `back/.dockerignore` — exclusions build backend — INFRA-009
+- `Dockerfile` — image backend — INFRA-009
+- `.dockerignore` — exclusions build backend — INFRA-009
 - `nginx/nginx.conf` — reverse proxy + TLS + SPA fallback — INFRA-004, INFRA-005
-- `back/src/main/resources/db/migration/` — migrations Flyway — INFRA-013 (déjà TICKET-004 côté tickets)
+- `src/main/resources/db/migration/` — migrations Flyway — INFRA-013 (déjà TICKET-004 côté tickets)
 - `docs/RESTORE.md` — runbook de restauration backup — INFRA-007
 - `.github/workflows/ci.yml` — tests + build image backend — INFRA-008
 - `.github/workflows/deploy.yml` — déploiement manuel déclenché — INFRA-010
@@ -298,7 +297,7 @@ Dans le **repo front** (Manon, hors de ce repo — spec fournie ici pour traçab
 ## 29. Implementation Specification
 
 ```markdown
-## Docker — backend (back/Dockerfile)
+## Docker — backend (Dockerfile)
 - Multi-stage : builder Maven 3.9 + Java 21, runtime JRE 21 (eclipse-temurin)
 - Copie uniquement le JAR final
 - Utilisateur non-root

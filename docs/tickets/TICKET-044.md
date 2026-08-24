@@ -7,7 +7,7 @@
 Compléter la page profil de l'utilisateur connecté : affichage des informations (nom, email, rôle), formulaire de changement de mot de passe, toggle de notifications email (ajouté en TICKET-036), et section documents stagiaire (ajoutée en TICKET-028).
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/profile/ProfilePage.jsx` — page complète avec toutes les sections

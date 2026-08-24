@@ -11,7 +11,7 @@ Contrat API (`docs/tech.md`) :
 - `PATCH /api/users/me` — modifier prénom, nom, ou toggle email notifications
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/UserController.java` — ajouter `GET /users/me` et `PATCH /users/me`

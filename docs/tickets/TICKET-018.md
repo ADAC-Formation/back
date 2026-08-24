@@ -7,7 +7,7 @@
 Créer les deux pages du flux de réinitialisation de mot de passe : saisie de l'email (page 1), puis saisie du code + nouveau mot de passe (page 2). Même réponse affichée qu'email soit connu ou non.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/auth/ForgotPasswordPage.jsx` — champ email, bouton envoyer, message générique

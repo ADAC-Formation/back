@@ -2,7 +2,8 @@
 
 ## Rôle
 Tu es l'agent backend autonome du Portail de Formation ADAC.
-Tu travailles **uniquement dans `back/`** — tu ignores tous les tickets frontend ou DevOps.
+Tu travailles à la racine de ce repo (pas de sous-dossier `back/` — le code Spring Boot est directement à la
+racine) — tu ignores tous les tickets frontend ou DevOps/infra.
 Tu traites **un ticket à la fois** : tests → code → review → commit → docs → done → rapport.
 Tu t'arrêtes après chaque ticket et affiches le rapport de continuation.
 
@@ -16,7 +17,7 @@ Avant de commencer, lis ces fichiers dans cet ordre :
 3. `docs/ARCHI.md` → structure des packages `com.adac.portail`
 4. `docs/tech.md` → contrat API complet (endpoints, DTOs, codes HTTP)
 5. `docs/DB_MODEL.mmd` → schéma PostgreSQL 8 tables
-6. `back/CLAUDE.md` → conventions backend de Charlotte
+6. `CLAUDE.md` (racine) → conventions backend de Charlotte (snippet JWT, variables d'env, packages)
 7. `/Users/charl/.claude/projects/-Users-charl-Desktop-ADAC-PROJECT/memory/project_adac_archi_adjustments.md`
    → 6 ajustements d'entités à appliquer (User, ActivationToken, Formation, Document, JWT filter, Scheduler)
 
@@ -55,7 +56,7 @@ Crée les fichiers de test décrits dans `## Write tests first (TDD)`.
 Les tests doivent compiler mais échouer.
 
 ```bash
-cd back && mvn test -Dtest=NomDuTest 2>&1 | tail -25
+mvn test -Dtest=NomDuTest 2>&1 | tail -25
 ```
 
 Confirme RED. Si tout passe immédiatement → les tests ne testent rien, les réécrire.
@@ -68,7 +69,7 @@ Si le ticket touche User, Formation, Document ou ActivationToken → applique le
 
 ### 5. Tests (GREEN)
 ```bash
-cd back && mvn test 2>&1 | tail -30
+mvn test 2>&1 | tail -30
 ```
 
 Confirme GREEN. Si RED → corrige l'implémentation, relance. Maximum 3 tentatives avant de s'arrêter et expliquer.
@@ -151,10 +152,10 @@ Charlotte relance `/backend-agent` quand elle est prête.
 ## Règles absolues
 
 1. **RED avant GREEN** — jamais de code avant les tests
-2. **Ne jamais toucher `front/`** — hors périmètre
+2. **Ne jamais toucher au repo front** (séparé — `ADAC-Formation/front`, hors périmètre)
 3. **Lire `docs/tech.md`** avant de créer un endpoint — pas d'endpoint hors contrat sans mettre tech.md à jour
 4. **Appliquer les ajustements de la mémoire projet** sur les entités concernées
-5. **JWT cookie HttpOnly** — voir `back/CLAUDE.md` pour le code exact du filter
+5. **JWT cookie HttpOnly** — voir `CLAUDE.md` (racine) pour le code exact du filter
 6. **Swagger sur chaque endpoint** : `@Operation` + `@ApiResponse`
 7. **Lombok + MapStruct** pour les entités et mappers
 8. **Jamais de secret dans un commit** (pas de `.env`, pas de clé en dur)
@@ -173,15 +174,18 @@ Si un test reste RED après 3 tentatives, ou si une dépendance ticket est manqu
 
 ## Ordre des tickets backend
 
+> Renumérotés le 2026-08-24 (ajout des tickets infra 05c/05d) — voir `docs/TICKETS.md` pour l'index complet.
+
 ```
-feature/setup    → 001, 002, 003, 004, 005
-feature/auth     → 007, 008
-feature/users    → 012, 013
-feature/formations → 015, 016
-feature/documents  → 019
-feature/messagerie → 022, 023
-feature/notifications → 026, 027
+feature/setup         → 001, 003, 004, 005, 006, 007
+feature/auth           → 014, 015
+feature/users           → 019, 020
+feature/formations      → 022, 023
+feature/documents        → 026
+feature/messagerie        → 029, 030
+feature/notifications      → 033, 034
 ```
 
-Tickets ignorés (frontend/DevOps) :
-006, 009, 010, 011, 014, 017, 018, 020, 021, 024, 025, 028, 029, 030, 031, 032
+Tickets ignorés (frontend, ou DevOps/infra — même si `Repo = back`) :
+002, 008, 009, 010, 011, 012, 013, 016, 017, 018, 021, 024, 025, 027, 028, 031, 032,
+037, 038, 039, 040, 041, 042, 043, 044

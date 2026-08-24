@@ -8,7 +8,7 @@ Ajouter la terminaison TLS via Let's Encrypt/Certbot — corrige l'incohérence 
 exposé sans configuration TLS réelle (Nginx n'avait qu'un bloc `listen 80;`).
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `nginx/nginx.conf` — ajouter le bloc `listen 443 ssl;` + redirection `listen 80;` → HTTPS

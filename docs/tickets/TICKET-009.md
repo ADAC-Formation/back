@@ -8,11 +8,11 @@ Créer le Dockerfile multi-stage du backend Spring Boot : build Maven, runtime J
 non-root, healthcheck sur `/actuator/health`.
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
-- `back/Dockerfile` — multi-stage : builder `maven:3.9-eclipse-temurin-21` → runtime `eclipse-temurin:21-jre`
-- `back/.dockerignore` — exclure `target/`, `.env`, `*.md`
+- `Dockerfile` — multi-stage : builder `maven:3.9-eclipse-temurin-21` → runtime `eclipse-temurin:21-jre`
+- `.dockerignore` — exclure `target/`, `.env`, `*.md`
 
 ## Acceptance criteria
 - [ ] `docker build ./back` produit une image sans erreur

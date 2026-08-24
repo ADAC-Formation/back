@@ -7,23 +7,23 @@ Foundation — modèle de données
 Créer les 8 entités JPA correspondant au schéma PostgreSQL (voir `docs/DB_MODEL.mmd`) et tous les enums associés. Appliquer les 4 ajustements validés en review architecture (voir memory `adac-archi-adjustments`).
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
-- `back/src/main/java/com/adac/portail/entity/User.java` — avec `boolean emailNotificationsEnabled = true`
-- `back/src/main/java/com/adac/portail/entity/Formation.java` — avec `FormationStatus status` (pas de `boolean archived`)
-- `back/src/main/java/com/adac/portail/entity/Inscription.java`
-- `back/src/main/java/com/adac/portail/entity/Document.java` — deux FK nullable (`formation` XOR `inscription`)
-- `back/src/main/java/com/adac/portail/entity/Message.java`
-- `back/src/main/java/com/adac/portail/entity/MessageRecipient.java`
-- `back/src/main/java/com/adac/portail/entity/Notification.java` — avec `boolean deletedFromBell`
-- `back/src/main/java/com/adac/portail/entity/ActivationToken.java` — avec `TokenType type` et `LocalDateTime usedAt` (nullable)
-- `back/src/main/java/com/adac/portail/entity/enums/Role.java` — `SUPER_ADMIN`, `ADMIN`, `STAGIAIRE`
-- `back/src/main/java/com/adac/portail/entity/enums/FormationStatus.java` — `ACTIVE`, `ARCHIVED`
-- `back/src/main/java/com/adac/portail/entity/enums/Modalite.java` — `VISIO`, `PRESENTIEL`, `MIXTE`
-- `back/src/main/java/com/adac/portail/entity/enums/TokenType.java` — `ACCOUNT_ACTIVATION`, `PASSWORD_RESET`
-- `back/src/main/java/com/adac/portail/entity/enums/NotificationType.java` — `MESSAGE`, `DOCUMENT`, `FORMATION`
-- `back/src/main/resources/db/migration/V1__init_schema.sql` — si Flyway configuré, sinon `schema.sql`
+- `src/main/java/com/adac/portail/entity/User.java` — avec `boolean emailNotificationsEnabled = true`
+- `src/main/java/com/adac/portail/entity/Formation.java` — avec `FormationStatus status` (pas de `boolean archived`)
+- `src/main/java/com/adac/portail/entity/Inscription.java`
+- `src/main/java/com/adac/portail/entity/Document.java` — deux FK nullable (`formation` XOR `inscription`)
+- `src/main/java/com/adac/portail/entity/Message.java`
+- `src/main/java/com/adac/portail/entity/MessageRecipient.java`
+- `src/main/java/com/adac/portail/entity/Notification.java` — avec `boolean deletedFromBell`
+- `src/main/java/com/adac/portail/entity/ActivationToken.java` — avec `TokenType type` et `LocalDateTime usedAt` (nullable)
+- `src/main/java/com/adac/portail/entity/enums/Role.java` — `SUPER_ADMIN`, `ADMIN`, `STAGIAIRE`
+- `src/main/java/com/adac/portail/entity/enums/FormationStatus.java` — `ACTIVE`, `ARCHIVED`
+- `src/main/java/com/adac/portail/entity/enums/Modalite.java` — `VISIO`, `PRESENTIEL`, `MIXTE`
+- `src/main/java/com/adac/portail/entity/enums/TokenType.java` — `ACCOUNT_ACTIVATION`, `PASSWORD_RESET`
+- `src/main/java/com/adac/portail/entity/enums/NotificationType.java` — `MESSAGE`, `DOCUMENT`, `FORMATION`
+- `src/main/resources/db/migration/V1__init_schema.sql` — si Flyway configuré, sinon `schema.sql`
 
 ## Acceptance criteria
 - [ ] Toutes les entités compilent sans erreur

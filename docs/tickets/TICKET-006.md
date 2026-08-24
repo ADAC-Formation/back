@@ -7,7 +7,7 @@ Foundation — sécurité et authentification
 Configurer Spring Security avec JWT en cookie HttpOnly. Créer les deux filtres (`JwtAuthenticationFilter` pour le login, `JwtAuthorizationFilter` pour valider le cookie sur chaque requête), la config CORS, et le `SecurityConfig`. Le `JwtAuthenticationFilter` doit parser du JSON (pas du form data).
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `security/SecurityConfig.java` — CSRF désactivé, CORS avec `allowCredentials=true`, filtres enregistrés, routes publiques (`/api/auth/**`, `/swagger-ui.html`, `/v3/api-docs/**`)

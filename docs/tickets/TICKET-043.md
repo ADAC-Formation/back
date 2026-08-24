@@ -12,7 +12,7 @@ Tuiles par rôle :
 - **STAGIAIRE** : Mes Formations, Messagerie, Notifications, Mon Profil
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/dashboard/DashboardPage.jsx` — page avec 4 tuiles adaptées au rôle

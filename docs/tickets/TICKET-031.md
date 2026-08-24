@@ -7,7 +7,7 @@
 Créer l'interface de messagerie individuelle : liste des conversations à gauche, thread de messages à droite, formulaire d'envoi. Messages non lus mis en évidence. Accès depuis le bouton "Envoyer un message" des profils utilisateurs.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/messaging/MessagingPage.jsx` — layout deux colonnes (liste + thread)

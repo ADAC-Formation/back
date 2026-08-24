@@ -8,7 +8,7 @@ Corriger l'exposition actuelle des ports 5432 (PostgreSQL) et 8080 (backend) sur
 Nginx (80/443) doit être un point d'entrée public.
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `docker-compose.yml` — retirer les mappings `ports:` publics de `db` et `backend`

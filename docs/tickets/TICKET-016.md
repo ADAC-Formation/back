@@ -9,7 +9,7 @@ Créer la page de connexion ADAC : formulaire email + mot de passe, gestion des 
 Design : couleurs ADAC (`#cc3d34` rouge, `#faf8f5` fond), police Manrope, bouton "Commencer la session".
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/auth/LoginPage.jsx` — formulaire, appel API, gestion erreurs

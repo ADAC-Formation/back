@@ -7,7 +7,7 @@
 Créer l'interface de composition d'un message groupé avec sélection de filtre (formation, documents manquants, sélection libre pour SUPER_ADMIN ; formation uniquement pour ADMIN), prévisualisation des destinataires, et confirmation avant envoi.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/messaging/GroupMessagePage.jsx` — page de composition de message groupé

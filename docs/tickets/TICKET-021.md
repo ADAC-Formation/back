@@ -8,7 +8,7 @@
 Créer les pages de gestion des comptes formateurs et stagiaires : liste avec filtres actif/suspendu, modal de création, boutons suspension/réactivation, lien "Envoyer un message". Accessible uniquement par le SUPER_ADMIN.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/users/FormateurListPage.jsx` — liste avec filtre actif/suspendu, bouton créer, bouton suspendre/réactiver

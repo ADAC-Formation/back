@@ -8,7 +8,7 @@ Automatiser la sauvegarde quotidienne de PostgreSQL vers Supabase Storage, et do
 restauration. Une sauvegarde sans restauration testée n'est pas considérée comme fiable.
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `infra/backup.sh` — `pg_dump` + upload vers le bucket Supabase Storage `adac-backups` + purge > 14 jours

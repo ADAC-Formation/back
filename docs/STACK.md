@@ -61,7 +61,8 @@
 | `frontend` | nginx:alpine              | Sert le build React + reverse proxy vers `/api` |
 
 - Orchestration : **Docker Compose** (suffisant pour un trafic faible)
-- Fichiers : `Dockerfile` dans `front/` et `back/`, `docker-compose.yml` à la racine
+- Fichiers : `Dockerfile` à la racine de ce repo (backend) et dans le repo front séparé (frontend),
+  `docker-compose.yml` à la racine de ce repo
 - Variables d'environnement : `.env` (non versionné) + `.env.example`
 - Supabase Storage et Brevo sont **externes** — pas de container dédié
 

@@ -6,8 +6,8 @@ Portail de gestion des formations pour l'ADAC, remplaçant les échanges email i
 
 ## Équipe
 
-- **Charlotte** → backend (`back/`)
-- **Manon** → frontend (`front/`)
+- **Charlotte** → backend (ce repo, code à la racine)
+- **Manon** → frontend (`ADAC-Formation/front`, repo séparé)
 
 ## Structure du projet — deux repos séparés
 
@@ -17,8 +17,10 @@ c'est Charlotte qui gère le déploiement. Le seul fichier que Manon doit lire i
 
 ```
 back/ (ce repo)                 front/ (repo séparé — Manon)
-├── back/                       ├── src/
+├── src/                        ├── src/
 │   └── ... Spring Boot         └── ... React + Vite
+├── pom.xml
+├── Dockerfile
 ├── docs/               ← toute la documentation projet
 │   ├── PRD.md
 │   ├── STACK.md
@@ -70,7 +72,7 @@ back/ (ce repo)                 front/ (repo séparé — Manon)
 
 ## Commandes utiles
 
-### Backend (`back/`)
+### Backend (racine de ce repo)
 
 ```bash
 mvn spring-boot:run          # démarrer
@@ -149,7 +151,7 @@ Structure des packages, conventions de nommage complètes → `docs/ARCHI.md`.
 mvn test -Dtest=NomTest       # un test spécifique
 ```
 
-## Variables d'environnement (`back/.env`, copier depuis `.env.example`)
+## Variables d'environnement (`.env` à la racine, copier depuis `.env.example`)
 
 | Variable | Rôle |
 |---|---|

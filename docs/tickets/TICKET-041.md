@@ -8,7 +8,7 @@ Mettre en place le déploiement continu, déclenché manuellement (pas automatiq
 avec le fait que personne n'est d'astreinte sur ce projet bénévole.
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `.github/workflows/deploy.yml` — déclenchement `workflow_dispatch`

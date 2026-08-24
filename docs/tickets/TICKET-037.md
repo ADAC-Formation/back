@@ -8,7 +8,7 @@ Configurer Nginx comme reverse proxy : sert le frontend React avec fallback SPA,
 backend, transmet les en-têtes nécessaires.
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `nginx/nginx.conf`

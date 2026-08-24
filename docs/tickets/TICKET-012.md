@@ -8,7 +8,7 @@ Mettre en place GitHub Actions pour lancer les tests backend et frontend et vali
 Docker sur chaque Pull Request vers `dev`/`main`.
 
 ## Repo
-[ ] front/   [ ] back/   [x] both
+[ ] front/   [ ] back   [x] both
 
 ## Files to create or modify
 - `.github/workflows/ci.yml`

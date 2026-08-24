@@ -7,7 +7,7 @@
 Créer les pages de liste et de détail des formations. La liste inclut filtres actives/archivées. Le détail affiche le formateur assigné, les stagiaires inscrits, les documents associés. Vue adaptée selon le rôle.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/pages/formations/FormationListPage.jsx` — liste avec filtres status et formateur

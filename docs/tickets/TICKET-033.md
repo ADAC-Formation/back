@@ -13,7 +13,7 @@ Contrat API (`docs/tech.md`) :
 - `DELETE /api/notifications/{id}/bell` — supprimer de la cloche (`deletedFromBell = true`)
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/NotificationController.java` — endpoints avec Swagger

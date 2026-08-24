@@ -12,7 +12,7 @@ Contrat API (`docs/tech.md`) :
 - `GET /api/auth/me` → `UserResponse`
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 - `controller/AuthController.java` — endpoints login, logout, me avec `@Operation` + `@ApiResponse`

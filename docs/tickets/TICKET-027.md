@@ -8,7 +8,7 @@
 Ajouter la section documents sur la page de détail d'une formation : drag & drop pour uploader (SUPER_ADMIN et ADMIN formateur), liste des documents avec bouton téléchargement, et suppression.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/components/documents/DocumentDropzone.jsx` — drag & drop avec validation type/taille côté client

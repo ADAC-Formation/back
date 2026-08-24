@@ -7,7 +7,7 @@
 Créer la cloche de notifications dans le header (badge avec compteur non lus, panneau déroulant) et la page d'historique complet. La cloche n'affiche que les non lues ; la page historique affiche tout.
 
 ## Repo
-[x] front/   [ ] back/   [ ] both
+[x] front/   [ ] back   [ ] both
 
 ## Files to create or modify
 - `src/components/notifications/NotificationBell.jsx` — icône cloche + badge non lus + panneau au clic

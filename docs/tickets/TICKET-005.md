@@ -7,7 +7,7 @@ Foundation — couche accès données et mapping
 Créer les repositories JPA (avec requêtes custom si nécessaire), les DTOs (request + response), et les mappers MapStruct pour toutes les entités. Ces composants sont utilisés par tous les services.
 
 ## Repo
-[ ] front/   [x] back/   [ ] both
+[ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
 **Repositories :**
