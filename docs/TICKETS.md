@@ -32,6 +32,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-016 | Frontend — Page de connexion | front | TICKET-008, TICKET-014 | 2h | À faire |
 | TICKET-017 | Frontend — Page d'activation | front | TICKET-008, TICKET-015 | 2h | À faire |
 | TICKET-018 | Frontend — Mot de passe oublié / reset | front | TICKET-017 | 1h | À faire |
+| TICKET-045 | Auth — rate limiting login + routes publiques strictes | back | TICKET-006 | 2h | À faire |
 
 ## Phase 2 — Utilisateurs
 
@@ -98,8 +99,8 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 ## Récapitulatif
 
-- **Total tickets** : 44
-- **Backend** : 15 | **Frontend (dans ce repo)** : 14 | **Les deux (both)** : 11 | **Aucun / coordination
+- **Total tickets** : 45
+- **Backend** : 16 | **Frontend (dans ce repo)** : 14 | **Les deux (both)** : 11 | **Aucun / coordination
   (tâche opérationnelle ou cross-repo)** : 4
 - **Temps estimé total** : ~75.5h
 - **Branches Git** : feature/setup · feature/devops-setup · feature/auth · feature/users · feature/formations
@@ -109,6 +110,13 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
   TICKET-013, TICKET-042
 - **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
   ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
+
+## Note sur cette révision (2026-08-28)
+
+`TICKET-045` ajouté suite à la review de code de TICKET-006 : deux failles identifiées par les
+agents de review (brute-force non throttlé sur `/api/auth/login`, `permitAll` trop large sur
+`/api/auth/**`) et volontairement reportées hors de TICKET-006 — voir `docs/tickets/TICKET-045.md`
+§ Origine.
 
 ## Note sur cette révision (2026-08-24)
 
