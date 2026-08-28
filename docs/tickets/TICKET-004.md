@@ -9,9 +9,12 @@ et éviter d'avoir à reconstituer une migration rétroactive une fois le projet
 
 > **Note (review TICKET-001)** : les tests tournent aujourd'hui contre un PostgreSQL local réel
 > (`localhost:5432`, `adac_user`/`adac_password`, créé à la main pour ce ticket) — non hermétique, échoue
-> sur un checkout propre / la machine de Manon / en CI. Décision prise le 2026-08-28 : garder cette
-> approche pour l'instant et statuer sur Testcontainers ici, puisque Flyway change de toute façon ce
-> qu'une DB de test hermétique doit contenir.
+> sur un checkout propre / la machine de Manon / en CI.
+>
+> **Décision (2026-08-28, ce ticket)** : toujours pas de Testcontainers — Docker n'est pas disponible dans
+> l'environnement d'exécution de l'agent, donc impossible de vérifier que ça marche si on l'ajoutait
+> maintenant. On garde Postgres local, Flyway applique `V1__init_schema.sql` dessus comme en prod. À
+> revisiter au TICKET-012 (pipeline CI), où Docker sera de toute façon disponible.
 
 ## Repo
 [ ] front/   [x] back   [ ] both
@@ -63,4 +66,4 @@ Conventional commits format (always in English):
 2h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

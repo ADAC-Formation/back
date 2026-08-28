@@ -1,8 +1,8 @@
--- Interim hand-written schema for local dev/test, matching docs/DB_MODEL.mmd.
--- Superseded by a Flyway V1 migration in TICKET-004 — do not hand-edit once that lands.
--- Idempotent (IF NOT EXISTS everywhere) so it can run on every app boot without erroring.
+-- Initial schema for the Portail de Formation ADAC, matching docs/DB_MODEL.mmd.
+-- Managed by Flyway from here on — never edit this file once it has run anywhere;
+-- add a new Vn__... migration instead.
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id                            BIGSERIAL PRIMARY KEY,
     email                         VARCHAR(255) NOT NULL UNIQUE,
     password_hash                 VARCHAR(255) NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at                    TIMESTAMPTZ
 );
 
-CREATE TABLE IF NOT EXISTS formations (
+CREATE TABLE formations (
     id            BIGSERIAL PRIMARY KEY,
     intitule      VARCHAR(255) NOT NULL,
     description   TEXT,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS formations (
     CONSTRAINT chk_formations_date_order CHECK (date_fin >= date_debut)
 );
 
-CREATE TABLE IF NOT EXISTS inscriptions (
+CREATE TABLE inscriptions (
     id            BIGSERIAL PRIMARY KEY,
     stagiaire_id  BIGINT NOT NULL REFERENCES users(id),
     formation_id  BIGINT NOT NULL REFERENCES formations(id),
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS inscriptions (
     CONSTRAINT uk_inscriptions_stagiaire_formation UNIQUE (stagiaire_id, formation_id)
 );
 
-CREATE TABLE IF NOT EXISTS documents (
+CREATE TABLE documents (
     id              BIGSERIAL PRIMARY KEY,
     file_name       VARCHAR(255) NOT NULL,
     file_url        TEXT NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS documents (
     )
 );
 
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE messages (
     id          BIGSERIAL PRIMARY KEY,
     content     TEXT NOT NULL,
     sender_id   BIGINT NOT NULL REFERENCES users(id),
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS messages (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS message_recipients (
+CREATE TABLE message_recipients (
     id            BIGSERIAL PRIMARY KEY,
     message_id    BIGINT NOT NULL REFERENCES messages(id),
     recipient_id  BIGINT NOT NULL REFERENCES users(id),
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS message_recipients (
     CONSTRAINT uk_message_recipients_message_recipient UNIQUE (message_id, recipient_id)
 );
 
-CREATE TABLE IF NOT EXISTS notifications (
+CREATE TABLE notifications (
     id                  BIGSERIAL PRIMARY KEY,
     recipient_id        BIGINT NOT NULL REFERENCES users(id),
     type                VARCHAR(50) NOT NULL,
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS activation_tokens (
+CREATE TABLE activation_tokens (
     id          BIGSERIAL PRIMARY KEY,
     user_id     BIGINT NOT NULL REFERENCES users(id),
     code_hash   VARCHAR(255) NOT NULL,
@@ -94,15 +94,15 @@ CREATE TABLE IF NOT EXISTS activation_tokens (
 );
 
 -- Indexes recommended in docs/DB_MODEL.md
-CREATE INDEX IF NOT EXISTS idx_formations_formateur_id ON formations(formateur_id);
-CREATE INDEX IF NOT EXISTS idx_formations_created_by ON formations(created_by);
-CREATE INDEX IF NOT EXISTS idx_inscriptions_stagiaire_id ON inscriptions(stagiaire_id);
-CREATE INDEX IF NOT EXISTS idx_inscriptions_formation_id ON inscriptions(formation_id);
-CREATE INDEX IF NOT EXISTS idx_documents_uploaded_by ON documents(uploaded_by);
-CREATE INDEX IF NOT EXISTS idx_documents_formation_id ON documents(formation_id);
-CREATE INDEX IF NOT EXISTS idx_documents_inscription_id ON documents(inscription_id);
-CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
-CREATE INDEX IF NOT EXISTS idx_message_recipients_message_id ON message_recipients(message_id);
-CREATE INDEX IF NOT EXISTS idx_message_recipients_recipient_read_at ON message_recipients(recipient_id, read_at);
-CREATE INDEX IF NOT EXISTS idx_notifications_recipient_is_read ON notifications(recipient_id, is_read);
-CREATE INDEX IF NOT EXISTS idx_activation_tokens_user_created_at ON activation_tokens(user_id, created_at);
+CREATE INDEX idx_formations_formateur_id ON formations(formateur_id);
+CREATE INDEX idx_formations_created_by ON formations(created_by);
+CREATE INDEX idx_inscriptions_stagiaire_id ON inscriptions(stagiaire_id);
+CREATE INDEX idx_inscriptions_formation_id ON inscriptions(formation_id);
+CREATE INDEX idx_documents_uploaded_by ON documents(uploaded_by);
+CREATE INDEX idx_documents_formation_id ON documents(formation_id);
+CREATE INDEX idx_documents_inscription_id ON documents(inscription_id);
+CREATE INDEX idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX idx_message_recipients_message_id ON message_recipients(message_id);
+CREATE INDEX idx_message_recipients_recipient_read_at ON message_recipients(recipient_id, read_at);
+CREATE INDEX idx_notifications_recipient_is_read ON notifications(recipient_id, is_read);
+CREATE INDEX idx_activation_tokens_user_created_at ON activation_tokens(user_id, created_at);

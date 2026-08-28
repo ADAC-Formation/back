@@ -20,7 +20,8 @@ import java.time.OffsetDateTime;
 
 /**
  * {@code formation} XOR {@code inscription} must be non-null — enforced by the
- * {@code chk_documents_exactly_one_target} CHECK constraint in schema.sql, not in Java.
+ * {@code chk_documents_exactly_one_target} CHECK constraint in
+ * {@code db/migration/V1__init_schema.sql}, not in Java.
  */
 @Entity
 @Table(name = "documents")

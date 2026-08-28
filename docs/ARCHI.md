@@ -153,8 +153,16 @@ src/
 │   │       ├── application.yml                    ← config commune (implémenté en YAML, pas .properties)
 │   │       ├── application-dev.yml                ← Mailtrap + DB locale
 │   │       ├── application-prod.yml                ← Brevo + DB prod
-│   │       ├── schema.sql                          ← DDL des 8 tables, dev uniquement (spring.sql.init.mode=always) —
-│   │       │                                          intérimaire, remplacé par une migration Flyway V1 au TICKET-004
+│   │       ├── db/migration/
+│   │       │   └── V1__init_schema.sql             ← DDL des 8 tables, géré par Flyway (TICKET-004) — ne jamais
+│   │       │                                          éditer une fois appliqué, ajouter V2__... à la place
+│   │       │
+│   │       │   ⚠️ Si ta DB locale `adac_portail` a été créée avant le TICKET-004 (schéma posé par l'ancien
+│   │       │      `schema.sql` intérimaire), Flyway refuse de démarrer : "Found non-empty schema(s) but
+│   │       │      no schema history table". Réinitialise une seule fois avec :
+│   │       │      `psql -h localhost -U <user> -d adac_portail -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
+│   │       │      puis relance — Flyway recrée tout proprement via V1. Ne pas utiliser
+│   │       │      `spring.flyway.baseline-on-migrate=true` à la place : ça saute V1 sans jamais le vérifier.
 │   │       └── templates/email/
 │   │           ├── activation.html
 │   │           ├── reset-password.html
