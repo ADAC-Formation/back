@@ -58,4 +58,4 @@ Conventional commits format (always in English):
 1h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done
