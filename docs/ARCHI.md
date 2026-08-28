@@ -101,14 +101,21 @@ src/
 │   │   │   │   │   ├── ResetPasswordRequest.java
 │   │   │   │   │   ├── CreateUserRequest.java
 │   │   │   │   │   ├── UpdateUserRequest.java
+│   │   │   │   │   ├── UpdateProfileRequest.java
 │   │   │   │   │   ├── CreateFormationRequest.java
 │   │   │   │   │   ├── UpdateFormationRequest.java
-│   │   │   │   │   └── SendMessageRequest.java
+│   │   │   │   │   ├── SendMessageRequest.java             ← + nested Filter class ; couvre les DEUX formes de
+│   │   │   │   │   │                                          body (individuel ET groupé, review TICKET-005 —
+│   │   │   │   │   │                                          un seul endpoint POST /messages/send ne peut pas
+│   │   │   │   │   │                                          bind sur deux DTO @RequestBody différents)
+│   │   │   │   │   └── MessageFilterType.java             ← enum non persisté (FORMATION|MISSING_DOCS|MANUAL)
 │   │   │   │   └── response/
 │   │   │   │       ├── UserResponse.java
 │   │   │   │       ├── FormationResponse.java
+│   │   │   │       ├── InscriptionResponse.java
 │   │   │   │       ├── DocumentResponse.java
 │   │   │   │       ├── MessageResponse.java
+│   │   │   │       ├── ConversationResponse.java          ← assemblé en service, pas mappé d'une entité
 │   │   │   │       └── NotificationResponse.java
 │   │   │   │
 │   │   │   ├── mapper/

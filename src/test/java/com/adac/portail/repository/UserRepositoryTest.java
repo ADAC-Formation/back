@@ -8,6 +8,8 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -33,5 +35,28 @@ class UserRepositoryTest {
         User found = userRepository.findById(saved.getId()).orElseThrow();
         assertThat(found.isEmailNotificationsEnabled()).isTrue();
         assertThat(found.isActive()).isTrue();
+    }
+
+    @Test
+    void findByEmailReturnsUserWhenEmailIsKnown() {
+        userRepository.save(User.builder()
+                .email("find-by-email-test@adac.fr")
+                .passwordHash("hashed")
+                .nom("Doe")
+                .prenom("Jane")
+                .role(Role.STAGIAIRE)
+                .build());
+
+        Optional<User> found = userRepository.findByEmail("find-by-email-test@adac.fr");
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getNom()).isEqualTo("Doe");
+    }
+
+    @Test
+    void findByEmailReturnsEmptyWhenEmailIsUnknown() {
+        Optional<User> found = userRepository.findByEmail("unknown@adac.fr");
+
+        assertThat(found).isEmpty();
     }
 }

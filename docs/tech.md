@@ -498,7 +498,7 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 | id | Long | number | |
 | type | NotificationType (enum) | string | ex: `'NEW_MESSAGE'`, `'DOCUMENT_UPLOADED'` |
 | content | String | string | texte lisible ex: "Nouveau message de Marie" |
-| entityType | String | string | `'FORMATION' \| 'MESSAGE'` |
+| entityType | EntityType (enum) | string | `'FORMATION' \| 'MESSAGE'` |
 | entityId | Long | number | pour la navigation |
 | isRead | boolean | boolean | |
 | createdAt | LocalDateTime | string | ISO 8601 |
