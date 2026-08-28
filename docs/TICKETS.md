@@ -9,7 +9,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-001 | Setup Spring Boot + pom.xml | back | — | 2h | À faire |
+| TICKET-001 | Setup Spring Boot + pom.xml | back | — | 2h | Done |
 | TICKET-002 | Provisionner le VPS + DNS | — | — | 1h | À faire |
 | TICKET-003 | Entités JPA + enums | back | TICKET-001 | 3h | À faire |
 | TICKET-004 | Introduire Flyway pour les migrations DB | back | TICKET-003 | 2h | À faire |

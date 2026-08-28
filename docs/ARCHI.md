@@ -126,6 +126,8 @@ src/
 │   │   │   │   ├── JwtTokenService.java              ← génère et valide le token JWT
 │   │   │   │   ├── PasswordEncoderConfig.java        ← bean BCryptPasswordEncoder
 │   │   │   │   ├── SecurityConfig.java               ← config Spring Security + CORS + règles
+│   │   │   │   │                                        (placeholder permitAll depuis TICKET-001 —
+│   │   │   │   │                                         remplacé par la vraie config JWT en TICKET-006)
 │   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB
 │   │   │   │
 │   │   │   ├── config/

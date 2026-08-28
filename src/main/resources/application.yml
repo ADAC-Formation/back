@@ -1,0 +1,36 @@
+server:
+  port: 8080
+
+spring:
+  # Loads .env when present (local `mvn spring-boot:run` outside Docker) so JWT_SECRET,
+  # DB_*, MAIL_*, SUPABASE_* resolve without exporting them by hand. "optional:" keeps this
+  # a no-op in Docker/CI, where real env vars are already injected and no .env file exists.
+  config:
+    import: "optional:file:.env[.properties]"
+  application:
+    name: portail-adac
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+supabase:
+  url: ${SUPABASE_URL:}
+  key: ${SUPABASE_KEY:}
+  bucket: ${SUPABASE_BUCKET:}

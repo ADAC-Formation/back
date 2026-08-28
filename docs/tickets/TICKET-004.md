@@ -7,6 +7,12 @@ Foundation — modèle de données
 Remplacer la dépendance à `ddl-auto` par Flyway dès la première entité, pour versionner le schéma PostgreSQL
 et éviter d'avoir à reconstituer une migration rétroactive une fois le projet avancé.
 
+> **Note (review TICKET-001)** : les tests tournent aujourd'hui contre un PostgreSQL local réel
+> (`localhost:5432`, `adac_user`/`adac_password`, créé à la main pour ce ticket) — non hermétique, échoue
+> sur un checkout propre / la machine de Manon / en CI. Décision prise le 2026-08-28 : garder cette
+> approche pour l'instant et statuer sur Testcontainers ici, puisque Flyway change de toute façon ce
+> qu'une DB de test hermétique doit contenir.
+
 ## Repo
 [ ] front/   [x] back   [ ] both
 
