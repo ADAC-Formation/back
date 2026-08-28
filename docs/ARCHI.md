@@ -116,7 +116,11 @@ src/
 │   │   │   │       ├── DocumentResponse.java
 │   │   │   │       ├── MessageResponse.java
 │   │   │   │       ├── ConversationResponse.java          ← assemblé en service, pas mappé d'une entité
-│   │   │   │       └── NotificationResponse.java
+│   │   │   │       ├── NotificationResponse.java
+│   │   │   │       └── ErrorResponse.java                 ← record {status, message, details} — format
+│   │   │   │                                                 d'erreur tech.md ; utilisé par les filtres de
+│   │   │   │                                                 security/ (ajouté TICKET-006, avant que
+│   │   │   │                                                 exception/GlobalExceptionHandler existe)
 │   │   │   │
 │   │   │   ├── mapper/
 │   │   │   │   ├── UserMapper.java
@@ -127,15 +131,24 @@ src/
 │   │   │   │
 │   │   │   ├── security/
 │   │   │   │   ├── filter/
-│   │   │   │   │   ├── JwtAuthenticationFilter.java  ← gère POST /auth/login, pose le cookie
-│   │   │   │   │   └── JwtAuthorizationFilter.java   ← valide le cookie sur chaque requête
-│   │   │   │   ├── CustomAuthenticationManager.java  ← vérifie email + password
-│   │   │   │   ├── JwtTokenService.java              ← génère et valide le token JWT
+│   │   │   │   │   ├── JwtAuthenticationFilter.java  ← gère POST /auth/login, pose le cookie,
+│   │   │   │   │   │                                    répond UserResponse ou ErrorResponse (400/401/403)
+│   │   │   │   │   └── JwtAuthorizationFilter.java   ← valide le cookie sur chaque requête ; rejette
+│   │   │   │   │                                        (sans 500) un utilisateur supprimé/désactivé
+│   │   │   │   ├── AuthenticationConfig.java         ← expose l'AuthenticationManager (DaoAuthenticationProvider
+│   │   │   │   │                                        + BCrypt — pas de vérif manuelle : voir sa Javadoc pour
+│   │   │   │   │                                        pourquoi CustomAuthenticationManager a été abandonné
+│   │   │   │   │                                        en review TICKET-006 — timing attack + statut compte)
+│   │   │   │   ├── AdacUserDetails.java              ← UserDetails qui porte l'entité User complète (pas
+│   │   │   │   │                                        seulement email+password) — principal de l'Authentication
+│   │   │   │   ├── JwtTokenService.java              ← génère et vérifie le token JWT (verify() seulement —
+│   │   │   │   │                                        pas de méthode qui décode sans vérifier la signature)
 │   │   │   │   ├── PasswordEncoderConfig.java        ← bean BCryptPasswordEncoder
 │   │   │   │   ├── SecurityConfig.java               ← config Spring Security + CORS + règles
-│   │   │   │   │                                        (placeholder permitAll depuis TICKET-001 —
-│   │   │   │   │                                         remplacé par la vraie config JWT en TICKET-006)
-│   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB
+│   │   │   │   │                                        (JWT stateless depuis TICKET-006 ; routes
+│   │   │   │   │                                         publiques : /api/auth/**, /swagger-ui/**)
+│   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB, renvoie un
+│   │   │   │                                            AdacUserDetails
 │   │   │   │
 │   │   │   ├── config/
 │   │   │   │   ├── SwaggerConfig.java
@@ -295,6 +308,8 @@ DB_PASSWORD=adac_password
 # JWT
 JWT_SECRET=your_secret_key_min_256_bits
 JWT_EXPIRATION=86400000
+# Pas de JWT_COOKIE_SECURE ici : forcé à true en prod (application-prod.yml, non surchargeable
+# par .env) et à false en dev (application.yml) — voir TICKET-006.
 
 # Email (dev — Mailtrap)
 MAIL_HOST=sandbox.smtp.mailtrap.io
