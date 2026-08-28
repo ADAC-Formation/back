@@ -22,6 +22,7 @@ Une session de formation planifiée.
 - FK `formateur_id → users.id` : nullable — si NULL, le Super Admin est l'intervenant
 - FK `created_by → users.id` : toujours le Super Admin
 - `status` : `ACTIVE` (default) ou `ARCHIVED` (lecture seule)
+- Contrainte CHECK : `date_fin >= date_debut`
 
 ### inscriptions
 Table de jonction entre un stagiaire et une formation. Porte la date d'inscription.
@@ -54,14 +55,20 @@ Table de jonction Message ↔ Destinataire, porte l'horodatage de lecture.
 Une notification générée pour un utilisateur suite à un événement.
 - PK : `id` (BIGSERIAL)
 - `type` : `NEW_MESSAGE`, `DOCUMENT_UPLOADED`, `FORMATION_UPDATED`
-- `entity_type` + `entity_id` : référence polymorphe pour la navigation (ex : clic → formation 5)
+- `entity_type` + `entity_id` : référence polymorphe pour la navigation (ex : clic → formation 5) —
+  `entity_type` est un enum (`FORMATION`, `MESSAGE`), pas du texte libre
 - `is_read` : marquer comme lu (cloche + page)
 - `deleted_from_bell` : true = ne plus apparaître dans la cloche (reste dans l'historique)
 
 ### activation_tokens
 Tokens d'activation de compte et de réinitialisation de mot de passe.
 - PK : `id` (BIGSERIAL)
-- `code` : 6 chiffres générés aléatoirement
+- `code_hash` : hash du code à 6 chiffres généré aléatoirement — jamais stocké en clair (un code à 6
+  chiffres n'a que ~20 bits d'entropie ; le stocker en clair rendrait toute lecture de la table directement
+  exploitable pour un takeover de compte)
+- `attempts` : compteur de tentatives de vérification échouées, pour invalider le token après quelques essais
+  (complète le rate limit à la création, voir ci-dessous — celui-ci ne borne pas le nombre de tentatives sur
+  un token déjà émis)
 - `type` : `ACCOUNT_ACTIVATION` ou `PASSWORD_RESET`
 - `expires_at` : NOW() + 30 min à la création
 - `used_at` : NULL = token encore valide ; valeur = déjà utilisé (invalide)
@@ -100,6 +107,13 @@ Tokens d'activation de compte et de réinitialisation de mot de passe.
   persister. `conversationId` côté API = l'`id` de l'autre participant (voir `tech.md`).
 - **Deux FK nullables dans `documents`** : pattern "polymorphic association" — `formation_id` XOR `inscription_id` non-null, garanti par une contrainte CHECK en SQL
 - **`deleted_from_bell` dans `notifications`** : évite une table de jonction — simple flag pour distinguer la vue cloche (non lues, supprimables) de l'historique (tout conservé)
+
+> **À trancher (review TICKET-003)** : aucune politique `ON DELETE` n'est définie sur les FK. Supprimer une
+> `inscription` échouera tant qu'un `document` la référence ; supprimer un `message` échouera tant qu'un
+> `message_recipients` le référence. `message_recipients` n'a pas de sens sans son message (candidat naturel
+> à `ON DELETE CASCADE`) ; pour `documents.inscription_id`, la question est produit (cascade, ou
+> désinscription = opération volontairement bloquée si des docs existent ?) — à statuer avant TICKET-023
+> (désinscription) / TICKET-029-030 (suppression de message).
 
 ---
 

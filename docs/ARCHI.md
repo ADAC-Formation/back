@@ -150,9 +150,11 @@ src/
 │   │   │       └── TokenCleanupScheduler.java        ← @Scheduled cron 3h — supprime tokens expirés/utilisés
 │   │   │
 │   │   └── resources/
-│   │       ├── application.properties             ← config commune
-│   │       ├── application-dev.properties         ← Mailtrap + DB locale
-│   │       ├── application-prod.properties        ← Brevo + DB prod
+│   │       ├── application.yml                    ← config commune (implémenté en YAML, pas .properties)
+│   │       ├── application-dev.yml                ← Mailtrap + DB locale
+│   │       ├── application-prod.yml                ← Brevo + DB prod
+│   │       ├── schema.sql                          ← DDL des 8 tables, dev uniquement (spring.sql.init.mode=always) —
+│   │       │                                          intérimaire, remplacé par une migration Flyway V1 au TICKET-004
 │   │       └── templates/email/
 │   │           ├── activation.html
 │   │           ├── reset-password.html

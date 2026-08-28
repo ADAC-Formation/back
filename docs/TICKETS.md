@@ -11,7 +11,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 |---|---|---|---|---|---|
 | TICKET-001 | Setup Spring Boot + pom.xml | back | — | 2h | Done |
 | TICKET-002 | Provisionner le VPS + DNS | — | — | 1h | À faire |
-| TICKET-003 | Entités JPA + enums | back | TICKET-001 | 3h | À faire |
+| TICKET-003 | Entités JPA + enums | back | TICKET-001 | 3h | Done |
 | TICKET-004 | Introduire Flyway pour les migrations DB | back | TICKET-003 | 2h | À faire |
 | TICKET-005 | Repositories + MapStruct mappers | back | TICKET-003 | 2h | À faire |
 | TICKET-006 | Spring Security + JWT cookie | back | TICKET-003 | 3h | À faire |

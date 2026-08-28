@@ -19,7 +19,7 @@ erDiagram
         varchar intitule "NOT NULL"
         text description "nullable"
         date date_debut "NOT NULL"
-        date date_fin "NOT NULL"
+        date date_fin "NOT NULL — CHECK date_fin >= date_debut"
         varchar modalite "VISIO | PRESENTIEL | MIXTE"
         varchar status "ACTIVE | ARCHIVED — DEFAULT ACTIVE"
         bigint formateur_id FK "nullable — NULL = Super Admin auto-assigné"
@@ -77,7 +77,8 @@ erDiagram
     activation_tokens {
         bigserial id PK
         bigint user_id FK "NOT NULL"
-        varchar code "NOT NULL — 6 chiffres"
+        varchar code_hash "NOT NULL — hash du code à 6 chiffres, jamais en clair"
+        int attempts "DEFAULT 0 — tentatives de vérification échouées"
         varchar type "ACCOUNT_ACTIVATION | PASSWORD_RESET"
         timestamptz expires_at "NOT NULL — +30 min"
         timestamptz used_at "nullable — NULL = non utilisé"

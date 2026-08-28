@@ -5,6 +5,11 @@ spring:
     password: ${DB_PASSWORD:adac_password}
   jpa:
     show-sql: true
+  sql:
+    init:
+      # schema.sql doesn't run on a real (non-embedded) DB by default. Dev-only bridge until
+      # TICKET-004 replaces it with a Flyway migration — do not copy this to application-prod.yml.
+      mode: always
   mail:
     host: ${MAIL_HOST:sandbox.smtp.mailtrap.io}
     port: ${MAIL_PORT:2525}
