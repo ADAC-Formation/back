@@ -351,6 +351,12 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,https://portail.adac.asso.fr
 ## Infrastructure Docker
 
 ### `docker-compose.yml`
+Testé de bout en bout (TICKET-011, 2026-08-31) : `db` et `backend` ne publient **aucun** port vers
+l'hôte (seul `frontend` le fait, sur 80) ; `backend` attend réellement que `db` soit *healthy*
+(`condition: service_healthy`, pas juste `depends_on` seul — `depends_on` seul ne garantit pas que
+Postgres accepte déjà les connexions) ; `nginx/nginx.conf` (ce repo) est monté en volume par-dessus
+la config nginx de l'image frontend pullée, pour ajouter le reverse-proxy `/api/` sans que le
+Dockerfile du repo front ait besoin de connaître le backend.
 ```yaml
 services:
   db:
@@ -361,13 +367,22 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d adac_portail"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app_network
+    # Pas de `ports:` — joignable uniquement par les autres services du réseau app_network.
 
   backend:
-    build: ./back
+    build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://db:5432/adac_portail
@@ -383,16 +398,28 @@ services:
       SUPABASE_KEY: ${SUPABASE_KEY}
       SUPABASE_BUCKET: ${SUPABASE_BUCKET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-    ports:
-      - "8080:8080"
+    # HEALTHCHECK déjà intégré à l'image (Dockerfile, TICKET-009) — pas besoin de le redéclarer.
+    restart: unless-stopped
+    networks:
+      - app_network
+    # Pas de `ports:` — atteint uniquement via le reverse proxy nginx de `frontend` (/api/).
 
   frontend:
     image: ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}  # PULL, pas de build local — image
     depends_on:                                                     # construite par le CI du repo front
-      - backend
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"
-      - "443:443"
+    restart: unless-stopped
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   postgres_data:
@@ -442,6 +469,8 @@ server {
         proxy_pass http://backend:8080/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location / {

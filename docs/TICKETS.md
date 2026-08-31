@@ -19,7 +19,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-008 | Setup React + Vite + Axios | front | — | 2h | À faire |
 | TICKET-009 | Dockerfile backend | back | TICKET-001 | 1h | Done |
 | TICKET-010 | Coordination Dockerfile frontend (repo externe `front`) | — | — | 0.5h | À faire |
-| TICKET-011 | docker-compose.yml + .env.example (production) | both | TICKET-009, TICKET-010 | 2h | À faire |
+| TICKET-011 | docker-compose.yml + .env.example (production) | both | TICKET-009, TICKET-010 | 2h | Done |
 | TICKET-012 | Pipeline CI (tests + build images) | both | TICKET-009, TICKET-010 | 2h | À faire |
 | TICKET-013 | Activer unattended-upgrades sur le VPS | — | TICKET-002 | 0.5h | À faire |
 
