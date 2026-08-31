@@ -20,7 +20,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-009 | Dockerfile backend | back | TICKET-001 | 1h | Done |
 | TICKET-010 | Coordination Dockerfile frontend (repo externe `front`) | — | — | 0.5h | À faire |
 | TICKET-011 | docker-compose.yml + .env.example (production) | both | TICKET-009, TICKET-010 | 2h | Done |
-| TICKET-012 | Pipeline CI backend (tests + build image) | back | TICKET-009 | 1.5h | À faire |
+| TICKET-012 | Pipeline CI backend (tests + build image) | back | TICKET-009 | 1.5h | Done |
 | TICKET-013 | Activer unattended-upgrades sur le VPS | — | TICKET-002 | 0.5h | À faire |
 
 ## Phase 2 — Authentification

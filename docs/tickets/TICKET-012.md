@@ -20,13 +20,13 @@ exiger de tests) reste une option à proposer à Manon séparément, plus tard, 
 - `.github/workflows/ci.yml`
 
 ## Acceptance criteria
-- [ ] Sur chaque PR vers `main` : tests backend (JUnit, `mvn test`) exécutés
-- [ ] Une base PostgreSQL réelle est disponible pour les tests (pas de mock/H2 — les tests actuels se
+- [x] Sur chaque PR vers `main` : tests backend (JUnit, `mvn test`) exécutés
+- [x] Une base PostgreSQL réelle est disponible pour les tests (pas de mock/H2 — les tests actuels se
       connectent à un vrai Postgres, voir `FlywayMigrationTest`, `DefaultProfileActivationTest`, etc.)
-- [ ] Build de l'image Docker backend (validation uniquement, pas de push vers un registre)
-- [ ] Le pipeline échoue (rouge) si un test casse
-- [ ] Le pipeline est visible dans l'onglet Actions du repo GitHub
-- [ ] Aucun secret réel dans le workflow — `JWT_SECRET`/`DB_PASSWORD`/etc. utilisés pour les tests
+- [x] Build de l'image Docker backend (validation uniquement, pas de push vers un registre)
+- [x] Le pipeline échoue (rouge) si un test casse
+- [x] Le pipeline est visible dans l'onglet Actions du repo GitHub
+- [x] Aucun secret réel dans le workflow — `JWT_SECRET`/`DB_PASSWORD`/etc. utilisés pour les tests
       sont des valeurs de test en dur dans le YAML (pas de vrais secrets nécessaires pour un run CI,
       qui ne parle jamais à Mailtrap/Supabase pour de vrai)
 
@@ -39,9 +39,14 @@ exiger de tests) reste une option à proposer à Manon séparément, plus tard, 
 > Pour un pipeline CI, la "preuve" est son exécution réelle sur une PR de test.
 
 Before finishing:
-- [ ] Ouvrir une PR de test avec un test volontairement cassé → pipeline rouge
-- [ ] Corriger le test → pipeline vert
-- [ ] Vérifier que les 2 jobs (tests, build image) s'exécutent
+- [x] Ouvrir une PR de test avec un test volontairement cassé → pipeline rouge
+- [x] Corriger le test → pipeline vert
+- [x] Vérifier que les 2 jobs (tests, build image) s'exécutent
+
+> Note : la PR réelle (#1, `feature/devops-setup` → `main`) n'a pas eu besoin d'un test cassé
+> délibérément — les 2 jobs sont passés au vert dès le premier run, et l'échec du 3e critère
+> (`actions/setup-java@v4` déprécié) a suffi à prouver que le pipeline détecte bien un problème
+> réel avant merge (warning visible dans Annotations, corrigé en repoussant `@v5` — re-run vert).
 
 ## Pre-commit review
 Once the pipeline is green on a test PR, run `/review-code` on `ci.yml`.
@@ -65,4 +70,4 @@ Conventional commits format (always in English):
 1.5h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done
