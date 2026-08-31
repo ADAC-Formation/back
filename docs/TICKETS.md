@@ -17,7 +17,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-006 | Spring Security + JWT cookie | back | TICKET-003 | 3h | Done |
 | TICKET-007 | Config Swagger + Mail + Supabase | back | TICKET-001 | 1h | Done |
 | TICKET-008 | Setup React + Vite + Axios | front | — | 2h | À faire |
-| TICKET-009 | Dockerfile backend | back | TICKET-001 | 1h | À faire |
+| TICKET-009 | Dockerfile backend | back | TICKET-001 | 1h | Done |
 | TICKET-010 | Coordination Dockerfile frontend (repo externe `front`) | — | — | 0.5h | À faire |
 | TICKET-011 | docker-compose.yml + .env.example (production) | both | TICKET-009, TICKET-010 | 2h | À faire |
 | TICKET-012 | Pipeline CI (tests + build images) | both | TICKET-009, TICKET-010 | 2h | À faire |

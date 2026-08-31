@@ -399,6 +399,11 @@ volumes:
 ```
 
 ### `Dockerfile`
+Multi-stage : le stage `build` (Maven + JDK complet) compile le `.jar` ; le stage final repart d'un JRE
+minimal et ne récupère que le `.jar` (`COPY --from=build`) — pas de sources, pas de Maven, pas de `.m2`
+dans l'image livrée. Process non-root (`USER spring`), healthcheck intégré sur `/actuator/health`
+(TICKET-007 + TICKET-009 — voir `management.endpoints.web.exposure.include: health` dans `application.yml`
+et `/actuator/health` dans `SecurityConfig.PUBLIC_ROUTES`), arrêt gracieux (`server.shutdown: graceful`).
 ```dockerfile
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
@@ -408,8 +413,23 @@ RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+
+# curl : uniquement pour le HEALTHCHECK ci-dessous
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN addgroup --system spring && adduser --system --ingroup spring spring
+
 COPY --from=build /app/target/*.jar app.jar
+RUN chown spring:spring app.jar
+USER spring
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 

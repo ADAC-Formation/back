@@ -1,5 +1,6 @@
 server:
   port: 8080
+  shutdown: graceful
 
 spring:
   # Loads .env when present (local `mvn spring-boot:run` outside Docker) so JWT_SECRET,
@@ -33,6 +34,15 @@ spring:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 
 jwt:
   secret: ${JWT_SECRET}
