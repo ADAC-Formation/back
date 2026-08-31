@@ -1,0 +1,50 @@
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    show-sql: false
+  mail:
+    host: ${MAIL_HOST:smtp-relay.brevo.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          # JavaMail defaults these to infinite — a stuck Mailtrap/Brevo connection would pin a
+          # request thread forever otherwise (see TICKET-007 review).
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+# No defaults: a prod deploy missing a Supabase env var must fail at startup, not on the first
+# upload (matches the DB_URL/CORS_ALLOWED_ORIGINS convention below) — see TICKET-007 review.
+supabase:
+  url: ${SUPABASE_URL}
+  key: ${SUPABASE_KEY}
+  bucket: ${SUPABASE_BUCKET}
+
+# Hardcoded, not env-driven: the base application.yml already defaults jwt.cookie-secure to
+# false for dev. A stray JWT_COOKIE_SECURE in a prod .env must never be able to downgrade this
+# and send the jwt cookie over plain HTTP — see TICKET-006 review.
+jwt:
+  cookie-secure: true
+
+logging:
+  level:
+    com.adac.portail: INFO

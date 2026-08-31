@@ -19,14 +19,14 @@ d'image réelle, utiliser un tag `dev`/`latest` provisoire pour développer et t
 - `.env.example` (racine) — toutes les variables nécessaires, sans valeurs réelles
 
 ## Acceptance criteria
-- [ ] `docker compose config` ne retourne aucune erreur de syntaxe
-- [ ] `docker compose up --build` démarre les 3 containers en état `healthy`
-- [ ] `backend` attend réellement que `db` soit prête via `condition: service_healthy` (pas `depends_on` seul)
-- [ ] Redémarrage d'un container sans perte des données (volume `postgres_data` persistant)
-- [ ] `db` et `backend` ne publient aucun port vers l'hôte (seul `frontend` le fait)
-- [ ] `restart: unless-stopped` sur les 3 services
-- [ ] Tous les secrets viennent de `${...}`, jamais en dur
-- [ ] `frontend` utilise `image: ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}` (pas de `build:` local)
+- [x] `docker compose config` ne retourne aucune erreur de syntaxe
+- [x] `docker compose up --build` démarre les 3 containers en état `healthy`
+- [x] `backend` attend réellement que `db` soit prête via `condition: service_healthy` (pas `depends_on` seul)
+- [x] Redémarrage d'un container sans perte des données (volume `postgres_data` persistant)
+- [x] `db` et `backend` ne publient aucun port vers l'hôte (seul `frontend` le fait)
+- [x] `restart: unless-stopped` sur les 3 services
+- [x] Tous les secrets viennent de `${...}`, jamais en dur
+- [x] `frontend` utilise `image: ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}` (pas de `build:` local)
 
 ## Branch
 `feature/devops-setup`
@@ -37,9 +37,9 @@ d'image réelle, utiliser un tag `dev`/`latest` provisoire pour développer et t
 > Pour Docker Compose, les "tests" sont des smoke tests reproductibles.
 
 Before finishing:
-- [ ] `docker compose config` sans erreur
-- [ ] `docker compose up --build` → les 3 containers passent `healthy`
-- [ ] `docker compose restart db` → l'application reste fonctionnelle et les données sont intactes
+- [x] `docker compose config` sans erreur
+- [x] `docker compose up --build` → les 3 containers passent `healthy`
+- [x] `docker compose restart db` → l'application reste fonctionnelle et les données sont intactes
 
 ## Pre-commit review
 Once smoke tests pass, run `/review-code` on `docker-compose.yml`.
@@ -66,4 +66,4 @@ Conventional commits format (always in English):
 2h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

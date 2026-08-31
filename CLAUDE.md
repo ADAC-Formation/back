@@ -70,12 +70,27 @@ back/ (ce repo)                 front/ (repo séparé — Manon)
 
 **Ne jamais écrire de code d'implémentation avant que les tests du ticket existent.**
 
+## Démarrer le backend en local — checklist
+
+1. **PostgreSQL doit tourner** sur `localhost:5432` (vérifier : `pg_isready -h localhost -p 5432`)
+2. **`.env` doit exister à la racine** (copié depuis `.env.example`) avec au minimum `DB_*` et `JWT_SECRET` renseignés — `MAIL_*`/`SUPABASE_*` peuvent rester en placeholder tant qu'on ne teste pas l'envoi d'email ou l'upload
+3. `mvn spring-boot:run` — **aucun flag nécessaire**, le profil `dev` s'active tout seul par défaut
+   (voir `application.yml`, commentaire au-dessus de `spring.profiles.active`)
+4. Vérifier que ça a démarré : les logs doivent afficher `Started PortailAdacApplication...`
+   (pas d'erreur `Failed to determine a suitable driver class` juste avant — ça voudrait dire
+   qu'aucun profil ne s'est activé, donc pas de datasource)
+5. Ouvrir `http://localhost:8080/swagger-ui.html` dans le navigateur — doit rediriger vers
+   `/swagger-ui/index.html` et afficher le titre "Portail de Formation ADAC"
+
+> Si le port 8080 est déjà pris par un run précédent qui a mal terminé : `lsof -i :8080` pour trouver
+> le PID, puis `kill -9 <PID>`.
+
 ## Commandes utiles
 
 ### Backend (racine de ce repo)
 
 ```bash
-mvn spring-boot:run          # démarrer
+mvn spring-boot:run          # démarrer (voir checklist ci-dessus)
 mvn test                     # lancer les tests
 mvn package -DskipTests      # build JAR
 ```

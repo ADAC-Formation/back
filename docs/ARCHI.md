@@ -47,6 +47,7 @@ src/
 │   │   │   ├── controller/
 │   │   │   │   ├── AuthController.java
 │   │   │   │   ├── UserController.java
+│   │   │   │   ├── CategoryController.java
 │   │   │   │   ├── FormationController.java
 │   │   │   │   ├── InscriptionController.java
 │   │   │   │   ├── DocumentController.java
@@ -58,6 +59,8 @@ src/
 │   │   │   │   ├── AuthServiceImpl.java
 │   │   │   │   ├── UserService.java
 │   │   │   │   ├── UserServiceImpl.java
+│   │   │   │   ├── CategoryService.java
+│   │   │   │   ├── CategoryServiceImpl.java
 │   │   │   │   ├── FormationService.java
 │   │   │   │   ├── FormationServiceImpl.java
 │   │   │   │   ├── InscriptionService.java
@@ -75,6 +78,7 @@ src/
 │   │   │   │
 │   │   │   ├── repository/
 │   │   │   │   ├── UserRepository.java
+│   │   │   │   ├── CategoryRepository.java
 │   │   │   │   ├── FormationRepository.java
 │   │   │   │   ├── InscriptionRepository.java
 │   │   │   │   ├── DocumentRepository.java
@@ -85,6 +89,7 @@ src/
 │   │   │   │
 │   │   │   ├── entity/
 │   │   │   │   ├── User.java
+│   │   │   │   ├── Category.java
 │   │   │   │   ├── Formation.java
 │   │   │   │   ├── Inscription.java
 │   │   │   │   ├── Document.java
@@ -101,18 +106,33 @@ src/
 │   │   │   │   │   ├── ResetPasswordRequest.java
 │   │   │   │   │   ├── CreateUserRequest.java
 │   │   │   │   │   ├── UpdateUserRequest.java
+│   │   │   │   │   ├── UpdateProfileRequest.java
+│   │   │   │   │   ├── CreateCategoryRequest.java
+│   │   │   │   │   ├── UpdateCategoryRequest.java
 │   │   │   │   │   ├── CreateFormationRequest.java
 │   │   │   │   │   ├── UpdateFormationRequest.java
-│   │   │   │   │   └── SendMessageRequest.java
+│   │   │   │   │   ├── SendMessageRequest.java             ← + nested Filter class ; couvre les DEUX formes de
+│   │   │   │   │   │                                          body (individuel ET groupé, review TICKET-005 —
+│   │   │   │   │   │                                          un seul endpoint POST /messages/send ne peut pas
+│   │   │   │   │   │                                          bind sur deux DTO @RequestBody différents)
+│   │   │   │   │   └── MessageFilterType.java             ← enum non persisté (FORMATION|MISSING_DOCS|MANUAL)
 │   │   │   │   └── response/
 │   │   │   │       ├── UserResponse.java
+│   │   │   │       ├── CategoryResponse.java
 │   │   │   │       ├── FormationResponse.java
+│   │   │   │       ├── InscriptionResponse.java
 │   │   │   │       ├── DocumentResponse.java
 │   │   │   │       ├── MessageResponse.java
-│   │   │   │       └── NotificationResponse.java
+│   │   │   │       ├── ConversationResponse.java          ← assemblé en service, pas mappé d'une entité
+│   │   │   │       ├── NotificationResponse.java
+│   │   │   │       └── ErrorResponse.java                 ← record {status, message, details} — format
+│   │   │   │                                                 d'erreur tech.md ; utilisé par les filtres de
+│   │   │   │                                                 security/ (ajouté TICKET-006, avant que
+│   │   │   │                                                 exception/GlobalExceptionHandler existe)
 │   │   │   │
 │   │   │   ├── mapper/
 │   │   │   │   ├── UserMapper.java
+│   │   │   │   ├── CategoryMapper.java
 │   │   │   │   ├── FormationMapper.java
 │   │   │   │   ├── DocumentMapper.java
 │   │   │   │   ├── MessageMapper.java
@@ -120,13 +140,24 @@ src/
 │   │   │   │
 │   │   │   ├── security/
 │   │   │   │   ├── filter/
-│   │   │   │   │   ├── JwtAuthenticationFilter.java  ← gère POST /auth/login, pose le cookie
-│   │   │   │   │   └── JwtAuthorizationFilter.java   ← valide le cookie sur chaque requête
-│   │   │   │   ├── CustomAuthenticationManager.java  ← vérifie email + password
-│   │   │   │   ├── JwtTokenService.java              ← génère et valide le token JWT
+│   │   │   │   │   ├── JwtAuthenticationFilter.java  ← gère POST /auth/login, pose le cookie,
+│   │   │   │   │   │                                    répond UserResponse ou ErrorResponse (400/401/403)
+│   │   │   │   │   └── JwtAuthorizationFilter.java   ← valide le cookie sur chaque requête ; rejette
+│   │   │   │   │                                        (sans 500) un utilisateur supprimé/désactivé
+│   │   │   │   ├── AuthenticationConfig.java         ← expose l'AuthenticationManager (DaoAuthenticationProvider
+│   │   │   │   │                                        + BCrypt — pas de vérif manuelle : voir sa Javadoc pour
+│   │   │   │   │                                        pourquoi CustomAuthenticationManager a été abandonné
+│   │   │   │   │                                        en review TICKET-006 — timing attack + statut compte)
+│   │   │   │   ├── AdacUserDetails.java              ← UserDetails qui porte l'entité User complète (pas
+│   │   │   │   │                                        seulement email+password) — principal de l'Authentication
+│   │   │   │   ├── JwtTokenService.java              ← génère et vérifie le token JWT (verify() seulement —
+│   │   │   │   │                                        pas de méthode qui décode sans vérifier la signature)
 │   │   │   │   ├── PasswordEncoderConfig.java        ← bean BCryptPasswordEncoder
 │   │   │   │   ├── SecurityConfig.java               ← config Spring Security + CORS + règles
-│   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB
+│   │   │   │   │                                        (JWT stateless depuis TICKET-006 ; routes
+│   │   │   │   │                                         publiques : /api/auth/**, /swagger-ui/**)
+│   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB, renvoie un
+│   │   │   │                                            AdacUserDetails
 │   │   │   │
 │   │   │   ├── config/
 │   │   │   │   ├── SwaggerConfig.java
@@ -148,9 +179,19 @@ src/
 │   │   │       └── TokenCleanupScheduler.java        ← @Scheduled cron 3h — supprime tokens expirés/utilisés
 │   │   │
 │   │   └── resources/
-│   │       ├── application.properties             ← config commune
-│   │       ├── application-dev.properties         ← Mailtrap + DB locale
-│   │       ├── application-prod.properties        ← Brevo + DB prod
+│   │       ├── application.yml                    ← config commune (implémenté en YAML, pas .properties)
+│   │       ├── application-dev.yml                ← Mailtrap + DB locale
+│   │       ├── application-prod.yml                ← Brevo + DB prod
+│   │       ├── db/migration/
+│   │       │   └── V1__init_schema.sql             ← DDL des 8 tables, géré par Flyway (TICKET-004) — ne jamais
+│   │       │                                          éditer une fois appliqué, ajouter V2__... à la place
+│   │       │
+│   │       │   ⚠️ Si ta DB locale `adac_portail` a été créée avant le TICKET-004 (schéma posé par l'ancien
+│   │       │      `schema.sql` intérimaire), Flyway refuse de démarrer : "Found non-empty schema(s) but
+│   │       │      no schema history table". Réinitialise une seule fois avec :
+│   │       │      `psql -h localhost -U <user> -d adac_portail -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"`
+│   │       │      puis relance — Flyway recrée tout proprement via V1. Ne pas utiliser
+│   │       │      `spring.flyway.baseline-on-migrate=true` à la place : ça saute V1 sans jamais le vérifier.
 │   │       └── templates/email/
 │   │           ├── activation.html
 │   │           ├── reset-password.html
@@ -237,6 +278,11 @@ HTTP Request
 | GET | `/api/users` | SUPER_ADMIN | Liste des utilisateurs |
 | POST | `/api/users` | SUPER_ADMIN | Créer un utilisateur |
 | PATCH | `/api/users/{id}/deactivate` | SUPER_ADMIN | Désactiver |
+| GET | `/api/categories` | Tous | Liste des catégories |
+| POST | `/api/categories` | SUPER_ADMIN | Créer une catégorie |
+| PUT | `/api/categories/{id}` | SUPER_ADMIN | Modifier nom/couleur |
+| PATCH | `/api/categories/{id}/activate` | SUPER_ADMIN | Réactiver |
+| PATCH | `/api/categories/{id}/deactivate` | SUPER_ADMIN | Désactiver |
 | GET | `/api/formations` | Tous | Liste des formations |
 | POST | `/api/formations` | SUPER_ADMIN | Créer une formation |
 | POST | `/api/formations/import` | SUPER_ADMIN | Import Excel |
@@ -276,6 +322,8 @@ DB_PASSWORD=adac_password
 # JWT
 JWT_SECRET=your_secret_key_min_256_bits
 JWT_EXPIRATION=86400000
+# Pas de JWT_COOKIE_SECURE ici : forcé à true en prod (application-prod.yml, non surchargeable
+# par .env) et à false en dev (application.yml) — voir TICKET-006.
 
 # Email (dev — Mailtrap)
 MAIL_HOST=sandbox.smtp.mailtrap.io
@@ -303,6 +351,12 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,https://portail.adac.asso.fr
 ## Infrastructure Docker
 
 ### `docker-compose.yml`
+Testé de bout en bout (TICKET-011, 2026-08-31) : `db` et `backend` ne publient **aucun** port vers
+l'hôte (seul `frontend` le fait, sur 80) ; `backend` attend réellement que `db` soit *healthy*
+(`condition: service_healthy`, pas juste `depends_on` seul — `depends_on` seul ne garantit pas que
+Postgres accepte déjà les connexions) ; `nginx/nginx.conf` (ce repo) est monté en volume par-dessus
+la config nginx de l'image frontend pullée, pour ajouter le reverse-proxy `/api/` sans que le
+Dockerfile du repo front ait besoin de connaître le backend.
 ```yaml
 services:
   db:
@@ -313,13 +367,22 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d adac_portail"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - app_network
+    # Pas de `ports:` — joignable uniquement par les autres services du réseau app_network.
 
   backend:
-    build: ./back
+    build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://db:5432/adac_portail
@@ -335,22 +398,39 @@ services:
       SUPABASE_KEY: ${SUPABASE_KEY}
       SUPABASE_BUCKET: ${SUPABASE_BUCKET}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-    ports:
-      - "8080:8080"
+    # HEALTHCHECK déjà intégré à l'image (Dockerfile, TICKET-009) — pas besoin de le redéclarer.
+    restart: unless-stopped
+    networks:
+      - app_network
+    # Pas de `ports:` — atteint uniquement via le reverse proxy nginx de `frontend` (/api/).
 
   frontend:
     image: ghcr.io/adac-formation/front:${FRONT_IMAGE_TAG:-latest}  # PULL, pas de build local — image
     depends_on:                                                     # construite par le CI du repo front
-      - backend
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "80:80"
-      - "443:443"
+    restart: unless-stopped
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   postgres_data:
 ```
 
 ### `Dockerfile`
+Multi-stage : le stage `build` (Maven + JDK complet) compile le `.jar` ; le stage final repart d'un JRE
+minimal et ne récupère que le `.jar` (`COPY --from=build`) — pas de sources, pas de Maven, pas de `.m2`
+dans l'image livrée. Process non-root (`USER spring`), healthcheck intégré sur `/actuator/health`
+(TICKET-007 + TICKET-009 — voir `management.endpoints.web.exposure.include: health` dans `application.yml`
+et `/actuator/health` dans `SecurityConfig.PUBLIC_ROUTES`), arrêt gracieux (`server.shutdown: graceful`).
 ```dockerfile
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /app
@@ -360,8 +440,23 @@ RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+
+# curl : uniquement pour le HEALTHCHECK ci-dessous
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN addgroup --system spring && adduser --system --ingroup spring spring
+
 COPY --from=build /app/target/*.jar app.jar
+RUN chown spring:spring app.jar
+USER spring
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
 ENTRYPOINT ["java", "-jar", "app.jar"]
 ```
 
@@ -374,6 +469,8 @@ server {
         proxy_pass http://backend:8080/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 
     location / {

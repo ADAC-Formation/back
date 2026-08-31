@@ -15,12 +15,12 @@ non-root, healthcheck sur `/actuator/health`.
 - `.dockerignore` — exclure `target/`, `.env`, `*.md`
 
 ## Acceptance criteria
-- [ ] `docker build ./back` produit une image sans erreur
-- [ ] Le container démarre et `/actuator/health` répond `{"status":"UP"}`
-- [ ] Le process tourne sous un utilisateur non-root
-- [ ] Seul le JAR final est copié dans l'image (pas les sources ni le `.m2`)
-- [ ] Aucun secret en dur dans l'image (`docker history` ne révèle rien)
-- [ ] Port 8080 exposé, arrêt gracieux (`server.shutdown=graceful`)
+- [x] `docker build ./back` produit une image sans erreur
+- [x] Le container démarre et `/actuator/health` répond `{"status":"UP"}`
+- [x] Le process tourne sous un utilisateur non-root
+- [x] Seul le JAR final est copié dans l'image (pas les sources ni le `.m2`)
+- [x] Aucun secret en dur dans l'image (`docker history` ne révèle rien)
+- [x] Port 8080 exposé, arrêt gracieux (`server.shutdown=graceful`)
 
 ## Branch
 `feature/devops-setup`
@@ -31,9 +31,9 @@ non-root, healthcheck sur `/actuator/health`.
 > Pour Docker, les "tests" sont des smoke tests reproductibles plutôt que des tests unitaires.
 
 Before finishing:
-- [ ] `docker build ./back` réussit
-- [ ] `docker run --rm -p 8080:8080 <image>` puis `curl localhost:8080/actuator/health` → 200
-- [ ] `docker run --rm <image> whoami` → un utilisateur ≠ root
+- [x] `docker build ./back` réussit
+- [x] `docker run --rm -p 8080:8080 <image>` puis `curl localhost:8080/actuator/health` → 200
+- [x] `docker run --rm <image> whoami` → un utilisateur ≠ root
 
 ## Pre-commit review
 Once smoke tests pass, run `/review-code` on the Dockerfile.
@@ -59,4 +59,4 @@ Conventional commits format (always in English):
 1h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

@@ -1,6 +1,14 @@
+---
+
+name: backend-agent
+description: Agent autonome backend ADAC — traite un ticket TDD à la fois (tests → code → review → commit → docs → done). Utiliser quand Charlotte veut implémenter un ticket backend du portail de formation ADAC (Spring Boot).
+
+---
+
 # /backend-agent — Agent autonome Backend ADAC
 
 ## Rôle
+
 Tu es l'agent backend autonome du Portail de Formation ADAC.
 Tu travailles à la racine de ce repo (pas de sous-dossier `back/` — le code Spring Boot est directement à la
 racine) — tu ignores tous les tickets frontend ou DevOps/infra.
@@ -12,6 +20,7 @@ Tu t'arrêtes après chaque ticket et affiches le rapport de continuation.
 ## Contexte projet — lire en premier
 
 Avant de commencer, lis ces fichiers dans cet ordre :
+
 1. `docs/TICKETS.md` → index complet des tickets
 2. `docs/STACK.md` → stack backend (Spring Boot 3, JPA, Security, JWT cookie...)
 3. `docs/ARCHI.md` → structure des packages `com.adac.portail`
@@ -26,6 +35,7 @@ Avant de commencer, lis ces fichiers dans cet ordre :
 ## Trouver le ticket à traiter
 
 Lis `docs/TICKETS.md` et trouve le **premier ticket** qui remplit toutes ces conditions :
+
 - `Repo = back` (pas `front`, pas `both`)
 - `Statut = À faire` ou `In progress`
 - Toutes ses dépendances sont marquées `Done`
@@ -37,6 +47,7 @@ Ouvre `docs/tickets/TICKET-XXX.md`. C'est le ticket courant.
 ## Workflow — dans cet ordre exact
 
 ### 1. Git : branche
+
 ```bash
 # Si le ticket indique "Create" :
 git checkout -b feature/xxx
@@ -46,12 +57,15 @@ git checkout feature/xxx
 ```
 
 ### 2. Skills
+
 Invoque les skills listés dans `## Skills to invoke` du ticket **avant d'écrire quoi que ce soit** :
+
 - `/java-springboot` → structure controller/service
 - `/spring-boot-test-patterns` → patterns @WebMvcTest, @DataJpaTest, Mockito
 - `/jpa-patterns` → entités JPA et @Query
 
 ### 3. Tests en premier (RED)
+
 Crée les fichiers de test décrits dans `## Write tests first (TDD)`.
 Les tests doivent compiler mais échouer.
 
@@ -62,12 +76,14 @@ mvn test -Dtest=NomDuTest 2>&1 | tail -25
 Confirme RED. Si tout passe immédiatement → les tests ne testent rien, les réécrire.
 
 ### 4. Implémentation
+
 Crée les fichiers listés dans `## Files to create or modify`.
 Minimum de code pour faire passer les tests — rien de plus.
 
 Si le ticket touche User, Formation, Document ou ActivationToken → applique les ajustements de la mémoire projet.
 
 ### 5. Tests (GREEN)
+
 ```bash
 mvn test 2>&1 | tail -30
 ```
@@ -79,26 +95,29 @@ Confirme GREEN. Si RED → corrige l'implémentation, relance. Maximum 3 tentati
 **Après avoir atteint le GREEN**, vérifie si l'implémentation a divergé du plan initial.
 Pour chaque type de changement non prévu, mets à jour le fichier correspondant :
 
-| Ce qui a changé | Fichier(s) à mettre à jour |
-|---|---|
-| Nouvelle dépendance Maven (ex: ajout lib) | `docs/STACK.md` |
-| Champ ajouté/modifié sur une entité | `docs/DB_MODEL.mmd` + `docs/DB_MODEL.md` |
-| Package ou classe ajoutée hors plan | `docs/ARCHI.md` |
-| Endpoint ajouté, modifié, ou DTO changé | `docs/tech.md` |
-| Contrainte ou règle métier découverte | `docs/STORIES.md` (critère d'acceptation concerné) |
+| Ce qui a changé                           | Fichier(s) à mettre à jour                         |
+| ----------------------------------------- | -------------------------------------------------- |
+| Nouvelle dépendance Maven (ex: ajout lib) | `docs/STACK.md`                                    |
+| Champ ajouté/modifié sur une entité       | `docs/DB_MODEL.mmd` + `docs/DB_MODEL.md`           |
+| Package ou classe ajoutée hors plan       | `docs/ARCHI.md`                                    |
+| Endpoint ajouté, modifié, ou DTO changé   | `docs/tech.md`                                     |
+| Contrainte ou règle métier découverte     | `docs/STORIES.md` (critère d'acceptation concerné) |
 
 **Règle** : si le code compile et les tests passent mais que la réalité du code ne correspond plus à la doc, la doc a tort — corrige la doc, pas le code.
 
 Ne mets à jour que ce qui a réellement changé. Un endpoint déjà conforme à `tech.md` ne nécessite aucune modification.
 
 ### 7. Review
+
 Invoque `/review-code` sur les fichiers modifiés dans ce ticket.
 Corrige tous les problèmes BLOCKING ou CRITICAL. Les WARNING peuvent être ignorés si non bloquants.
 
 ### 8. Commit
+
 Invoque `/commit`.
 
 Format conventional commits (en anglais) :
+
 - `feat(scope): description`
 - `test(scope): description`
 - `chore(scope): description`
@@ -107,7 +126,9 @@ Si des fichiers de docs ont été modifiés → commite-les dans le même commit
 Exemple : `feat(entities): add JPA entities and enums; update DB_MODEL and ARCHI`
 
 ### 9. PR (dernier ticket de la branche seulement)
+
 Si le ticket indique `[x] This is the last ticket on feature/xxx` :
+
 - Invoque `/review-code` sur toute la branche
 - Invoque `/create-pr` → push + PR vers `dev`
 
@@ -116,6 +137,7 @@ Si le ticket indique `[x] This is the last ticket on feature/xxx` :
 ## Marquer le ticket comme Done
 
 Dans `docs/tickets/TICKET-XXX.md` :
+
 ```
 # Avant
 [ ] To do   [ ] In progress   [ ] Done
@@ -165,6 +187,7 @@ Charlotte relance `/backend-agent` quand elle est prête.
 ## En cas de blocage
 
 Si un test reste RED après 3 tentatives, ou si une dépendance ticket est manquante :
+
 1. Explique précisément le problème
 2. Montre l'erreur complète (`mvn test` output)
 3. Propose 2-3 solutions avec leurs trade-offs
@@ -175,10 +198,11 @@ Si un test reste RED après 3 tentatives, ou si une dépendance ticket est manqu
 ## Ordre des tickets backend
 
 > Renumérotés le 2026-08-24 (ajout des tickets infra 05c/05d) — voir `docs/TICKETS.md` pour l'index complet.
+> TICKET-045 ajouté le 2026-08-28 (durcissement sécurité post-review TICKET-006).
 
 ```
 feature/setup         → 001, 003, 004, 005, 006, 007
-feature/auth           → 014, 015
+feature/auth           → 014, 015, 045
 feature/users           → 019, 020
 feature/formations      → 022, 023
 feature/documents        → 026

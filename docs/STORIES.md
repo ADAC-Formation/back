@@ -59,16 +59,33 @@
 **Story** : En tant que Super Admin, je veux créer, modifier et archiver des formations pour organiser le catalogue de l'ADAC.
 
 **Critères d'acceptation :**
-- [ ] AC-01 : Le formulaire de création contient : intitulé (obligatoire), date début/fin (obligatoires), formateur (liste déroulante — actifs uniquement, optionnel), modalité visio/présentiel/mixte (obligatoire), documents drag & drop (optionnel)
+- [ ] AC-01 : Le formulaire de création contient : intitulé (obligatoire), date début/fin (obligatoires), catégorie (obligatoire — bouton de sélection + bouton "Créer nouvelle catégorie"), formateur (liste déroulante — actifs uniquement, optionnel), modalité visio/présentiel/mixte (obligatoire), documents drag & drop (optionnel)
 - [ ] AC-02 : Si aucun formateur sélectionné → le Super Admin est assigné automatiquement comme formateur
-- [ ] AC-03 : La liste des formations affiche les formations actives et archivées, avec filtres
-- [ ] AC-04 : Un Super Admin peut modifier tous les champs d'une formation active
+- [ ] AC-03 : La liste des formations affiche les formations actives et archivées, avec filtres (dont filtre par catégorie)
+- [ ] AC-04 : Un Super Admin peut modifier tous les champs d'une formation active, y compris sa catégorie
 - [ ] AC-05 : Archiver une formation passe son statut à `ARCHIVED` — elle devient lecture seule
 - [ ] AC-06 : Une formation archivée ne peut pas être modifiée ni désarchivée
-- [ ] AC-07 : Le Formateur peut voir toutes les formations (filtre par défaut : ses formations) en lecture seule
+- [ ] AC-07 : Le Formateur peut voir toutes les formations (filtre par défaut : ses formations) en lecture seule, avec filtre par catégorie
 
 **Taille** : L
-**Dépend de** : US-001, US-009
+**Dépend de** : US-001, US-009, US-017
+
+---
+
+## US-017 — Gérer les catégories de formation
+
+**Story** : En tant que Super Admin, je veux créer, modifier et activer/désactiver des catégories pour classer les formations sans jamais casser l'historique.
+
+**Critères d'acceptation :**
+- [ ] AC-01 : Créer une catégorie : nom (obligatoire, unique) + couleur au format `#RRGGBB` (obligatoire), possible depuis une page dédiée ou directement depuis le formulaire de création de formation ("Créer nouvelle catégorie")
+- [ ] AC-02 : Modifier le nom et/ou la couleur d'une catégorie existante (ex : faute de frappe)
+- [ ] AC-03 : Désactiver une catégorie — disparaît du sélecteur de création de formation, mais reste affichée telle quelle sur les formations (actives ou archivées) qui la référencent déjà
+- [ ] AC-04 : Réactiver une catégorie désactivée
+- [ ] AC-05 : Aucune suppression possible — pas de bouton ni d'endpoint de suppression
+- [ ] AC-06 : Page de gestion des catégories accessible au Super Admin, listant toutes les catégories (actives et désactivées) avec leur couleur
+
+**Taille** : M
+**Dépend de** : US-001
 
 ---
 
@@ -280,7 +297,7 @@
 | US-001 | Connexion | Tous | S | — |
 | US-002 | Activation de compte | Tous | M | US-001 |
 | US-003 | Mot de passe oublié | Tous | S | US-001, US-002 |
-| US-004 | Créer et gérer une formation | Super Admin | L | US-001, US-009 |
+| US-004 | Créer et gérer une formation | Super Admin | L | US-001, US-009, US-017 |
 | US-005 | Importer une formation via Excel | Super Admin | M | US-004 |
 | US-006 | Inscrire des stagiaires | Super Admin | S | US-004, US-010 |
 | US-007 | Gérer les comptes Formateurs | Super Admin | M | US-001, US-002 |
@@ -293,5 +310,6 @@
 | US-014 | Messagerie groupée | Super Admin, Formateur | M | US-013 |
 | US-015 | Notifications in-app | Tous | M | US-013, US-009 |
 | US-016 | Préférences notification email | Tous | S | US-015 |
+| US-017 | Gérer les catégories de formation | Super Admin | M | US-001 |
 
 _Généré le 2026-08-21 avec /new-project_

@@ -14,7 +14,9 @@
 
 - **Framework** : Java Spring Boot 3
 - **Base de données** : PostgreSQL
-- **ORM** : Spring Data JPA + Hibernate
+- **ORM** : Spring Data JPA + Hibernate (`ddl-auto=validate` — jamais `update`/`create`)
+- **Migrations** : Flyway (`flyway-core` + `flyway-database-postgresql`) — schéma versionné dans
+  `src/main/resources/db/migration/`, voir TICKET-004
 - **Utilitaires** : Lombok (getters/setters/constructeurs) + MapStruct (mappers DTO ↔ entités)
 - **Auth** : Spring Security + JWT (auth0 java-jwt)
   - JWT stocké en **cookie HttpOnly** (inaccessible au JavaScript — protection XSS)

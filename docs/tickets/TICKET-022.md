@@ -7,8 +7,8 @@
 Créer les endpoints de gestion des formations : CRUD complet pour le SUPER_ADMIN, lecture seule pour les ADMIN. Gestion de l'archivage (ACTIVE → ARCHIVED, irréversible), et auto-assignation du Super Admin si aucun formateur sélectionné.
 
 Contrat API (`docs/tech.md`) :
-- `POST /api/formations` — créer
-- `GET /api/formations` — liste (avec filtre `status`)
+- `POST /api/formations` — créer (`categoryId` obligatoire, voir TICKET-046/047)
+- `GET /api/formations` — liste (avec filtres `status`, `categoryId`)
 - `GET /api/formations/{id}` — détail
 - `PATCH /api/formations/{id}` — modifier (SUPER_ADMIN uniquement)
 - `PATCH /api/formations/{id}/archive` — archiver
@@ -19,17 +19,20 @@ Contrat API (`docs/tech.md`) :
 ## Files to create or modify
 - `controller/FormationController.java` — tous les endpoints avec autorisations et Swagger
 - `service/FormationService.java` (interface) + `FormationServiceImpl.java` — logique CRUD, auto-assignation, validation archivage
-- `dto/request/CreateFormationRequest.java` — `title`, `description` (nullable), `startDate`, `endDate`, `modalite`, `formateurId` (nullable)
+- `dto/request/CreateFormationRequest.java` — `title`, `description` (nullable), `startDate`, `endDate`, `modalite`, `categoryId` (obligatoire), `formateurId` (nullable)
 - `dto/request/UpdateFormationRequest.java` — mêmes champs, tous optionnels
-- `dto/response/FormationResponse.java` — avec `status`, `formateur`, `inscriptionsCount`
+- `dto/response/FormationResponse.java` — avec `status`, `category`, `formateur`, `inscriptionsCount`
 - `mapper/FormationMapper.java`
 
 ## Acceptance criteria
 - [ ] `POST /api/formations` (SUPER_ADMIN) → 201 + `FormationResponse`
+- [ ] `POST /api/formations` sans `categoryId`, ou avec un `categoryId` introuvable → 400
 - [ ] Si `formateurId` absent → Super Admin courant auto-assigné comme formateur
 - [ ] `POST /api/formations` par ADMIN ou STAGIAIRE → 403
 - [ ] `GET /api/formations` : SUPER_ADMIN voit tout ; ADMIN voit toutes formations (filtre par défaut : ses formations) ; STAGIAIRE voit ses inscriptions
 - [ ] `GET /api/formations?status=ACTIVE` → ne retourne que les actives
+- [ ] `GET /api/formations?categoryId=1` → ne retourne que les formations de cette catégorie (accessible SUPER_ADMIN et ADMIN)
+- [ ] Une catégorie désactivée après coup reste affichée telle quelle sur les formations qui la référencent déjà
 - [ ] `PATCH /api/formations/{id}/archive` → status passe à `ARCHIVED`, formation en lecture seule
 - [ ] `PATCH /api/formations/{id}` sur une formation archivée → 400 "Formation archivée, modification impossible"
 - [ ] Tous les endpoints documentés Swagger
@@ -71,6 +74,7 @@ Conventional commits format (always in English):
 ## Depends on
 - TICKET-005 — `FormationRepository`, `FormationMapper`, DTOs
 - TICKET-019 — `UserRepository` pour récupérer le Super Admin et les formateurs
+- TICKET-046, TICKET-047 — `Category` entity + `CategoryRepository` (FK `category_id` NOT NULL sur `formations`)
 
 ## Estimated time
 3h
