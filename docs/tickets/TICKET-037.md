@@ -14,10 +14,10 @@ backend, transmet les en-têtes nécessaires.
 - `nginx/nginx.conf`
 
 ## Acceptance criteria
-- [ ] `/` sert le frontend React
-- [ ] Rafraîchir une route front (ex. `/formations/3`) ne retourne pas 404 (fallback `try_files ... /index.html`)
-- [ ] `/api/` est proxié vers `backend:8080`
-- [ ] En-têtes `X-Forwarded-For` et `X-Forwarded-Proto` transmis au backend
+- [x] `/` sert le frontend React
+- [x] Rafraîchir une route front (ex. `/formations/3`) ne retourne pas 404 (fallback `try_files ... /index.html`)
+- [x] `/api/` est proxié vers `backend:8080`
+- [x] En-têtes `X-Forwarded-For` et `X-Forwarded-Proto` transmis au backend
 
 ## Branch
 `feature/devops-production`
@@ -28,9 +28,17 @@ backend, transmet les en-têtes nécessaires.
 > Pour Nginx, les "tests" sont des smoke tests reproductibles.
 
 Before finishing:
-- [ ] `curl localhost/` → 200 avec le HTML React
-- [ ] `curl localhost/formations/3` (route front) → 200, pas 404
-- [ ] `curl localhost/api/actuator/health` → proxié, réponse du backend
+- [x] `curl localhost/` → 200 avec le HTML React
+- [x] `curl localhost/formations/3` (route front) → 200, pas 404
+- [x] `curl localhost/api/formations` → proxié, réponse du backend
+
+> Correction : l'énoncé original testait `curl localhost/api/actuator/health`, mais l'endpoint réel
+> est `/actuator/health` **sans** préfixe `/api` (voir `SecurityConfig.PUBLIC_ROUTES`) — il n'est
+> d'ailleurs pas exposé par ce reverse proxy (seul `/api/` l'est ; `/actuator/health` tombe dans le
+> fallback SPA `location /`, pas dans le backend). Le monitoring externe (TICKET-042) doit cibler `/`
+> sur le frontend, pas `/actuator/health` directement — cohérent avec le healthcheck déjà utilisé
+> pour le container `frontend` lui-même (voir `INFRASTRUCTURE.md` §7). Testé avec `/api/formations` à
+> la place : 401 (Spring Security répond — la requête atteint bien le backend via le proxy).
 
 ## Pre-commit review
 Once smoke tests pass, run `/review-code` on `nginx.conf`.
@@ -56,4 +64,9 @@ Conventional commits format (always in English):
 1h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done
+
+## Origine
+Déjà entièrement couvert par `nginx/nginx.conf` écrit pendant TICKET-011 (le fichier monté en volume
+dans le container `frontend` de `docker-compose.yml`) — aucun fichier supplémentaire à créer, juste
+vérifié et corrigé ici.

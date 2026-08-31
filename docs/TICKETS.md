@@ -20,7 +20,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-009 | Dockerfile backend | back | TICKET-001 | 1h | Done |
 | TICKET-010 | Coordination Dockerfile frontend (repo externe `front`) | — | — | 0.5h | À faire |
 | TICKET-011 | docker-compose.yml + .env.example (production) | both | TICKET-009, TICKET-010 | 2h | Done |
-| TICKET-012 | Pipeline CI (tests + build images) | both | TICKET-009, TICKET-010 | 2h | À faire |
+| TICKET-012 | Pipeline CI backend (tests + build image) | back | TICKET-009 | 1.5h | À faire |
 | TICKET-013 | Activer unattended-upgrades sur le VPS | — | TICKET-002 | 0.5h | À faire |
 
 ## Phase 2 — Authentification
@@ -90,7 +90,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-037 | Reverse proxy Nginx (routes + SPA fallback) | both | TICKET-010, TICKET-011 | 1h | À faire |
+| TICKET-037 | Reverse proxy Nginx (routes + SPA fallback) | both | TICKET-010, TICKET-011 | 1h | Done |
 | TICKET-038 | Configurer TLS (Let's Encrypt / Certbot) | both | TICKET-002, TICKET-037 | 1.5h | À faire |
 | TICKET-039 | Retirer l'exposition publique des ports db/backend | both | TICKET-011 | 0.5h | À faire |
 | TICKET-040 | Script de sauvegarde automatique + runbook de restauration | both | TICKET-011 | 2h | À faire |
