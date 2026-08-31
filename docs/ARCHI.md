@@ -47,6 +47,7 @@ src/
 │   │   │   ├── controller/
 │   │   │   │   ├── AuthController.java
 │   │   │   │   ├── UserController.java
+│   │   │   │   ├── CategoryController.java
 │   │   │   │   ├── FormationController.java
 │   │   │   │   ├── InscriptionController.java
 │   │   │   │   ├── DocumentController.java
@@ -58,6 +59,8 @@ src/
 │   │   │   │   ├── AuthServiceImpl.java
 │   │   │   │   ├── UserService.java
 │   │   │   │   ├── UserServiceImpl.java
+│   │   │   │   ├── CategoryService.java
+│   │   │   │   ├── CategoryServiceImpl.java
 │   │   │   │   ├── FormationService.java
 │   │   │   │   ├── FormationServiceImpl.java
 │   │   │   │   ├── InscriptionService.java
@@ -75,6 +78,7 @@ src/
 │   │   │   │
 │   │   │   ├── repository/
 │   │   │   │   ├── UserRepository.java
+│   │   │   │   ├── CategoryRepository.java
 │   │   │   │   ├── FormationRepository.java
 │   │   │   │   ├── InscriptionRepository.java
 │   │   │   │   ├── DocumentRepository.java
@@ -85,6 +89,7 @@ src/
 │   │   │   │
 │   │   │   ├── entity/
 │   │   │   │   ├── User.java
+│   │   │   │   ├── Category.java
 │   │   │   │   ├── Formation.java
 │   │   │   │   ├── Inscription.java
 │   │   │   │   ├── Document.java
@@ -102,6 +107,8 @@ src/
 │   │   │   │   │   ├── CreateUserRequest.java
 │   │   │   │   │   ├── UpdateUserRequest.java
 │   │   │   │   │   ├── UpdateProfileRequest.java
+│   │   │   │   │   ├── CreateCategoryRequest.java
+│   │   │   │   │   ├── UpdateCategoryRequest.java
 │   │   │   │   │   ├── CreateFormationRequest.java
 │   │   │   │   │   ├── UpdateFormationRequest.java
 │   │   │   │   │   ├── SendMessageRequest.java             ← + nested Filter class ; couvre les DEUX formes de
@@ -111,6 +118,7 @@ src/
 │   │   │   │   │   └── MessageFilterType.java             ← enum non persisté (FORMATION|MISSING_DOCS|MANUAL)
 │   │   │   │   └── response/
 │   │   │   │       ├── UserResponse.java
+│   │   │   │       ├── CategoryResponse.java
 │   │   │   │       ├── FormationResponse.java
 │   │   │   │       ├── InscriptionResponse.java
 │   │   │   │       ├── DocumentResponse.java
@@ -124,6 +132,7 @@ src/
 │   │   │   │
 │   │   │   ├── mapper/
 │   │   │   │   ├── UserMapper.java
+│   │   │   │   ├── CategoryMapper.java
 │   │   │   │   ├── FormationMapper.java
 │   │   │   │   ├── DocumentMapper.java
 │   │   │   │   ├── MessageMapper.java
@@ -269,6 +278,11 @@ HTTP Request
 | GET | `/api/users` | SUPER_ADMIN | Liste des utilisateurs |
 | POST | `/api/users` | SUPER_ADMIN | Créer un utilisateur |
 | PATCH | `/api/users/{id}/deactivate` | SUPER_ADMIN | Désactiver |
+| GET | `/api/categories` | Tous | Liste des catégories |
+| POST | `/api/categories` | SUPER_ADMIN | Créer une catégorie |
+| PUT | `/api/categories/{id}` | SUPER_ADMIN | Modifier nom/couleur |
+| PATCH | `/api/categories/{id}/activate` | SUPER_ADMIN | Réactiver |
+| PATCH | `/api/categories/{id}/deactivate` | SUPER_ADMIN | Désactiver |
 | GET | `/api/formations` | Tous | Liste des formations |
 | POST | `/api/formations` | SUPER_ADMIN | Créer une formation |
 | POST | `/api/formations/import` | SUPER_ADMIN | Import Excel |

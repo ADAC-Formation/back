@@ -6,6 +6,10 @@
 ## Description
 Créer les pages de liste et de détail des formations. La liste inclut filtres actives/archivées. Le détail affiche le formateur assigné, les stagiaires inscrits, les documents associés. Vue adaptée selon le rôle.
 
+> Le filtre par catégorie (`CategoryFilter`) est ajouté par TICKET-048, câblé sur `FormationListPage`
+> une fois ce ticket-ci mergé — la carte de formation doit prévoir la place pour la pastille de
+> couleur + nom de catégorie dès ce ticket.
+
 ## Repo
 [x] front/   [ ] back   [ ] both
 
@@ -16,11 +20,11 @@ Créer les pages de liste et de détail des formations. La liste inclut filtres 
 - `src/mocks/handlers.js` — MSW handlers pour `/api/formations`
 
 ## Acceptance criteria
-- [ ] Liste des formations : filtre actives / archivées, affichage carte (titre, dates, formateur, nb inscrits)
+- [ ] Liste des formations : filtre actives / archivées, affichage carte (titre, dates, catégorie — pastille couleur + nom, formateur, nb inscrits)
 - [ ] SUPER_ADMIN voit toutes les formations et les boutons Modifier + Archiver
 - [ ] ADMIN voit toutes les formations, bouton "Mes formations" actif par défaut, pas de bouton Modifier
 - [ ] STAGIAIRE voit uniquement ses formations inscrites
-- [ ] Page détail : titre, dates, modalité, formateur, liste des stagiaires inscrits, documents
+- [ ] Page détail : titre, dates, modalité, catégorie, formateur, liste des stagiaires inscrits, documents
 - [ ] Bouton "Archiver" sur la page détail (SUPER_ADMIN) → confirmation + navigation vers liste
 - [ ] Formation archivée affichée en lecture seule avec badge "Archivée"
 

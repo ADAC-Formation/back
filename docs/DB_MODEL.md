@@ -16,9 +16,20 @@ Tous les utilisateurs de la plateforme, quel que soit leur rôle.
 - `email_notifications_enabled` : toggle du profil utilisateur
 - `password_hash` : BCrypt — jamais le mot de passe en clair
 
+### categories
+Catégorie de classement d'une formation (ex : "Estime de soi en travail social").
+- PK : `id` (BIGSERIAL)
+- `nom` : UNIQUE, NOT NULL
+- `couleur` : NOT NULL, format `#RRGGBB` — choisie par le Super Admin à la création
+- `is_active` : false = catégorie désactivée, masquée du sélecteur de création de formation, mais
+  conservée telle quelle sur les formations qui la référencent déjà (y compris archivées)
+- **Pas de suppression** : uniquement activation/désactivation (pas d'endpoint DELETE) — une
+  formation, même archivée, doit toujours pouvoir résoudre sa catégorie
+
 ### formations
 Une session de formation planifiée.
 - PK : `id` (BIGSERIAL)
+- FK `category_id → categories.id` : NOT NULL — chaque formation appartient à exactement une catégorie
 - FK `formateur_id → users.id` : nullable — si NULL, le Super Admin est l'intervenant
 - FK `created_by → users.id` : toujours le Super Admin
 - `status` : `ACTIVE` (default) ou `ARCHIVED` (lecture seule)
@@ -80,6 +91,7 @@ Tokens d'activation de compte et de réinitialisation de mot de passe.
 
 | Table A | Relation | Table B | Description |
 |---|---|---|---|
+| categories | 1:N | formations | Une catégorie classe plusieurs formations |
 | users | 1:N | formations | Un formateur est assigné à plusieurs formations |
 | users | 1:N | formations | Un Super Admin crée plusieurs formations |
 | users | 1:N | inscriptions | Un stagiaire a plusieurs inscriptions |
@@ -107,6 +119,10 @@ Tokens d'activation de compte et de réinitialisation de mot de passe.
   persister. `conversationId` côté API = l'`id` de l'autre participant (voir `tech.md`).
 - **Deux FK nullables dans `documents`** : pattern "polymorphic association" — `formation_id` XOR `inscription_id` non-null, garanti par une contrainte CHECK en SQL
 - **`deleted_from_bell` dans `notifications`** : évite une table de jonction — simple flag pour distinguer la vue cloche (non lues, supprimables) de l'historique (tout conservé)
+- **`categories.is_active` plutôt que suppression** : même pattern que `users.is_active` — une catégorie
+  utilisée par une formation archivée ne doit jamais devenir orpheline ; la désactivation la retire du
+  sélecteur de création sans casser l'historique. Pas de table de jonction : `category_id` est directement
+  sur `formations` (relation 1:N simple, une formation n'a qu'une seule catégorie)
 
 > **À trancher (review TICKET-003)** : aucune politique `ON DELETE` n'est définie sur les FK. Supprimer une
 > `inscription` échouera tant qu'un `document` la référence ; supprimer un `message` échouera tant qu'un

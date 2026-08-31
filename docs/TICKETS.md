@@ -42,11 +42,20 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-020 | Backend — GET /users/me + PATCH /users/me | back | TICKET-019 | 1h | À faire |
 | TICKET-021 | Frontend — Gestion des comptes | front | TICKET-019 | 3h | À faire |
 
+## Phase 2 — Catégories
+
+| ID | Titre | Repo | Dépend de | Temps | Statut |
+|---|---|---|---|---|---|
+| TICKET-046 | Backend — Entité Category + migration + seed | back | TICKET-004 | 2h | À faire |
+| TICKET-047 | Backend — CRUD Catégories (create, edit, list, activate/deactivate) | back | TICKET-046, TICKET-005 | 2h | À faire |
+| TICKET-048 | Frontend — Sélecteur de catégorie + création à la volée | front | TICKET-047, TICKET-025 | 2h | À faire |
+| TICKET-049 | Frontend — Gestion des catégories (liste, éditer, activer/désactiver) | front | TICKET-047 | 2h | À faire |
+
 ## Phase 2 — Formations
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-022 | Backend — CRUD Formations + archive + formateur | back | TICKET-005, TICKET-019 | 3h | À faire |
+| TICKET-022 | Backend — CRUD Formations + archive + formateur | back | TICKET-005, TICKET-019, TICKET-046, TICKET-047 | 3h | À faire |
 | TICKET-023 | Backend — Import Excel + Inscriptions | back | TICKET-022 | 3h | À faire |
 | TICKET-024 | Frontend — Liste et détail des formations | front | TICKET-022 | 2h | À faire |
 | TICKET-025 | Frontend — Formulaire création + import Excel | front | TICKET-023 | 3h | À faire |
@@ -99,17 +108,24 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 ## Récapitulatif
 
-- **Total tickets** : 45
-- **Backend** : 16 | **Frontend (dans ce repo)** : 14 | **Les deux (both)** : 11 | **Aucun / coordination
+- **Total tickets** : 49
+- **Backend** : 18 | **Frontend (dans ce repo)** : 16 | **Les deux (both)** : 11 | **Aucun / coordination
   (tâche opérationnelle ou cross-repo)** : 4
-- **Temps estimé total** : ~75.5h
-- **Branches Git** : feature/setup · feature/devops-setup · feature/auth · feature/users · feature/formations
-  · feature/documents · feature/messagerie · feature/notifications · feature/devops-production ·
-  feature/dashboard
+- **Temps estimé total** : ~83.5h
+- **Branches Git** : feature/setup · feature/devops-setup · feature/auth · feature/users · feature/categories
+  · feature/formations · feature/documents · feature/messagerie · feature/notifications ·
+  feature/devops-production · feature/dashboard
 - **Tâches opérationnelles sans branche** (pas de code) : TICKET-002, TICKET-010 (coordination cross-repo),
   TICKET-013, TICKET-042
 - **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
   ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
+
+## Note sur cette révision (2026-08-31)
+
+Ajout du besoin client "catégories de formation" : `TICKET-046` à `TICKET-049` créés (entité `Category`,
+CRUD, sélecteur front, page de gestion). `TICKET-022` mis à jour (dépend désormais aussi de TICKET-046/047 —
+`categoryId` obligatoire à la création d'une formation). Nouvelle branche `feature/categories`. Voir
+`docs/tickets/TICKET-046.md` à `TICKET-049.md`, et `US-017` dans `STORIES.md`.
 
 ## Note sur cette révision (2026-08-28)
 

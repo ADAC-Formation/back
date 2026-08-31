@@ -21,17 +21,30 @@ La chargée de formation envoie actuellement les documents individuellement par 
 - [ ] Validation de la force du mot de passe côté client et serveur
 - [ ] Gestion des rôles : SUPER_ADMIN / ADMIN / STAGIAIRE
 
+### Gestion des catégories (Super Admin uniquement)
+- [ ] Créer une catégorie : nom (obligatoire, unique) + couleur au format `#RRGGBB` (obligatoire)
+- [ ] Modifier le nom et/ou la couleur d'une catégorie existante (ex : faute de frappe)
+- [ ] Activer / désactiver une catégorie — **pas de suppression possible**
+- [ ] Une catégorie désactivée disparaît du sélecteur de création de formation, mais reste inchangée
+      sur les formations qui la référencent déjà (y compris archivées)
+- [ ] Catégories initiales à créer en base : Estime de soi en travail social, Méthodologie
+      d'intervention sociale, Difficultés budgétaires / surendettement, Mieux-être au travail,
+      Spécial BCP, Formation en intra
+
 ### Gestion des formations (Super Admin uniquement)
 - [ ] Créer une formation via formulaire :
   - Intitulé (obligatoire)
   - Description (optionnel)
   - Date de début / Date de fin (obligatoires)
+  - Catégorie (obligatoire) : bouton "Catégorie" → sélection parmi les catégories actives ; bouton
+    "Créer nouvelle catégorie" à côté pour en ajouter une à la volée (nom + couleur) sans quitter le formulaire
   - Formateur : liste déroulante des formateurs actifs uniquement (optionnel — si vide : Super Admin assigné automatiquement)
   - Modalité : visio / présentiel / mixte (obligatoire)
   - Documents : drag & drop (optionnel)
 - [ ] Créer une formation via import Excel
 - [ ] Modifier et archiver une formation (pas de suppression — archivage = lecture seule)
 - [ ] Inscrire des stagiaires à une formation
+- [ ] Filtrer la liste des formations par catégorie (Super Admin et Formateur)
 - [ ] Formateur : peut voir toutes les formations en lecture seule (filtre par défaut : ses formations), peut ajouter des documents, ne peut pas créer / modifier / archiver
 
 ### Gestion des comptes (Super Admin uniquement)
@@ -78,7 +91,8 @@ La chargée de formation envoie actuellement les documents individuellement par 
 
 ## Entités principales
 - **Utilisateur** : tous les rôles (SUPER_ADMIN, ADMIN, STAGIAIRE) — email, mot de passe, rôle, profil
-- **Formation** : titre, description, dates, modalité, statut
+- **Catégorie** : nom, couleur, statut actif/inactif — classe les formations, pas de suppression
+- **Formation** : titre, description, dates, modalité, catégorie, statut
 - **Inscription** : lien entre un Stagiaire et une Formation
 - **Document** : fichier, lié à une Formation ou à une Inscription spécifique (niveau stagiaire)
 - **Message** : expéditeur, destinataire(s), contenu, fil de discussion

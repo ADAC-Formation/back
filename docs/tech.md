@@ -188,7 +188,58 @@ Réactiver un compte (SUPER_ADMIN uniquement).
 
 ---
 
-## 3. Formations
+## 3. Catégories
+
+Une formation appartient toujours à exactement une catégorie (`categoryId` obligatoire à la création).
+Une catégorie ne se supprime jamais — uniquement activation/désactivation (voir `DB_MODEL.md`).
+
+### GET /api/categories
+Liste des catégories.
+```json
+// Query params : ?active=true   // ex : pour peupler le sélecteur de création de formation
+// 200 OK → CategoryResponse[]
+```
+
+### POST /api/categories
+Créer une catégorie (SUPER_ADMIN uniquement). Utilisé aussi depuis le bouton "Créer nouvelle
+catégorie" du formulaire de création de formation.
+```json
+// Body
+{ "nom": "string", "couleur": "#RRGGBB" }
+
+// 201 Created → CategoryResponse
+// 409 — nom déjà utilisé
+{ "status": 409, "message": "Cette catégorie existe déjà" }
+```
+
+### PUT /api/categories/{id}
+Modifier le nom et/ou la couleur d'une catégorie (SUPER_ADMIN uniquement) — ex : correction d'une
+faute de frappe. Les formations déjà créées avec cette catégorie reflètent le nouveau nom/couleur
+(pas de duplication, simple FK).
+```json
+// Body
+{ "nom": "string", "couleur": "#RRGGBB" }
+
+// 200 OK → CategoryResponse
+// 409 — nom déjà utilisé par une autre catégorie
+```
+
+### PATCH /api/categories/{id}/activate
+Réactiver une catégorie désactivée (SUPER_ADMIN uniquement).
+```json
+// 200 OK → CategoryResponse
+```
+
+### PATCH /api/categories/{id}/deactivate
+Désactiver une catégorie (SUPER_ADMIN uniquement) — disparaît du sélecteur de création de
+formation, mais reste inchangée sur les formations qui la référencent déjà.
+```json
+// 200 OK → CategoryResponse
+```
+
+---
+
+## 4. Formations
 
 ### GET /api/formations
 Liste des formations.
@@ -196,9 +247,10 @@ Liste des formations.
 - ADMIN : toutes actives (filtre par défaut : ses formations)
 - STAGIAIRE : uniquement ses formations
 ```json
-// Query params : ?status=ACTIVE|ARCHIVED | ?formateurId=1 | ?mine=true
+// Query params : ?status=ACTIVE|ARCHIVED | ?formateurId=1 | ?mine=true | ?categoryId=1
 // 200 OK → FormationResponse[]
 ```
+> `?categoryId` filtre par catégorie — disponible pour SUPER_ADMIN et ADMIN.
 
 ### POST /api/formations
 Créer une formation (SUPER_ADMIN uniquement).
@@ -210,10 +262,12 @@ Créer une formation (SUPER_ADMIN uniquement).
   "dateDebut": "2026-03-10",
   "dateFin": "2026-03-12",
   "modalite": "VISIO | PRESENTIEL | MIXTE",
+  "categoryId": 1,          // obligatoire
   "formateurId": 2          // nullable — si null : Super Admin auto-assigné
 }
 
 // 201 Created → FormationResponse
+// 400 — categoryId manquant ou introuvable
 ```
 
 ### POST /api/formations/import
@@ -243,6 +297,7 @@ Modifier une formation (SUPER_ADMIN uniquement).
   "dateDebut": "2026-03-10",
   "dateFin": "2026-03-12",
   "modalite": "VISIO | PRESENTIEL | MIXTE",
+  "categoryId": 1,
   "formateurId": 2
 }
 // 200 OK → FormationResponse
@@ -265,7 +320,7 @@ Assigner un formateur (SUPER_ADMIN uniquement).
 
 ---
 
-## 4. Inscriptions
+## 5. Inscriptions
 
 ### GET /api/formations/{id}/inscriptions
 Liste des stagiaires inscrits à une formation.
@@ -291,7 +346,7 @@ Désinscrire un stagiaire (SUPER_ADMIN uniquement).
 
 ---
 
-## 5. Documents
+## 6. Documents
 
 ### GET /api/documents
 Liste des documents selon le contexte.
@@ -336,7 +391,7 @@ Supprimer un document (SUPER_ADMIN, ADMIN sur ses formations).
 
 ---
 
-## 6. Messagerie
+## 7. Messagerie
 
 ### GET /api/messages
 Liste des conversations (derniers messages de chaque fil).
@@ -385,7 +440,7 @@ Marquer un message comme lu.
 
 ---
 
-## 7. Notifications
+## 8. Notifications
 
 ### GET /api/notifications
 Toutes les notifications (page plein écran — conservées, non supprimables).
@@ -438,6 +493,15 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 | emailNotificationsEnabled | boolean | boolean | |
 | createdAt | LocalDateTime | string | ISO 8601 |
 
+### CategoryResponse
+| Champ Java | Type Java | Type JS | Notes |
+|---|---|---|---|
+| id | Long | number | |
+| nom | String | string | |
+| couleur | String | string | `"#RRGGBB"` |
+| isActive | boolean | boolean | |
+| createdAt | LocalDateTime | string | ISO 8601 |
+
 ### FormationResponse
 | Champ Java | Type Java | Type JS | Notes |
 |---|---|---|---|
@@ -448,6 +512,7 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 | dateFin | LocalDate | string | `"2026-03-12"` |
 | modalite | Modalite (enum) | `'VISIO' \| 'PRESENTIEL' \| 'MIXTE'` | |
 | status | FormationStatus (enum) | `'ACTIVE' \| 'ARCHIVED'` | |
+| category | CategoryResponse | CategoryResponse | toujours renseigné, même si `category.isActive` est `false` |
 | formateur | UserResponse | UserResponse | peut être le Super Admin |
 | inscriptionsCount | int | number | calculé |
 | createdAt | LocalDateTime | string | ISO 8601 |

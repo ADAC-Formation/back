@@ -14,6 +14,15 @@ erDiagram
         timestamptz updated_at
     }
 
+    categories {
+        bigserial id PK
+        varchar nom UK "UNIQUE NOT NULL"
+        varchar couleur "NOT NULL — format #RRGGBB"
+        boolean is_active "DEFAULT true — pas de suppression, désactivation uniquement"
+        timestamptz created_at "DEFAULT NOW()"
+        timestamptz updated_at
+    }
+
     formations {
         bigserial id PK
         varchar intitule "NOT NULL"
@@ -22,6 +31,7 @@ erDiagram
         date date_fin "NOT NULL — CHECK date_fin >= date_debut"
         varchar modalite "VISIO | PRESENTIEL | MIXTE"
         varchar status "ACTIVE | ARCHIVED — DEFAULT ACTIVE"
+        bigint category_id FK "NOT NULL"
         bigint formateur_id FK "nullable — NULL = Super Admin auto-assigné"
         bigint created_by FK "NOT NULL"
         timestamptz created_at "DEFAULT NOW()"
@@ -86,6 +96,7 @@ erDiagram
     }
 
     %% ── Relations ──────────────────────────────────────
+    categories ||--o{ formations : "classe (category_id)"
     users ||--o{ formations : "est formateur de (formateur_id)"
     users ||--o{ formations : "a créé (created_by)"
     users ||--o{ inscriptions : "est inscrit comme stagiaire"
