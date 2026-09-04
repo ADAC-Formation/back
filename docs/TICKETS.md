@@ -38,7 +38,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-019 | Backend — CRUD Formateurs + Stagiaires | back | TICKET-005, TICKET-015 | 3h | À faire |
+| TICKET-019 | Backend — CRUD Formateurs + Stagiaires | back | TICKET-005, TICKET-015 | 3h | Done |
 | TICKET-020 | Backend — GET /users/me + PATCH /users/me | back | TICKET-019 | 1h | À faire |
 | TICKET-021 | Frontend — Gestion des comptes | front | TICKET-019 | 3h | À faire |
 

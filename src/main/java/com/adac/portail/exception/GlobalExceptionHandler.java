@@ -1,9 +1,11 @@
 package com.adac.portail.exception;
 
 import com.adac.portail.dto.response.ErrorResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,6 +30,58 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(new ErrorResponse(HttpStatus.TOO_MANY_REQUESTS.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
+    /**
+     * Last-resort fallback for a UNIQUE constraint the service layer's own pre-check didn't catch
+     * — e.g. two concurrent {@code POST /api/users/formateurs} for the same email both pass
+     * {@code UserServiceImpl}'s {@code findByEmail} check before either commits (TICKET-019
+     * review: {@link DuplicateEmailException}'s own pre-check is TOCTOU, not race-proof). Kept
+     * generic (not tied to the email message specifically) since this handler is global and any
+     * future unique constraint could trigger it the same way; the specific, friendlier message
+     * from the pre-check is still what callers see in the overwhelmingly common case.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), "Conflit : cette ressource existe déjà"));
+    }
+
+    /**
+     * Method-security ({@code @PreAuthorize}, TICKET-019) denial. A {@code @PreAuthorize} check
+     * runs as an AOP proxy around the controller method invocation, inside
+     * {@code DispatcherServlet} — so this {@code @RestControllerAdvice} resolves it *before*
+     * {@code ExceptionTranslationFilter} (in the security filter chain, upstream of the
+     * dispatcher) ever sees it. In production that means {@code SecurityConfig}'s
+     * {@code accessDeniedHandler} never actually fires for a method-security denial — only for a
+     * URL-rule denial — even though both currently produce the identical JSON body here. Any
+     * future denial-side logging/metrics belongs in *this* handler, not in
+     * {@code SecurityConfig}. Also what makes a {@code @WebMvcTest} slice with the filter chain
+     * disabled (see {@code UserControllerTest}) see a proper 403 at all, since there's no
+     * {@code ExceptionTranslationFilter} running in that slice to fall back on.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), "Droits insuffisants"));
     }
 
     /**

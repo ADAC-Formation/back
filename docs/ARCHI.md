@@ -176,7 +176,9 @@ src/
 │   │   │   │   ├── SecurityConfig.java               ← config Spring Security + CORS + règles
 │   │   │   │   │                                        (JWT stateless depuis TICKET-006 ; routes publiques
 │   │   │   │   │                                         explicites depuis TICKET-045 — plus de wildcard
-│   │   │   │   │                                         /api/auth/**, voir § Authentification ci-dessous)
+│   │   │   │   │                                         /api/auth/**, voir § Authentification ci-dessous ;
+│   │   │   │   │                                         @EnableMethodSecurity depuis TICKET-019 pour les
+│   │   │   │   │                                         @PreAuthorize de UserController)
 │   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB, renvoie un
 │   │   │   │                                            AdacUserDetails
 │   │   │   │
@@ -186,15 +188,20 @@ src/
 │   │   │   │   └── SupabaseConfig.java               ← client HTTP Supabase Storage
 │   │   │   │
 │   │   │   ├── exception/
-│   │   │   │   ├── GlobalExceptionHandler.java       ← @RestControllerAdvice (TICKET-015 — première version,
-│   │   │   │   │                                        ne gère pour l'instant que les 3 exceptions ci-dessous ;
+│   │   │   │   ├── GlobalExceptionHandler.java       ← @RestControllerAdvice (TICKET-015 — première version ;
+│   │   │   │   │                                        étendue en TICKET-019 avec DuplicateEmailException,
+│   │   │   │   │                                        ResourceNotFoundException et AccessDeniedException ;
 │   │   │   │   │                                        login/me restent gérés dans security/, voir leur note)
 │   │   │   │   ├── ActivationTokenExpiredException.java  ← 400 (TICKET-015)
 │   │   │   │   ├── ActivationTokenInvalidException.java  ← 400, même message que ci-dessus (TICKET-015)
 │   │   │   │   ├── RateLimitException.java               ← 429 (TICKET-015)
-│   │   │   │   ├── ResourceNotFoundException.java    ← 404 (pas encore créée — arrivera avec un ticket CRUD)
-│   │   │   │   ├── UnauthorizedException.java        ← 403 (pas encore créée)
-│   │   │   │   └── BadRequestException.java          ← 400 (pas encore créée)
+│   │   │   │   ├── DuplicateEmailException.java      ← 409 (TICKET-019 — email déjà utilisé à la création)
+│   │   │   │   ├── ResourceNotFoundException.java    ← 404 (TICKET-019 — id utilisateur ou formation inconnu)
+│   │   │   │   ├── ConflictException.java            ← 409 générique (TICKET-019 — auto-suspension,
+│   │   │   │   │                                        suspension du dernier Super Admin actif,
+│   │   │   │   │                                        réactivation d'un compte jamais activé — voir
+│   │   │   │   │                                        § Gestion des comptes ci-dessous)
+│   │   │   │   └── UnauthorizedException.java        ← 403 (pas encore créée)
 │   │   │   │
 │   │   │   ├── utils/
 │   │   │   │   ├── EmailTemplateBuilder.java         ← construit le HTML des emails
@@ -405,6 +412,41 @@ HTTP Request
     mais pas le nombre de comptes différents qu'une même IP peut cibler. Accepté vu l'échelle du
     projet (~50 comptes connus, création admin uniquement) ; à revoir si ça change.
 
+### Gestion des comptes formateurs/stagiaires (TICKET-019)
+
+- **Compte en attente d'activation** : créé avec `isActive=false` et un hash BCrypt d'un
+  UUID aléatoire jamais communiqué (`UserServiceImpl.createPendingUser`) — satisfait la contrainte
+  `password_hash NOT NULL` sans exposer d'identifiant par défaut ; `PasswordEncoder.matches()`
+  échoue toujours contre ce hash, donc la connexion reste impossible jusqu'à `/activate`.
+- **`GET /api/users/stagiaires` et `GET /api/users/{id}`** : un ADMIN ne voit que les stagiaires
+  inscrits à une formation qu'il enseigne (`InscriptionRepository.findStagiairesByFormateur` /
+  `.existsByStagiaireAndFormation_Formateur`), y compris quand `?formationId=` est fourni
+  explicitement — **trouvé en review croisée** : la première version ne vérifiait la propriété que
+  sur le chemin par défaut (sans `formationId`), laissant n'importe quel ADMIN lire le listing de
+  n'importe quelle formation en fournissant son id directement. Un id hors périmètre renvoie 404,
+  jamais 403 (un 403 confirmerait que l'id existe).
+- **Ces deux requêtes projettent directement vers `User`** (`select i.stagiaire from Inscription i
+  where ...`), pas vers `Inscription` puis `.map(Inscription::getStagiaire)` — cette dernière forme
+  renvoie un proxy Hibernate LAZY non initialisé ; avec `spring.jpa.open-in-view: false` (pas de
+  session ouverte après la fin de la requête HTTP) et aucune méthode `@Transactional` à l'appel, le
+  moindre accès à un champ du stagiaire (`isActive()`, le mapper MapStruct) levait
+  `LazyInitializationException` — **trouvé en review croisée**, invisible aux tests Mockito (qui
+  renvoient des `User` déjà pleinement construits, jamais de vrai proxy). Couvert par un
+  `@DataJpaTest` dédié (`InscriptionRepositoryTest`), le seul type de test qui peut réellement
+  détecter ce genre de bug.
+- **`PATCH /api/users/{id}/deactivate`** refuse l'auto-suspension et la suspension du dernier
+  SUPER_ADMIN actif (`ConflictException`, 409) — ni le logout ni un reset de mot de passe ne
+  révoquent le JWT lui-même (voir § Authentification plus haut), donc une auto-suspension
+  n'aurait même pas d'effet immédiat sur la session en cours, seulement sur les autres — mais sans
+  second SUPER_ADMIN, plus personne ne pourrait annuler la suspension. **Trouvé en review croisée**.
+- **`PATCH /api/users/{id}/reactivate`** refuse de "réactiver" un compte qui n'a jamais été activé
+  une première fois (`ActivationService.hasEverActivated`, réutilise la même distinction que
+  `ActivationServiceImpl.isPendingFirstActivation` — voir § Activation compte plus haut) : passer
+  `isActive=true` sur un tel compte le rendrait à la fois inéligible pour toujours à `/activate`
+  et `/resend-activation` (tous deux vérifient `isPendingFirstActivation`) tout en conservant son
+  hash de mot de passe aléatoire jamais communiqué — un compte devenu impossible à utiliser.
+  **Trouvé en review croisée**.
+
 ---
 
 ## Endpoints principaux
@@ -416,9 +458,13 @@ HTTP Request
 | POST | `/api/auth/activate` | — | Activation de compte |
 | POST | `/api/auth/forgot-password` | — | Demande de réinitialisation |
 | POST | `/api/auth/reset-password` | — | Nouveau mot de passe |
-| GET | `/api/users` | SUPER_ADMIN | Liste des utilisateurs |
-| POST | `/api/users` | SUPER_ADMIN | Créer un utilisateur |
-| PATCH | `/api/users/{id}/deactivate` | SUPER_ADMIN | Désactiver |
+| GET | `/api/users/formateurs` | SUPER_ADMIN, ADMIN | Liste des formateurs |
+| POST | `/api/users/formateurs` | SUPER_ADMIN | Créer un formateur |
+| GET | `/api/users/stagiaires` | SUPER_ADMIN, ADMIN | Liste des stagiaires |
+| POST | `/api/users/stagiaires` | SUPER_ADMIN | Créer un stagiaire (+ inscriptions) |
+| GET | `/api/users/{id}` | SUPER_ADMIN, ADMIN | Profil d'un utilisateur |
+| PATCH | `/api/users/{id}/deactivate` | SUPER_ADMIN | Suspendre |
+| PATCH | `/api/users/{id}/reactivate` | SUPER_ADMIN | Réactiver |
 | GET | `/api/categories` | Tous | Liste des catégories |
 | POST | `/api/categories` | SUPER_ADMIN | Créer une catégorie |
 | PUT | `/api/categories/{id}` | SUPER_ADMIN | Modifier nom/couleur |

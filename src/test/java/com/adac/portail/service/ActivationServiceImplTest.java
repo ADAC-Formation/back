@@ -355,6 +355,28 @@ class ActivationServiceImplTest {
         verify(userRepository).save(user);
     }
 
+    // --- sendActivationCode (TICKET-019) ---------------------------------------------------
+
+    @Test
+    void sendActivationCodeIssuesTokenAndSendsEmail() {
+        activationService.sendActivationCode(user);
+
+        ArgumentCaptor<ActivationToken> captor = ArgumentCaptor.forClass(ActivationToken.class);
+        verify(activationTokenRepository).save(captor.capture());
+        assertThat(captor.getValue().getType()).isEqualTo(TokenType.ACCOUNT_ACTIVATION);
+        assertThat(captor.getValue().getUser()).isEqualTo(user);
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void sendActivationCodeSwallowsMailExceptionInsteadOfFailingAccountCreation() {
+        doThrow(new MailSendException("boom")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        activationService.sendActivationCode(user);
+
+        verify(activationTokenRepository).save(any(ActivationToken.class));
+    }
+
     @Test
     void resetPasswordWithExpiredTokenThrowsExpiredExceptionAndLeavesPasswordUnchanged() {
         String oldHash = user.getPasswordHash();
