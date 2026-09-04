@@ -1,6 +1,7 @@
 package com.adac.portail.service;
 
 import com.adac.portail.dto.request.CreateUserRequest;
+import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -73,4 +74,11 @@ public interface UserService {
      *                                    permanently ineligible for {@code /activate}
      */
     UserResponse reactivate(Long id);
+
+    /**
+     * Partial update of the caller's own profile (any authenticated role) — see docs/tech.md,
+     * "PATCH /api/users/me". Only {@code emailNotificationsEnabled} is settable for now; a
+     * {@code null} field is left unchanged.
+     */
+    UserResponse updateMe(AdacUserDetails principal, UpdateProfileRequest request);
 }

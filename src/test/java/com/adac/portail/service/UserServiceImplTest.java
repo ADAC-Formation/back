@@ -1,6 +1,7 @@
 package com.adac.portail.service;
 
 import com.adac.portail.dto.request.CreateUserRequest;
+import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
@@ -432,5 +433,46 @@ class UserServiceImplTest {
 
         assertThat(user.isActive()).isFalse();
         verify(userRepository, never()).save(any());
+    }
+
+    // --- updateMe ---------------------------------------------------------------------------
+    // TICKET-020.
+
+    @Test
+    void updateMeWithEmailNotificationsEnabledFalsePersistsField() {
+        // Two distinct instances on purpose: principal.getUser() stands in for the detached
+        // snapshot loaded by CustomUserDetailsService in the filter's own transaction (see
+        // updateMe's Javadoc/comment — review found the field was mutated on this stale instance
+        // and merge()d instead of on a freshly-fetched managed one). Only the managed instance
+        // below should end up mutated and saved.
+        User detachedSnapshot = User.builder().id(9L).emailNotificationsEnabled(true).build();
+        User managedUser = User.builder().id(9L).emailNotificationsEnabled(true).build();
+        AdacUserDetails principal = new AdacUserDetails(detachedSnapshot);
+        UpdateProfileRequest request = new UpdateProfileRequest(false);
+        when(userRepository.findById(9L)).thenReturn(Optional.of(managedUser));
+        when(userRepository.save(managedUser)).thenReturn(managedUser);
+        when(userMapper.toResponse(managedUser)).thenReturn(UserResponse.builder().build());
+
+        userService.updateMe(principal, request);
+
+        assertThat(managedUser.isEmailNotificationsEnabled()).isFalse();
+        assertThat(detachedSnapshot.isEmailNotificationsEnabled()).isTrue();
+        verify(userRepository).save(managedUser);
+        verify(userRepository, never()).save(detachedSnapshot);
+    }
+
+    @Test
+    void updateMeWithNullFieldLeavesEmailNotificationsEnabledUnchanged() {
+        User detachedSnapshot = User.builder().id(9L).emailNotificationsEnabled(true).build();
+        User managedUser = User.builder().id(9L).emailNotificationsEnabled(true).build();
+        AdacUserDetails principal = new AdacUserDetails(detachedSnapshot);
+        UpdateProfileRequest request = new UpdateProfileRequest(null);
+        when(userRepository.findById(9L)).thenReturn(Optional.of(managedUser));
+        when(userRepository.save(managedUser)).thenReturn(managedUser);
+        when(userMapper.toResponse(managedUser)).thenReturn(UserResponse.builder().build());
+
+        userService.updateMe(principal, request);
+
+        assertThat(managedUser.isEmailNotificationsEnabled()).isTrue();
     }
 }

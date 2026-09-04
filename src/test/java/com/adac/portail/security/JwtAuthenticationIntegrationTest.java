@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -356,6 +357,44 @@ class JwtAuthenticationIntegrationTest {
         } finally {
             userRepository.findByEmail(email).ifPresent(userRepository::delete);
         }
+    }
+
+    @Test
+    void updateMeWithoutCookieReturnsUnauthorized() throws Exception {
+        // TICKET-020. UserController.updateMe has no @PreAuthorize (see its Javadoc for why) —
+        // this is the only test proving the real chain still rejects it: .anyRequest()
+        // .authenticated() (SecurityConfig) covers /api/users/** since it isn't in PUBLIC_ROUTES,
+        // independent of the controller's own null-principal check (which only the @WebMvcTest
+        // slice, filters disabled, actually exercises).
+        mockMvc.perform(patch("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateMeWithValidCookiePersistsEmailNotificationsEnabled() throws Exception {
+        // Also the regression test for the review finding on UserServiceImpl.updateMe: mutating
+        // principal.getUser() directly (loaded by CustomUserDetailsService in the filter's own
+        // transaction, hence detached by the time it reaches the service) and save()-ing it would
+        // merge() a pre-request snapshot — a plain Mockito unit test can't see that, only a real
+        // transaction/persistence-context round trip through the actual filter chain can.
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody(TEST_EMAIL, TEST_PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie jwtCookie = loginResult.getResponse().getCookie("jwt");
+
+        mockMvc.perform(patch("/api/users/me")
+                        .cookie(jwtCookie)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("emailNotificationsEnabled", false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.emailNotificationsEnabled").value(false));
+
+        User persisted = userRepository.findByEmail(TEST_EMAIL).orElseThrow();
+        assertThat(persisted.isEmailNotificationsEnabled()).isFalse();
     }
 
     private String loginBody(String email, String password) throws Exception {

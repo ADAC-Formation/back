@@ -1,6 +1,7 @@
 package com.adac.portail.service;
 
 import com.adac.portail.dto.request.CreateUserRequest;
+import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
@@ -139,6 +140,21 @@ public class UserServiceImpl implements UserService {
                     "Ce compte n'a jamais été activé — utilisez le renvoi du code d'activation, pas la réactivation");
         }
         user.setActive(true);
+        return userMapper.toResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateMe(AdacUserDetails principal, UpdateProfileRequest request) {
+        // Re-fetch by id rather than mutating principal.getUser() directly: that instance was
+        // loaded by CustomUserDetailsService in the filter's own (already-committed) transaction,
+        // so by the time it reaches here it's detached — saving it would merge() a full-row
+        // snapshot taken before this request even started, silently reverting any isActive/
+        // passwordHash/etc. change made by a concurrent request in between (found in review).
+        User user = findUserOrThrow(principal.getUser().getId());
+        if (request.getEmailNotificationsEnabled() != null) {
+            user.setEmailNotificationsEnabled(request.getEmailNotificationsEnabled());
+        }
         return userMapper.toResponse(userRepository.save(user));
     }
 

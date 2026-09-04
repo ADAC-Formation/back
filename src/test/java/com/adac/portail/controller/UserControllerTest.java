@@ -2,6 +2,7 @@ package com.adac.portail.controller;
 
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.response.UserResponse;
+import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
@@ -11,13 +12,16 @@ import com.adac.portail.security.CustomUserDetailsService;
 import com.adac.portail.security.JwtTokenService;
 import com.adac.portail.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -78,6 +82,11 @@ class UserControllerTest {
 
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     // --- POST /formateurs --------------------------------------------------------------------
 
@@ -244,5 +253,45 @@ class UserControllerTest {
         mockMvc.perform(patch("/api/users/3/reactivate"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409));
+    }
+
+    // --- PATCH /me ------------------------------------------------------------------------
+    // TICKET-020. No GET /api/users/me: GET /api/auth/me already returns the caller's full
+    // profile (TICKET-014) — see docs/tech.md, "PATCH /api/users/me" note.
+
+    @Test
+    void updateMeWithAuthenticatedPrincipalReturnsUpdatedUserResponse() throws Exception {
+        User user = User.builder()
+                .id(9L)
+                .email("stagiaire@adac.fr")
+                .nom("Doe")
+                .prenom("Jane")
+                .role(Role.STAGIAIRE)
+                .build();
+        AdacUserDetails principal = new AdacUserDetails(user);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+        when(userService.updateMe(eq(principal), any())).thenReturn(UserResponse.builder()
+                .id(9L)
+                .email("stagiaire@adac.fr")
+                .emailNotificationsEnabled(false)
+                .build());
+
+        mockMvc.perform(patch("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("emailNotificationsEnabled", false))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(9))
+                .andExpect(jsonPath("$.emailNotificationsEnabled").value(false));
+    }
+
+    @Test
+    void updateMeWithoutAuthenticationReturnsUnauthorized() throws Exception {
+        mockMvc.perform(patch("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("emailNotificationsEnabled", false))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
     }
 }

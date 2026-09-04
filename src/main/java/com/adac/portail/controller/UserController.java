@@ -1,6 +1,7 @@
 package com.adac.portail.controller;
 
 import com.adac.portail.dto.request.CreateUserRequest;
+import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.response.ErrorResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.security.AdacUserDetails;
@@ -131,5 +132,30 @@ public class UserController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<UserResponse> reactivate(@PathVariable Long id) {
         return ResponseEntity.ok(userService.reactivate(id));
+    }
+
+    @Operation(summary = "Update own profile", description = "Any authenticated role. Partial update — only emailNotificationsEnabled for now (docs/tech.md). No GET /api/users/me: GET /api/auth/me already returns the caller's full profile.")
+    @ApiResponse(responseCode = "200", description = "OK",
+            content = @Content(schema = @Schema(implementation = UserResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Not authenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PatchMapping("/me")
+    public ResponseEntity<?> updateMe(
+            @Valid @RequestBody UpdateProfileRequest request,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        // No @PreAuthorize here (unlike every other route above), same reasoning as
+        // AuthController.me() (TICKET-014): every authenticated role may call this, so there's no
+        // role to check — and @PreAuthorize("isAuthenticated()") was tried and reverted (review):
+        // with no Authentication at all in the SecurityContext (this @WebMvcTest slice's
+        // no-@WithMockUser case, addFilters = false) it throws
+        // AuthenticationCredentialsNotFoundException instead of yielding a clean 401. In
+        // production JwtAuthorizationFilter already rejects an unauthenticated request before it
+        // reaches here (see SecurityConfig.PUBLIC_ROUTES, .anyRequest().authenticated()); this
+        // check is defense in depth, and is what actually runs in the test slice below.
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Authentification requise"));
+        }
+        return ResponseEntity.ok(userService.updateMe(principal, request));
     }
 }
