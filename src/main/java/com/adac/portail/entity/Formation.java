@@ -58,6 +58,11 @@ public class Formation {
     @Builder.Default
     private FormationStatus status = FormationStatus.ACTIVE;
 
+    /** NOT NULL since V2 (TICKET-046) — every formation belongs to exactly one category. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
+    private Category category;
+
     /** Nullable — NULL means the Super Admin is the auto-assigned instructor. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "formateur_id")

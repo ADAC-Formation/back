@@ -209,8 +209,11 @@ src/
 │   │       ├── application-dev.yml                ← Mailtrap + DB locale
 │   │       ├── application-prod.yml                ← Brevo + DB prod
 │   │       ├── db/migration/
-│   │       │   └── V1__init_schema.sql             ← DDL des 8 tables, géré par Flyway (TICKET-004) — ne jamais
-│   │       │                                          éditer une fois appliqué, ajouter V2__... à la place
+│   │       │   ├── V1__init_schema.sql             ← DDL des 8 tables, géré par Flyway (TICKET-004) — ne jamais
+│   │       │   │                                      éditer une fois appliqué, ajouter Vn__... à la place
+│   │       │   └── V2__add_categories.sql          ← table `categories` + seed des 6 catégories +
+│   │       │                                          `formations.category_id` (nullable → backfill →
+│   │       │                                          NOT NULL + FK), voir TICKET-046
 │   │       │
 │   │       │   ⚠️ Si ta DB locale `adac_portail` a été créée avant le TICKET-004 (schéma posé par l'ancien
 │   │       │      `schema.sql` intérimaire), Flyway refuse de démarrer : "Found non-empty schema(s) but

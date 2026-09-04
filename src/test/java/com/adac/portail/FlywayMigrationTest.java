@@ -36,8 +36,10 @@ class FlywayMigrationTest {
     private EntityManagerFactory entityManagerFactory;
 
     @Test
-    void flywayMigratedV1AndHibernateOnlyValidates() {
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("1");
+    void flywayMigratedV2AndHibernateOnlyValidates() {
+        // "2", not "1": TICKET-046 adds V2__add_categories.sql on top of V1 — current() is the
+        // latest applied version, so this also proves V2 actually ran (not just present on disk).
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("2");
         assertThat(flyway.info().current().getState()).isEqualTo(MigrationState.SUCCESS);
 
         // Asserting the runtime bean, not just the YAML property: this fails if Hibernate's
@@ -56,6 +58,20 @@ class FlywayMigrationTest {
 
             assertThat(resultSet.next())
                     .as("flyway_schema_history should have a row for version 1")
+                    .isTrue();
+            assertThat(resultSet.getBoolean("success")).isTrue();
+        }
+    }
+
+    @Test
+    void flywaySchemaHistoryContainsSuccessfulV2Migration() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(
+                     "SELECT success FROM flyway_schema_history WHERE version = '2'")) {
+
+            assertThat(resultSet.next())
+                    .as("flyway_schema_history should have a row for version 2")
                     .isTrue();
             assertThat(resultSet.getBoolean("success")).isTrue();
         }

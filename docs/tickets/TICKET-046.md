@@ -37,14 +37,21 @@ Catégories à seeder (nom exact) :
 - `repository/CategoryRepository.java` — `existsByNomIgnoreCase(String)`, `findAllByIsActiveTrue()`
 
 ## Acceptance criteria
-- [ ] `mvn test` exécute `V2__add_categories.sql` sans erreur sur une base déjà migrée en V1
-- [ ] Après migration, `categories` contient exactement les 6 lignes seedées, chacune avec `couleur`
+- [x] `mvn test` exécute `V2__add_categories.sql` sans erreur sur une base déjà migrée en V1
+- [x] Après migration, `categories` contient exactement les 6 lignes seedées, chacune avec `couleur`
       au format `#RRGGBB` et `is_active = true`
-- [ ] `formations.category_id` est `NOT NULL` avec une contrainte FK vers `categories.id`
-- [ ] `FlywayMigrationTest` (existant) passe toujours — Hibernate reste en mode `validate` uniquement
-- [ ] `CategoryRepository.existsByNomIgnoreCase("estime de soi en travail social")` → `true`
+- [x] `formations.category_id` est `NOT NULL` avec une contrainte FK vers `categories.id`
+- [x] `FlywayMigrationTest` (existant) passe toujours — Hibernate reste en mode `validate` uniquement
+- [x] `CategoryRepository.existsByNomIgnoreCase("estime de soi en travail social")` → `true`
       (insensible à la casse)
-- [ ] `CategoryRepository.findAllByIsActiveTrue()` ne retourne pas une catégorie désactivée manuellement en base
+- [x] `CategoryRepository.findAllByIsActiveTrue()` ne retourne pas une catégorie désactivée manuellement en base
+
+> **Ajouté en review (2026-09-04)** : `nom` n'a plus de contrainte `UNIQUE` colonne simple — remplacée
+> par un index unique d'expression `UNIQUE INDEX uk_categories_nom_upper ON categories (UPPER(nom))`,
+> pour que l'unicité soit réellement insensible à la casse au niveau DB (le pré-check applicatif
+> `existsByNomIgnoreCase` seul est un TOCTOU entre deux POST concurrents). Contrainte `CHECK` ajoutée
+> sur `couleur` (format `#RRGGBB`) — jusque-là seule une regex DTO (TICKET-047, pas encore écrite)
+> l'aurait garanti. Voir `V2__add_categories.sql`.
 
 ## Branch
 `feature/categories`
@@ -53,13 +60,13 @@ Catégories à seeder (nom exact) :
 
 ## Write tests first (TDD)
 Before writing any implementation code:
-- [ ] Test 1 (`FlywayMigrationTest`, étendre le test existant ou en ajouter un) : après migration,
+- [x] Test 1 (`FlywayMigrationTest`, étendre le test existant ou en ajouter un) : après migration,
       `flyway.info().current().getVersion().getVersion()` == `"2"`
-- [ ] Test 2 (`@DataJpaTest`, `CategoryRepositoryTest`) : les 6 catégories seedées sont présentes,
+- [x] Test 2 (`@DataJpaTest`, `CategoryRepositoryTest`) : les 6 catégories seedées sont présentes,
       avec les noms exacts
-- [ ] Test 3 (`@DataJpaTest`) : `existsByNomIgnoreCase` insensible à la casse
-- [ ] Test 4 (`@DataJpaTest`) : `findAllByIsActiveTrue()` exclut une catégorie désactivée
-- [ ] Test 5 (`@DataJpaTest`, `FormationRepositoryTest` existant) : sauvegarder une `Formation` sans
+- [x] Test 3 (`@DataJpaTest`) : `existsByNomIgnoreCase` insensible à la casse
+- [x] Test 4 (`@DataJpaTest`) : `findAllByIsActiveTrue()` exclut une catégorie désactivée
+- [x] Test 5 (`@DataJpaTest`, `FormationRepositoryTest` existant) : sauvegarder une `Formation` sans
       `category` → `DataIntegrityViolationException` (colonne NOT NULL)
 
 Run tests → confirm RED. Then implement. Run tests → confirm GREEN.
@@ -90,4 +97,4 @@ Conventional commits format (always in English):
 2h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

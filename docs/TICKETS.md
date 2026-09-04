@@ -46,7 +46,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-046 | Backend — Entité Category + migration + seed | back | TICKET-004 | 2h | À faire |
+| TICKET-046 | Backend — Entité Category + migration + seed | back | TICKET-004 | 2h | Done |
 | TICKET-047 | Backend — CRUD Catégories (create, edit, list, activate/deactivate) | back | TICKET-046, TICKET-005 | 2h | À faire |
 | TICKET-048 | Frontend — Sélecteur de catégorie + création à la volée | front | TICKET-047, TICKET-025 | 2h | À faire |
 | TICKET-049 | Frontend — Gestion des catégories (liste, éditer, activer/désactiver) | front | TICKET-047 | 2h | À faire |
