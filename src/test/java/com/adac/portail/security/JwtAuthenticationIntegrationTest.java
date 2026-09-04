@@ -67,8 +67,16 @@ class JwtAuthenticationIntegrationTest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private LoginAttemptService loginAttemptService;
+
     @BeforeEach
     void setUp() {
+        // LoginAttemptService is a singleton bean shared across every test in this class (and any
+        // other @SpringBootTest class reusing the same cached context) — without clearing it,
+        // MockMvc's constant 127.0.0.1 means one test's failures can lock out another test's
+        // email+IP key (see TICKET-045 review).
+        loginAttemptService.reset();
         deleteTestUsers();
         userRepository.save(User.builder()
                 .email(TEST_EMAIL)
@@ -143,6 +151,21 @@ class JwtAuthenticationIntegrationTest {
     }
 
     @Test
+    void loginWithWrongPasswordOnDeactivatedAccountReturnsUnauthorizedNotForbidden() throws Exception {
+        // AuthenticationConfig checks the account's enabled status AFTER the password, not
+        // before (TICKET-045 review) — a wrong password on a real-but-inactive account must be
+        // indistinguishable from a wrong password on any other account. Getting this backwards
+        // (403 with no password needed) turns "account not activated" into a free, unthrottled
+        // probe for which emails are pending/suspended accounts.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody(DISABLED_EMAIL, "definitely-wrong-password")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(cookie().doesNotExist("jwt"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
     void loginWithMalformedBodyReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -196,6 +219,143 @@ class JwtAuthenticationIntegrationTest {
 
         mockMvc.perform(get("/api/test/ping").cookie(jwtCookie))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void meWithValidCookieReturnsAuthenticatedUser() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody(TEST_EMAIL, TEST_PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie jwtCookie = loginResult.getResponse().getCookie("jwt");
+
+        mockMvc.perform(get("/api/auth/me").cookie(jwtCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(TEST_EMAIL))
+                .andExpect(jsonPath("$.role").value("STAGIAIRE"));
+    }
+
+    @Test
+    void meWithoutCookieReturnsUnauthorized() throws Exception {
+        // Since TICKET-045, /api/auth/me isn't in SecurityConfig.PUBLIC_ROUTES, so this 401 now
+        // comes from the security entry point itself (anyRequest().authenticated()) — the
+        // filter chain rejects it before the request ever reaches AuthController's own
+        // null-principal check, which stays only as a defense-in-depth backstop.
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void meWithGarbageCookieReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/auth/me").cookie(new Cookie("jwt", "not-a-valid-jwt")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutWithValidCookieReturnsNoContentAndExpiresTheJwtCookie() throws Exception {
+        // TICKET-045: /api/auth/logout is no longer in SecurityConfig's public list (see below),
+        // so it now requires a valid cookie like any other protected endpoint.
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody(TEST_EMAIL, TEST_PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie jwtCookie = loginResult.getResponse().getCookie("jwt");
+
+        mockMvc.perform(post("/api/auth/logout").cookie(jwtCookie))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().value("jwt", ""))
+                .andExpect(cookie().maxAge("jwt", 0))
+                .andExpect(cookie().httpOnly("jwt", true))
+                .andExpect(cookie().sameSite("jwt", "Strict"))
+                .andExpect(cookie().path("jwt", "/"));
+    }
+
+    @Test
+    void logoutWithoutCookieReturnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void unknownAuthEndpointIsRejectedBeforeReachingTheDispatcher() throws Exception {
+        // TICKET-045: "/api/auth/**" is no longer permitAll — a path under it that isn't one of
+        // the explicitly-listed public routes now hits .anyRequest().authenticated() and gets
+        // 401 from the security filter chain itself, before Spring MVC would even get a chance
+        // to return 404 for a route that doesn't exist. Locks in that there's no accidental
+        // wildcard regression the next time a route is added under /api/auth/.
+        mockMvc.perform(post("/api/auth/does-not-exist"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void fiveWrongPasswordsLockTheAccountAndTheSixthAttemptIsRateLimited() throws Exception {
+        String email = "jwt-lockout-test@adac.fr";
+        userRepository.save(User.builder()
+                .email(email)
+                .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
+                .nom("Lockout")
+                .prenom("Jwt")
+                .role(Role.STAGIAIRE)
+                .build());
+        try {
+            for (int i = 0; i < 5; i++) {
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(loginBody(email, "wrong-password")))
+                        .andExpect(status().isUnauthorized());
+            }
+
+            // Correct password this time — must still be blocked; the lockout check runs before
+            // AuthenticationManager is ever consulted (see TICKET-045 AC).
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(loginBody(email, TEST_PASSWORD)))
+                    .andExpect(status().isTooManyRequests())
+                    .andExpect(cookie().doesNotExist("jwt"))
+                    .andExpect(jsonPath("$.status").value(429))
+                    .andExpect(jsonPath("$.message").value("Trop de tentatives. Réessayez dans 15 minutes."));
+        } finally {
+            userRepository.findByEmail(email).ifPresent(userRepository::delete);
+        }
+    }
+
+    @Test
+    void successfulLoginBelowTheThresholdResetsTheFailureCounter() throws Exception {
+        String email = "jwt-lockout-reset-test@adac.fr";
+        userRepository.save(User.builder()
+                .email(email)
+                .passwordHash(passwordEncoder.encode(TEST_PASSWORD))
+                .nom("Reset")
+                .prenom("Jwt")
+                .role(Role.STAGIAIRE)
+                .build());
+        try {
+            for (int i = 0; i < 3; i++) {
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(loginBody(email, "wrong-password")))
+                        .andExpect(status().isUnauthorized());
+            }
+
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(loginBody(email, TEST_PASSWORD)))
+                    .andExpect(status().isOk())
+                    .andExpect(cookie().exists("jwt"));
+
+            // If the counter hadn't reset, this would be attempt 3+3=6 and get 429 instead.
+            for (int i = 0; i < 3; i++) {
+                mockMvc.perform(post("/api/auth/login")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(loginBody(email, "wrong-password")))
+                        .andExpect(status().isUnauthorized());
+            }
+        } finally {
+            userRepository.findByEmail(email).ifPresent(userRepository::delete);
+        }
     }
 
     private String loginBody(String email, String password) throws Exception {

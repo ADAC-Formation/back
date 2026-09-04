@@ -1,6 +1,13 @@
 server:
   port: 8080
   shutdown: graceful
+  # Behind nginx in prod (see nginx/nginx.conf), request.getRemoteAddr() would otherwise always
+  # return the nginx container's address — collapsing the IP half of LoginAttemptService's
+  # email+IP lockout key to a single constant shared by every real client (TICKET-045 review).
+  # Safe here specifically because nginx is the only edge (backend has no published port) and
+  # overwrites X-Forwarded-For with its own $remote_addr rather than trusting a client-supplied
+  # value — a proxy chain trusting client input would need real "trusted proxies" scoping too.
+  forward-headers-strategy: framework
 
 spring:
   # Loads .env when present (local `mvn spring-boot:run` outside Docker) so JWT_SECRET,
@@ -52,6 +59,12 @@ jwt:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  # Separate from spring.mail.username on purpose: that's the SMTP *login* (a Mailtrap token in
+  # dev, defaulting to "" — see application-dev.yml), not necessarily an address the relay will
+  # accept as a sender identity. Using it as From would make every activation/reset email fail
+  # to send (see TICKET-015 review).
+  mail:
+    from: ${MAIL_FROM:no-reply@adac.fr}
 
 supabase:
   url: ${SUPABASE_URL:}

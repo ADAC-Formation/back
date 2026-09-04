@@ -61,16 +61,29 @@ Connexion — pose le cookie HttpOnly `jwt` sur succès.
 
 // 403 — compte non activé
 { "status": 403, "message": "Compte non activé. Veuillez consulter vos emails." }
+
+// 429 — 5 échecs sur ce couple email+IP en moins de 15 min (voir docs/ARCHI.md § Authentification)
+{ "status": 429, "message": "Trop de tentatives. Réessayez dans 15 minutes." }
 ```
 
 ### POST /api/auth/logout
-Déconnexion — expire le cookie.
+Déconnexion — expire le cookie. **Nécessite d'être authentifié** (cookie `jwt` valide) — pas dans
+la liste des routes publiques (voir `docs/ARCHI.md` § Authentification).
 ```json
 // 204 No Content
+// 401 — pas de cookie valide
 ```
 
 ### POST /api/auth/activate
 Activation du compte (premier accès après création par l'admin).
+`newPassword` : 8-72 caractères, au moins une majuscule et un chiffre (validé côté serveur —
+voir `docs/STORIES.md` US-002 AC-03 ; le frontend doit valider la même règle côté client).
+
+Un code expiré, déjà utilisé, faux, **ou dont les 3 tentatives autorisées sont épuisées**
+renvoient tous la **même** réponse 400 — volontairement indifférenciable, sans quoi une 429
+distincte confirmerait qu'un compte existant a un code actif (voir `docs/ARCHI.md` §
+Authentification). Contrairement à `/resend-activation` ci-dessous, `/activate` ne renvoie donc
+jamais 429.
 ```json
 // Body
 { "email": "string", "code": "string", "newPassword": "string" }
@@ -78,25 +91,46 @@ Activation du compte (premier accès après création par l'admin).
 // 200 OK
 { "message": "Compte activé avec succès" }
 
-// 400 — code invalide ou expiré
+// 400 — code invalide, expiré, ou tentatives épuisées (indifférenciable, voir ci-dessus)
 { "status": 400, "message": "Code invalide ou expiré" }
-
-// 429 — trop de tentatives
-{ "status": 429, "message": "Trop de demandes. Réessayez dans 15 minutes." }
 ```
 
-### POST /api/auth/forgot-password
-Demande de réinitialisation — envoie un email avec code.
+### POST /api/auth/resend-activation
+Renvoie un nouveau code d'activation. Limité à 3 codes émis par utilisateur sur 15 minutes
+(compteur indépendant de celui de `/activate` ci-dessus — voir docs/DB_MODEL.md §
+activation_tokens). **Contrairement à `/forgot-password` ci-dessous**, le 429 est renvoyé tel
+quel dès que la limite est atteinte pour un email connu — un email inconnu ou un compte déjà
+activé/suspendu renvoie 200 sans rien faire, donc le 429 confirme qu'un compte existant et
+pas-encore-activé a atteint sa limite (compromis assumé, voir `docs/ARCHI.md` §
+Authentification).
 ```json
 // Body
 { "email": "string" }
 
 // 200 OK (même réponse si email connu ou inconnu — sécurité)
 { "message": "Si cet email existe, un code vous a été envoyé." }
+
+// 429 — trop de codes envoyés récemment
+{ "status": 429, "message": "Trop de demandes. Réessayez dans 15 minutes." }
+```
+
+### POST /api/auth/forgot-password
+Demande de réinitialisation — envoie un email avec code. Limité à 3 codes / 15 min comme
+resend-activation (même compteur, type `PASSWORD_RESET`), mais **la limite atteinte reste
+invisible** : contrairement à `/resend-activation`, cet endpoint renvoie toujours 200, jamais
+429 — sinon la réponse elle-même confirmerait qu'un compte existe et est actif.
+```json
+// Body
+{ "email": "string" }
+
+// 200 OK (même réponse si email connu, inconnu, ou rate-limité — sécurité)
+{ "message": "Si cet email existe, un code vous a été envoyé." }
 ```
 
 ### POST /api/auth/reset-password
-Réinitialisation du mot de passe.
+Réinitialisation du mot de passe. Même règle de mot de passe que `/activate` ci-dessus
+(8-72 caractères, majuscule + chiffre). Même règle de 400 indifférenciable (invalide / expiré /
+tentatives épuisées) que `/activate` — voir sa note ci-dessus ; jamais de 429 ici non plus.
 ```json
 // Body
 { "email": "string", "code": "string", "newPassword": "string" }
@@ -104,7 +138,7 @@ Réinitialisation du mot de passe.
 // 200 OK
 { "message": "Mot de passe mis à jour avec succès" }
 
-// 400
+// 400 — code invalide, expiré, ou tentatives épuisées (indifférenciable)
 { "status": 400, "message": "Code invalide ou expiré" }
 ```
 

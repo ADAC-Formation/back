@@ -67,4 +67,73 @@ class ActivationTokenRepositoryTest {
         assertThat(result).extracting(ActivationToken::getId)
                 .doesNotContain(stillValid.getId());
     }
+
+    @Test
+    void countByUserAndTypeAndCreatedAtAfterCountsOnlyRecentTokensOfThatType() {
+        User user = userRepository.save(User.builder()
+                .email("activation-token-count-test@adac.fr")
+                .passwordHash("hashed")
+                .nom("Doe")
+                .prenom("Jane")
+                .role(Role.STAGIAIRE)
+                .build());
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime beforeInsert = now.minusSeconds(1);
+
+        activationTokenRepository.save(ActivationToken.builder()
+                .user(user).codeHash("h1").type(TokenType.ACCOUNT_ACTIVATION)
+                .expiresAt(now.plusMinutes(30)).build());
+        activationTokenRepository.save(ActivationToken.builder()
+                .user(user).codeHash("h2").type(TokenType.ACCOUNT_ACTIVATION)
+                .expiresAt(now.plusMinutes(30)).build());
+        // Different type — must not count toward ACCOUNT_ACTIVATION's limit.
+        activationTokenRepository.save(ActivationToken.builder()
+                .user(user).codeHash("h3").type(TokenType.PASSWORD_RESET)
+                .expiresAt(now.plusMinutes(30)).build());
+
+        OffsetDateTime afterInsert = OffsetDateTime.now().plusSeconds(1);
+
+        assertThat(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
+                user, TokenType.ACCOUNT_ACTIVATION, beforeInsert))
+                .isEqualTo(2);
+        assertThat(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
+                user, TokenType.ACCOUNT_ACTIVATION, afterInsert))
+                .isZero();
+    }
+
+    @Test
+    void existsByUserAndTypeAndUsedAtIsNotNullDistinguishesSuspendedFromNeverActivated() {
+        User neverActivated = userRepository.save(User.builder()
+                .email("never-activated@adac.fr")
+                .passwordHash("hashed")
+                .nom("Doe")
+                .prenom("Jane")
+                .role(Role.STAGIAIRE)
+                .isActive(false)
+                .build());
+        User suspended = userRepository.save(User.builder()
+                .email("suspended@adac.fr")
+                .passwordHash("hashed")
+                .nom("Doe")
+                .prenom("John")
+                .role(Role.STAGIAIRE)
+                .isActive(false)
+                .build());
+
+        OffsetDateTime now = OffsetDateTime.now();
+        // neverActivated has only an unused token pending — never completed activation.
+        activationTokenRepository.save(ActivationToken.builder()
+                .user(neverActivated).codeHash("h1").type(TokenType.ACCOUNT_ACTIVATION)
+                .expiresAt(now.plusMinutes(30)).build());
+        // suspended completed activation once (usedAt set) before being disabled again.
+        activationTokenRepository.save(ActivationToken.builder()
+                .user(suspended).codeHash("h2").type(TokenType.ACCOUNT_ACTIVATION)
+                .expiresAt(now.plusMinutes(30)).usedAt(now.minusDays(10)).build());
+
+        assertThat(activationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull(
+                neverActivated, TokenType.ACCOUNT_ACTIVATION)).isFalse();
+        assertThat(activationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull(
+                suspended, TokenType.ACCOUNT_ACTIVATION)).isTrue();
+    }
 }
