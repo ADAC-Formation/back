@@ -48,7 +48,13 @@ Ouvre `docs/tickets/TICKET-XXX.md`. C'est le ticket courant.
 
 ### 1. Git : branche
 
+**Toujours partir de `dev`, jamais de `main`** — `main` ne reçoit que les merges de PR et peut être
+en retard de plusieurs branches (`/create-pr` cible `dev`, voir étape 9). Se mettre à jour avant de
+créer ou de basculer :
+
 ```bash
+git checkout dev && git pull --ff-only
+
 # Si le ticket indique "Create" :
 git checkout -b feature/xxx
 
