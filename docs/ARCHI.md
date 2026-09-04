@@ -57,6 +57,11 @@ src/
 │   │   │   ├── service/
 │   │   │   │   ├── AuthService.java              ← interface
 │   │   │   │   ├── AuthServiceImpl.java
+│   │   │   │   ├── ActivationService.java        ← interface — activation compte + reset MDP (TICKET-015)
+│   │   │   │   ├── ActivationServiceImpl.java    ← envoie le mail directement via MailSender (SimpleMailMessage,
+│   │   │   │   │                                    texte brut) — EmailService/EmailTemplateBuilder plus bas
+│   │   │   │   │                                    n'existent pas encore (TICKET-034, qui dépend de ce ticket) ;
+│   │   │   │   │                                    à migrer dessus quand ce ticket-là atterrira
 │   │   │   │   ├── UserService.java
 │   │   │   │   ├── UserServiceImpl.java
 │   │   │   │   ├── CategoryService.java
@@ -102,6 +107,7 @@ src/
 │   │   │   │   ├── request/
 │   │   │   │   │   ├── LoginRequest.java
 │   │   │   │   │   ├── ActivateAccountRequest.java
+│   │   │   │   │   ├── ResendActivationRequest.java
 │   │   │   │   │   ├── ForgotPasswordRequest.java
 │   │   │   │   │   ├── ResetPasswordRequest.java
 │   │   │   │   │   ├── CreateUserRequest.java
@@ -125,10 +131,14 @@ src/
 │   │   │   │       ├── MessageResponse.java
 │   │   │   │       ├── ConversationResponse.java          ← assemblé en service, pas mappé d'une entité
 │   │   │   │       ├── NotificationResponse.java
+│   │   │   │       ├── StatusMessageResponse.java         ← record {message} — le corps {"message": "..."} que
+│   │   │   │       │                                          renvoient activate/resend-activation/
+│   │   │   │       │                                          forgot-password/reset-password (TICKET-015)
 │   │   │   │       └── ErrorResponse.java                 ← record {status, message, details} — format
-│   │   │   │                                                 d'erreur tech.md ; utilisé par les filtres de
-│   │   │   │                                                 security/ (ajouté TICKET-006, avant que
-│   │   │   │                                                 exception/GlobalExceptionHandler existe)
+│   │   │   │                                                 d'erreur tech.md ; utilisé à la fois par les
+│   │   │   │                                                 filtres de security/ (TICKET-006, avant que
+│   │   │   │                                                 exception/GlobalExceptionHandler existe) et par
+│   │   │   │                                                 ce dernier (TICKET-015)
 │   │   │   │
 │   │   │   ├── mapper/
 │   │   │   │   ├── UserMapper.java
@@ -168,10 +178,15 @@ src/
 │   │   │   │   └── SupabaseConfig.java               ← client HTTP Supabase Storage
 │   │   │   │
 │   │   │   ├── exception/
-│   │   │   │   ├── GlobalExceptionHandler.java       ← @ControllerAdvice
-│   │   │   │   ├── ResourceNotFoundException.java    ← 404
-│   │   │   │   ├── UnauthorizedException.java        ← 403
-│   │   │   │   └── BadRequestException.java          ← 400
+│   │   │   │   ├── GlobalExceptionHandler.java       ← @RestControllerAdvice (TICKET-015 — première version,
+│   │   │   │   │                                        ne gère pour l'instant que les 3 exceptions ci-dessous ;
+│   │   │   │   │                                        login/me restent gérés dans security/, voir leur note)
+│   │   │   │   ├── ActivationTokenExpiredException.java  ← 400 (TICKET-015)
+│   │   │   │   ├── ActivationTokenInvalidException.java  ← 400, même message que ci-dessus (TICKET-015)
+│   │   │   │   ├── RateLimitException.java               ← 429 (TICKET-015)
+│   │   │   │   ├── ResourceNotFoundException.java    ← 404 (pas encore créée — arrivera avec un ticket CRUD)
+│   │   │   │   ├── UnauthorizedException.java        ← 403 (pas encore créée)
+│   │   │   │   └── BadRequestException.java          ← 400 (pas encore créée)
 │   │   │   │
 │   │   │   ├── utils/
 │   │   │   │   ├── EmailTemplateBuilder.java         ← construit le HTML des emails
@@ -256,13 +271,15 @@ HTTP Request
 - **Filtre** : `JwtAuthorizationFilter` lit `request.getCookies()`, valide le token, alimente le `SecurityContext`
 - **Login** : POST `/api/auth/login` → pose le cookie + retourne `UserResponse`
 - **Logout** : POST `/api/auth/logout` → expire le cookie (MaxAge=0)
-  - **Risque résiduel accepté (TICKET-014)** : le logout est purement côté client — il expire le
-    cookie mais ne révoque rien côté serveur. Un token JWT capturé avant le logout (poste
-    partagé, log d'un proxy, extension navigateur) reste valide jusqu'à expiration naturelle
-    (24h par défaut), sans aucun moyen de le tuer à la demande — même pour la SUPER_ADMIN en cas
-    de compromission signalée. Acceptable pour le MVP vu le profil du projet (cookie HttpOnly +
-    SameSite=Strict, pas de contenu sensible côté paiement). À revoir (claim `token_version` sur
-    `User` + comparaison dans `JwtAuthorizationFilter`, ou denylist par `jti`) si ce risque devient
+  - **Risque résiduel accepté (TICKET-014, étendu TICKET-015)** : ni le logout ni un changement
+    de mot de passe (`activate`/`reset-password`) ne révoquent quoi que ce soit côté serveur — les
+    trois se contentent d'expirer/remplacer le cookie ou le hash en base, jamais le JWT lui-même.
+    Un token capturé avant coup (poste partagé, log d'un proxy, extension navigateur) reste valide
+    jusqu'à expiration naturelle (24h par défaut) même après un reset MDP — alors que le reset MDP
+    est justement le geste de remédiation typique d'un compte compromis. Acceptable pour le MVP vu
+    le profil du projet (cookie HttpOnly + SameSite=Strict, pas de contenu sensible côté paiement).
+    À revoir (claim `token_version`/`passwordChangedAt` sur `User`, comparé dans
+    `JwtAuthorizationFilter`, bumpé aux trois endroits ; ou denylist par `jti`) si ce risque devient
     inacceptable — pas de ticket ouvert pour l'instant, décision à prendre par Charlotte.
   - `JwtCookieFactory` (package `security/`) est la seule source de vérité pour la forme du cookie
     `jwt` — login (`JwtAuthenticationFilter`) et logout (`AuthController`) l'utilisent tous les
@@ -278,6 +295,38 @@ HTTP Request
     same-site (ex. sous-domaine compromis). Acceptable vu le profil du projet (utilisateurs connus, pas de
     contenu tiers). À revoir si un sous-domaine externe rejoint l'écosystème.
 - **CORS** : `allowCredentials = true`, origines explicites depuis `.env`
+
+### Activation compte / reset MDP (TICKET-015)
+
+- Code à 6 chiffres (`SecureRandom`), hashé en base (BCrypt, comme les mots de passe) — jamais
+  stocké en clair. Expire 30 min après émission.
+- Deux limites indépendantes (voir `ActivationServiceImpl`) : max 3 mauvais codes par token
+  (`ActivationToken.attempts`, 429) et max 3 nouveaux codes émis par utilisateur / 15 min
+  (`ActivationTokenRepository.countByUserAndTypeAndCreatedAtAfter`, 429 aussi).
+- `attempts` doit survivre à l'exception qu'il déclenche : les deux méthodes qui l'incrémentent
+  (`activate`, `resetPassword`) sont annotées `@Transactional(noRollbackFor =
+  ActivationTokenInvalidException.class)` — sans ça, le rollback par défaut de Spring sur une
+  `RuntimeException` annule l'incrément en même temps que l'exception, et la limite de 3 ne se
+  déclenche jamais. Un test Mockito ne peut pas voir ce bug (aucune vraie transaction) ;
+  `ActivationServiceIntegrationTest` (contexte Spring réel) le couvre spécifiquement.
+- `User.isActive` sert à la fois "jamais activé" et "suspendu par un admin" (pas de colonne de
+  statut séparée) — `resendActivation` distingue les deux via
+  `ActivationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull` (un token déjà consommé =
+  compte déjà activé une fois = suspension, pas primo-activation) pour qu'un compte suspendu ne
+  puisse pas se réactiver lui-même en redemandant un code.
+- `forgot-password` avale silencieusement son propre `RateLimitException` (log seulement, réponse
+  200 inchangée) — c'est le seul moyen de tenir la promesse tech.md "même réponse si email connu
+  ou inconnu" une fois la limite de 3/15min atteinte. `resend-activation` ne fait pas ça : son
+  critère d'acceptation veut explicitement le 429 visible, donc cet endpoint-là reste un oracle
+  d'énumération de compte pour un attaquant patient (accepté, cohérent avec le profil du projet).
+- **Risques résiduels accepté, non traités ici** (pas de ticket ouvert) :
+  - Le plafond de 3 tentatives est par token, pas par utilisateur — un attaquant qui enchaîne les
+    codes (3/15min × 3 essais) reste sous ~9 tentatives/15min sans jamais déclencher d'alerte ni
+    de blocage compte. À revoir si le profil de risque change (compteur cumulé, notification à
+    l'utilisateur sur tentatives répétées).
+  - `TokenCleanupScheduler` charge tous les tokens dus en mémoire puis les supprime un par un
+    (pas de requête `DELETE` en masse) — non-problème à l'échelle actuelle (~50 utilisateurs),
+    à revoir si le volume change significativement.
 
 ---
 

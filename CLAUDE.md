@@ -175,6 +175,7 @@ mvn test -Dtest=NomTest       # un test spécifique
 | `JWT_SECRET` | Clé secrète JWT (min 256 bits) |
 | `JWT_EXPIRATION` | Durée du token en ms (86400000 = 24h) |
 | `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP |
+| `MAIL_FROM` | Adresse expéditeur des emails (activation, reset MDP) — optionnelle, défaut `no-reply@adac.fr`. Volontairement distincte de `MAIL_USERNAME` (le login SMTP, pas forcément une identité expéditeur acceptée par le relais) |
 | `SUPABASE_URL` / `SUPABASE_KEY` / `SUPABASE_BUCKET` | Supabase Storage |
 | `CORS_ALLOWED_ORIGINS` | Origines autorisées (ex: http://localhost:5173) |
 

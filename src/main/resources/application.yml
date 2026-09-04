@@ -52,6 +52,12 @@ jwt:
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  # Separate from spring.mail.username on purpose: that's the SMTP *login* (a Mailtrap token in
+  # dev, defaulting to "" — see application-dev.yml), not necessarily an address the relay will
+  # accept as a sender identity. Using it as From would make every activation/reset email fail
+  # to send (see TICKET-015 review).
+  mail:
+    from: ${MAIL_FROM:no-reply@adac.fr}
 
 supabase:
   url: ${SUPABASE_URL:}
