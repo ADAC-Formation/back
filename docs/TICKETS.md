@@ -32,7 +32,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-016 | Frontend — Page de connexion | front | TICKET-008, TICKET-014 | 2h | À faire |
 | TICKET-017 | Frontend — Page d'activation | front | TICKET-008, TICKET-015 | 2h | À faire |
 | TICKET-018 | Frontend — Mot de passe oublié / reset | front | TICKET-017 | 1h | À faire |
-| TICKET-045 | Auth — rate limiting login + routes publiques strictes | back | TICKET-006 | 2h | À faire |
+| TICKET-045 | Auth — rate limiting login + routes publiques strictes | back | TICKET-006 | 2h | Done |
 
 ## Phase 2 — Utilisateurs
 

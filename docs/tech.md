@@ -61,12 +61,17 @@ Connexion — pose le cookie HttpOnly `jwt` sur succès.
 
 // 403 — compte non activé
 { "status": 403, "message": "Compte non activé. Veuillez consulter vos emails." }
+
+// 429 — 5 échecs sur ce couple email+IP en moins de 15 min (voir docs/ARCHI.md § Authentification)
+{ "status": 429, "message": "Trop de tentatives. Réessayez dans 15 minutes." }
 ```
 
 ### POST /api/auth/logout
-Déconnexion — expire le cookie.
+Déconnexion — expire le cookie. **Nécessite d'être authentifié** (cookie `jwt` valide) — pas dans
+la liste des routes publiques (voir `docs/ARCHI.md` § Authentification).
 ```json
 // 204 No Content
+// 401 — pas de cookie valide
 ```
 
 ### POST /api/auth/activate

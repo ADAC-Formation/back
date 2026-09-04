@@ -42,8 +42,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
+        // TICKET-045: explicit list, NOT "/api/auth/**" — that wildcard made every future
+        // endpoint under /api/auth/ public by default with zero code signal (exactly what bit
+        // GET /api/auth/me before this ticket — see AuthController's Javadoc). Deliberately
+        // excludes /api/auth/me (must stay authenticated) and /api/auth/logout (must too — a
+        // public logout is a cheap forced-logout vector for any cross-site page, see TICKET-014
+        // review).
         private static final String[] PUBLIC_ROUTES = {
-                        "/api/auth/**", "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health"
+                        "/api/auth/login", "/api/auth/activate", "/api/auth/resend-activation",
+                        "/api/auth/forgot-password", "/api/auth/reset-password",
+                        "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health"
         };
 
         private final AuthenticationManager authenticationManager;
@@ -53,6 +61,7 @@ public class SecurityConfig {
         private final Validator validator;
         private final UserMapper userMapper;
         private final JwtCookieFactory jwtCookieFactory;
+        private final LoginAttemptService loginAttemptService;
 
         @Value("${app.cors.allowed-origins}")
         private String allowedOrigins;
@@ -61,7 +70,7 @@ public class SecurityConfig {
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(
                                 authenticationManager, jwtTokenService, objectMapper, validator, userMapper,
-                                jwtCookieFactory);
+                                jwtCookieFactory, loginAttemptService);
 
                 http
                                 .csrf(csrf -> csrf.disable())

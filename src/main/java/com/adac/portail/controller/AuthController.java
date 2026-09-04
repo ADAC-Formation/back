@@ -69,10 +69,11 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/me")
     public ResponseEntity<?> me(@AuthenticationPrincipal AdacUserDetails principal) {
-        // Defense in depth: /api/auth/** is currently permitAll at the filter-chain level
-        // (SecurityConfig, tightened by TICKET-045), so this can be reached without a valid
-        // cookie — the null check below is what makes docs/tech.md's "401 non authentifié"
-        // contract hold regardless.
+        // /api/auth/me requires authentication at the filter-chain level since TICKET-045
+        // (SecurityConfig.PUBLIC_ROUTES excludes it — see its Javadoc), so this null check is now
+        // genuine defense in depth rather than the primary enforcement: kept in case that ever
+        // regresses (e.g. a future wildcard re-added carelessly), so docs/tech.md's "401 non
+        // authentifié" contract holds either way.
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Authentification requise"));

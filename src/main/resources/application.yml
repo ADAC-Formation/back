@@ -1,6 +1,13 @@
 server:
   port: 8080
   shutdown: graceful
+  # Behind nginx in prod (see nginx/nginx.conf), request.getRemoteAddr() would otherwise always
+  # return the nginx container's address — collapsing the IP half of LoginAttemptService's
+  # email+IP lockout key to a single constant shared by every real client (TICKET-045 review).
+  # Safe here specifically because nginx is the only edge (backend has no published port) and
+  # overwrites X-Forwarded-For with its own $remote_addr rather than trusting a client-supplied
+  # value — a proxy chain trusting client input would need real "trusted proxies" scoping too.
+  forward-headers-strategy: framework
 
 spring:
   # Loads .env when present (local `mvn spring-boot:run` outside Docker) so JWT_SECRET,
