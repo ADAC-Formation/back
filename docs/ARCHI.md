@@ -152,6 +152,9 @@ src/
 │   │   │   │   │                                        seulement email+password) — principal de l'Authentication
 │   │   │   │   ├── JwtTokenService.java              ← génère et vérifie le token JWT (verify() seulement —
 │   │   │   │   │                                        pas de méthode qui décode sans vérifier la signature)
+│   │   │   │   ├── JwtCookieFactory.java             ← seule source de vérité pour le cookie jwt (issue/expire) ;
+│   │   │   │   │                                        utilisé par JwtAuthenticationFilter (login) et
+│   │   │   │   │                                        AuthController (logout) — TICKET-014
 │   │   │   │   ├── PasswordEncoderConfig.java        ← bean BCryptPasswordEncoder
 │   │   │   │   ├── SecurityConfig.java               ← config Spring Security + CORS + règles
 │   │   │   │   │                                        (JWT stateless depuis TICKET-006 ; routes
@@ -253,6 +256,18 @@ HTTP Request
 - **Filtre** : `JwtAuthorizationFilter` lit `request.getCookies()`, valide le token, alimente le `SecurityContext`
 - **Login** : POST `/api/auth/login` → pose le cookie + retourne `UserResponse`
 - **Logout** : POST `/api/auth/logout` → expire le cookie (MaxAge=0)
+  - **Risque résiduel accepté (TICKET-014)** : le logout est purement côté client — il expire le
+    cookie mais ne révoque rien côté serveur. Un token JWT capturé avant le logout (poste
+    partagé, log d'un proxy, extension navigateur) reste valide jusqu'à expiration naturelle
+    (24h par défaut), sans aucun moyen de le tuer à la demande — même pour la SUPER_ADMIN en cas
+    de compromission signalée. Acceptable pour le MVP vu le profil du projet (cookie HttpOnly +
+    SameSite=Strict, pas de contenu sensible côté paiement). À revoir (claim `token_version` sur
+    `User` + comparaison dans `JwtAuthorizationFilter`, ou denylist par `jti`) si ce risque devient
+    inacceptable — pas de ticket ouvert pour l'instant, décision à prendre par Charlotte.
+  - `JwtCookieFactory` (package `security/`) est la seule source de vérité pour la forme du cookie
+    `jwt` — login (`JwtAuthenticationFilter`) et logout (`AuthController`) l'utilisent tous les
+    deux, pour que le cookie de logout ait exactement les mêmes attributs (path, secure, sameSite)
+    que celui posé au login ; sinon le navigateur ne le supprime pas.
 - **Durée du token** : 24h (configurable via `JWT_EXPIRATION`)
 - **CSRF** : protection Spring Security désactivée — décision de sécurité explicite.
   - Raison réelle : `SameSite=Strict` sur le cookie `jwt` empêche le navigateur de l'envoyer sur toute requête

@@ -198,6 +198,48 @@ class JwtAuthenticationIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void meWithValidCookieReturnsAuthenticatedUser() throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody(TEST_EMAIL, TEST_PASSWORD)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie jwtCookie = loginResult.getResponse().getCookie("jwt");
+
+        mockMvc.perform(get("/api/auth/me").cookie(jwtCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(TEST_EMAIL))
+                .andExpect(jsonPath("$.role").value("STAGIAIRE"));
+    }
+
+    @Test
+    void meWithoutCookieReturnsUnauthorized() throws Exception {
+        // TICKET-045 tightens SecurityConfig's PUBLIC_ROUTES ("/api/auth/**" is still permitAll
+        // today) — until then, AuthController's own null-principal check is what makes this 401
+        // hold; this test locks that contract in through the real filter chain regardless.
+        mockMvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void meWithGarbageCookieReturnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/auth/me").cookie(new Cookie("jwt", "not-a-valid-jwt")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutReturnsNoContentAndExpiresTheJwtCookie() throws Exception {
+        mockMvc.perform(post("/api/auth/logout"))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().value("jwt", ""))
+                .andExpect(cookie().maxAge("jwt", 0))
+                .andExpect(cookie().httpOnly("jwt", true))
+                .andExpect(cookie().sameSite("jwt", "Strict"))
+                .andExpect(cookie().path("jwt", "/"));
+    }
+
     private String loginBody(String email, String password) throws Exception {
         return objectMapper.writeValueAsString(Map.of("email", email, "password", password));
     }

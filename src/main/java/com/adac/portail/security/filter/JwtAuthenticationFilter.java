@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.LoginRequest;
 import com.adac.portail.dto.response.ErrorResponse;
 import com.adac.portail.mapper.UserMapper;
 import com.adac.portail.security.AdacUserDetails;
+import com.adac.portail.security.JwtCookieFactory;
 import com.adac.portail.security.JwtTokenService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -15,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.DisabledException;
@@ -25,7 +25,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -44,20 +43,20 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
     private final ObjectMapper objectMapper;
     private final Validator validator;
     private final UserMapper userMapper;
-    private final boolean secureCookie;
+    private final JwtCookieFactory jwtCookieFactory;
 
     public JwtAuthenticationFilter(AuthenticationManager authenticationManager,
                                     JwtTokenService jwtTokenService,
                                     ObjectMapper objectMapper,
                                     Validator validator,
                                     UserMapper userMapper,
-                                    boolean secureCookie) {
+                                    JwtCookieFactory jwtCookieFactory) {
         super(authenticationManager);
         this.jwtTokenService = jwtTokenService;
         this.objectMapper = objectMapper;
         this.validator = validator;
         this.userMapper = userMapper;
-        this.secureCookie = secureCookie;
+        this.jwtCookieFactory = jwtCookieFactory;
         setFilterProcessesUrl("/api/auth/login");
     }
 
@@ -93,15 +92,7 @@ public class JwtAuthenticationFilter extends UsernamePasswordAuthenticationFilte
         AdacUserDetails principal = (AdacUserDetails) authResult.getPrincipal();
         String token = jwtTokenService.generateToken(principal);
 
-        ResponseCookie cookie = ResponseCookie.from("jwt", token)
-                .httpOnly(true)
-                .secure(secureCookie)
-                .sameSite("Strict")
-                .maxAge(Duration.ofMillis(jwtTokenService.getExpirationMs()))
-                .path("/")
-                .build();
-
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.issue(token).toString());
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getWriter(), userMapper.toResponse(principal.getUser()));

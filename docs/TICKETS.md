@@ -27,7 +27,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-014 | Auth — login / logout / me | back | TICKET-006 | 2h | À faire |
+| TICKET-014 | Auth — login / logout / me | back | TICKET-006 | 2h | Done |
 | TICKET-015 | Auth — activation + reset MDP + scheduler | back | TICKET-005, TICKET-007 | 3h | À faire |
 | TICKET-016 | Frontend — Page de connexion | front | TICKET-008, TICKET-014 | 2h | À faire |
 | TICKET-017 | Frontend — Page d'activation | front | TICKET-008, TICKET-015 | 2h | À faire |

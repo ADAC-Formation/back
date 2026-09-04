@@ -52,18 +52,16 @@ public class SecurityConfig {
         private final ObjectMapper objectMapper;
         private final Validator validator;
         private final UserMapper userMapper;
+        private final JwtCookieFactory jwtCookieFactory;
 
         @Value("${app.cors.allowed-origins}")
         private String allowedOrigins;
-
-        @Value("${jwt.cookie-secure:false}")
-        private boolean secureCookie;
 
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(
                                 authenticationManager, jwtTokenService, objectMapper, validator, userMapper,
-                                secureCookie);
+                                jwtCookieFactory);
 
                 http
                                 .csrf(csrf -> csrf.disable())
