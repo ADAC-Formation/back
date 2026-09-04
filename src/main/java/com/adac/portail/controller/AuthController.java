@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,14 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Logout, "who am I", account activation and password reset. Login itself is handled directly by
  * {@link com.adac.portail.security.filter.JwtAuthenticationFilter} (see ARCHI.md) — there is no
- * {@code login} method here.
+ * {@code login} method here, and {@code POST /api/auth/login} accordingly doesn't appear in the
+ * generated OpenAPI document (springdoc only scans {@code @RestController} handlers).
+ *
+ * <p>Four of these six endpoints are genuinely public (see {@code SecurityConfig.PUBLIC_ROUTES}):
+ * {@code activate}, {@code resendActivation}, {@code forgotPassword}, {@code resetPassword} carry
+ * {@code @SecurityRequirements} (empty) to opt back out of {@code SwaggerConfig}'s
+ * globally-applied {@code jwtCookieAuth} requirement — without it, Swagger UI would show them as
+ * needing a cookie the caller can't have yet.</p>
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -49,6 +57,8 @@ public class AuthController {
 
     @Operation(summary = "Logout", description = "Expires the jwt cookie.")
     @ApiResponse(responseCode = "204", description = "Logged out")
+    @ApiResponse(responseCode = "401", description = "Not authenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal AdacUserDetails principal) {
         // Client-side only: this expires the cookie but the JWT itself stays valid for the rest
@@ -82,8 +92,10 @@ public class AuthController {
     }
 
     @Operation(summary = "Activate account", description = "First login after admin account creation: consumes the emailed code and sets a new password.")
-    @ApiResponse(responseCode = "200", description = "Account activated")
-    @ApiResponse(responseCode = "400", description = "Invalid, expired, or guess-exhausted code — all three are indistinguishable on purpose, see ActivationServiceImpl.verifyAndConsumeToken",
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Account activated",
+            content = @Content(schema = @Schema(implementation = StatusMessageResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid body, or invalid/expired/guess-exhausted code — all three are indistinguishable on purpose, see ActivationServiceImpl.verifyAndConsumeToken",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/activate")
     public ResponseEntity<StatusMessageResponse> activate(@Valid @RequestBody ActivateAccountRequest request) {
@@ -92,8 +104,12 @@ public class AuthController {
     }
 
     @Operation(summary = "Resend activation code", description = "Issues a fresh activation code, rate-limited.")
-    @ApiResponse(responseCode = "200", description = "Code sent (or email unknown — same response either way)")
-    @ApiResponse(responseCode = "429", description = "Too many codes requested recently",
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Code sent (or email unknown/already active/suspended — same response either way)",
+            content = @Content(schema = @Schema(implementation = StatusMessageResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid body",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "429", description = "Too many codes requested recently for this (known, pending) account",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/resend-activation")
     public ResponseEntity<StatusMessageResponse> resendActivation(@Valid @RequestBody ResendActivationRequest request) {
@@ -102,7 +118,11 @@ public class AuthController {
     }
 
     @Operation(summary = "Forgot password", description = "Sends a password reset code — same response whether the email is known or not.")
-    @ApiResponse(responseCode = "200", description = "Same response either way, by design")
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Same response every time, by design — known email, unknown email, or currently rate-limited",
+            content = @Content(schema = @Schema(implementation = StatusMessageResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid body",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/forgot-password")
     public ResponseEntity<StatusMessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         activationService.forgotPassword(request.getEmail());
@@ -110,8 +130,10 @@ public class AuthController {
     }
 
     @Operation(summary = "Reset password", description = "Consumes the emailed reset code and sets a new password.")
-    @ApiResponse(responseCode = "200", description = "Password updated")
-    @ApiResponse(responseCode = "400", description = "Invalid, expired, or guess-exhausted code — all three are indistinguishable on purpose, see ActivationServiceImpl.verifyAndConsumeToken",
+    @SecurityRequirements
+    @ApiResponse(responseCode = "200", description = "Password updated",
+            content = @Content(schema = @Schema(implementation = StatusMessageResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Invalid body, or invalid/expired/guess-exhausted code — all three are indistinguishable on purpose, see ActivationServiceImpl.verifyAndConsumeToken",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/reset-password")
     public ResponseEntity<StatusMessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {

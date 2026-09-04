@@ -215,6 +215,20 @@ class ActivationServiceImplTest {
     }
 
     @Test
+    void resendActivationSwallowsMailExceptionInsteadOfReturning500() {
+        // Same reasoning as forgotPassword's equivalent test: an SMTP failure must not turn into
+        // a 500 for a known, pending email while an unknown one keeps getting 200.
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
+                eq(user), eq(TokenType.ACCOUNT_ACTIVATION), any())).thenReturn(1L);
+        doThrow(new MailSendException("boom")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        activationService.resendActivation(user.getEmail());
+
+        verify(activationTokenRepository).save(any(ActivationToken.class));
+    }
+
+    @Test
     void resendActivationOverLimitThrowsRateLimitExceptionAndSendsNothing() {
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(

@@ -151,6 +151,21 @@ class JwtAuthenticationIntegrationTest {
     }
 
     @Test
+    void loginWithWrongPasswordOnDeactivatedAccountReturnsUnauthorizedNotForbidden() throws Exception {
+        // AuthenticationConfig checks the account's enabled status AFTER the password, not
+        // before (TICKET-045 review) — a wrong password on a real-but-inactive account must be
+        // indistinguishable from a wrong password on any other account. Getting this backwards
+        // (403 with no password needed) turns "account not activated" into a free, unthrottled
+        // probe for which emails are pending/suspended accounts.
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginBody(DISABLED_EMAIL, "definitely-wrong-password")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(cookie().doesNotExist("jwt"))
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
     void loginWithMalformedBodyReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

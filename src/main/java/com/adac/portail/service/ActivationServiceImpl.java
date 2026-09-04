@@ -81,10 +81,20 @@ public class ActivationServiceImpl implements ActivationService {
     public void resendActivation(String email) {
         userRepository.findByEmail(email)
                 .filter(this::isPendingFirstActivation)
-                .ifPresent(user -> issueAndEmailCode(
-                        user, TokenType.ACCOUNT_ACTIVATION,
-                        "Votre code d'activation ADAC",
-                        "Bonjour %s,\n\nVotre code d'activation est : %s\nIl expire dans 30 minutes."));
+                .ifPresent(user -> {
+                    try {
+                        issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION,
+                                "Votre code d'activation ADAC",
+                                "Bonjour %s,\n\nVotre code d'activation est : %s\nIl expire dans 30 minutes.");
+                    } catch (MailException e) {
+                        // Unlike RateLimitException (left to propagate — this endpoint's own AC
+                        // wants the 429 visible), an SMTP failure must not turn into a 500 for a
+                        // known, pending email while an unknown one keeps getting 200 — same
+                        // oracle forgotPassword guards against, through the same shared method
+                        // (see TICKET-045 branch-wide review — this endpoint was missing it).
+                        log.warn("Failed to send activation email", e);
+                    }
+                });
     }
 
     @Override

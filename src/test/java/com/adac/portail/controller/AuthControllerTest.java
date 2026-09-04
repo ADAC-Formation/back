@@ -188,6 +188,22 @@ class AuthControllerTest {
     }
 
     @Test
+    void activateWithUnparseableJsonReturnsBadRequestInTheStandardErrorShape() throws Exception {
+        // Distinct from the bean-validation test above: this body never parses at all, so @Valid
+        // never runs — a different exception (HttpMessageNotReadableException), and without its
+        // own handler this fell through to Spring's default (400 with an empty body, found via
+        // manual probing in the TICKET-045 branch-wide review).
+        mockMvc.perform(post("/api/auth/activate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("not json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Requête invalide"));
+
+        verify(activationService, never()).activate(any());
+    }
+
+    @Test
     void activateWithWeakPasswordReturnsBadRequest() throws Exception {
         // Long enough (8+) but no uppercase and no digit — docs/STORIES.md US-002 AC-03.
         mockMvc.perform(post("/api/auth/activate")

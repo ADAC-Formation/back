@@ -13,11 +13,14 @@ import com.adac.portail.exception.RateLimitException;
 public interface ActivationService {
 
     /**
-     * @throws ActivationTokenInvalidException no unused token for this email/type, or the code
-     *                                          doesn't match the current one
+     * @throws ActivationTokenInvalidException no unused token for this email/type, the code
+     *                                          doesn't match the current one, or — deliberately
+     *                                          the same exception, not {@link RateLimitException}
+     *                                          — the current token's guesses are exhausted (see
+     *                                          {@code ActivationToken.attempts}); a distinct 429
+     *                                          here would confirm a real token exists for this
+     *                                          email, see impl Javadoc
      * @throws ActivationTokenExpiredException  the current token exists but is past its TTL
-     * @throws RateLimitException               too many wrong-code guesses against the current
-     *                                           token (see {@code ActivationToken.attempts})
      */
     void activate(ActivateAccountRequest request);
 
@@ -37,11 +40,12 @@ public interface ActivationService {
     void forgotPassword(String email);
 
     /**
-     * @throws ActivationTokenInvalidException no unused token for this email/type, or the code
-     *                                          doesn't match the current one
+     * @throws ActivationTokenInvalidException no unused token for this email/type, the code
+     *                                          doesn't match the current one, or the current
+     *                                          token's guesses are exhausted — see
+     *                                          {@link #activate} for why that's not
+     *                                          {@link RateLimitException} here
      * @throws ActivationTokenExpiredException  the current token exists but is past its TTL
-     * @throws RateLimitException               too many wrong-code guesses against the current
-     *                                           token
      */
     void resetPassword(ResetPasswordRequest request);
 }

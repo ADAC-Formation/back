@@ -3,6 +3,7 @@ package com.adac.portail.exception;
 import com.adac.portail.dto.response.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -42,5 +43,19 @@ public class GlobalExceptionHandler {
                 .toList();
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide", details));
+    }
+
+    /**
+     * Syntactically-invalid JSON (not a validation failure — the body never parsed at all, so
+     * {@code @Valid} never ran). Without this, it falls through to Spring's default handling,
+     * which returns 400 with an empty body instead of docs/tech.md's {@code {status, message,
+     * details}} shape (found via manual probing during the TICKET-045 branch-wide review — the
+     * theorized cause, an unauthenticated {@code /error} dispatch, turned out to be wrong; the
+     * real gap was simply no handler for this specific exception).
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide"));
     }
 }

@@ -157,7 +157,10 @@ src/
 │   │   │   │   ├── AuthenticationConfig.java         ← expose l'AuthenticationManager (DaoAuthenticationProvider
 │   │   │   │   │                                        + BCrypt — pas de vérif manuelle : voir sa Javadoc pour
 │   │   │   │   │                                        pourquoi CustomAuthenticationManager a été abandonné
-│   │   │   │   │                                        en review TICKET-006 — timing attack + statut compte)
+│   │   │   │   │                                        en review TICKET-006 — timing attack + statut compte ;
+│   │   │   │   │                                        pre/postAuthenticationChecks réordonnés en TICKET-045
+│   │   │   │   │                                        pour que le statut "compte désactivé" ne se révèle
+│   │   │   │   │                                        qu'après un mot de passe correct, pas avant)
 │   │   │   │   ├── AdacUserDetails.java              ← UserDetails qui porte l'entité User complète (pas
 │   │   │   │   │                                        seulement email+password) — principal de l'Authentication
 │   │   │   │   ├── JwtTokenService.java              ← génère et vérifie le token JWT (verify() seulement —
@@ -344,6 +347,12 @@ HTTP Request
     verrouiller de vrais utilisateurs par-dessus la panne elle-même. Le message de cette dernière
     n'est jamais renvoyé tel quel au client (peut contenir des détails SQL/JDBC) — 500 générique
     à la place, détail loggé côté serveur uniquement.
+    **Attention** : exempter `DisabledException` du lockout n'est sûr que parce
+    qu'`AuthenticationConfig` vérifie désormais le mot de passe *avant* le statut du compte (voir
+    sa Javadoc) — sans ça, un `DisabledException` ne prouverait rien (aucun mot de passe requis
+    pour l'obtenir) et l'exempter du compteur en ferait une sonde d'énumération de comptes
+    illimitée. Bug réel trouvé et corrigé pendant la review croisée des trois tickets de
+    `feature/auth` — invisible tant que TICKET-014/015/045 étaient revus séparément.
   - **Risque résiduel accepté** : compteur en mémoire, donc remis à zéro à chaque redémarrage/
     déploiement, et non partagé entre plusieurs instances si l'app est un jour scalée
     horizontalement (actuellement un seul conteneur, voir `docs/INFRASTRUCTURE.md`). À revoir
@@ -384,6 +393,17 @@ HTTP Request
   - `TokenCleanupScheduler` charge tous les tokens dus en mémoire puis les supprime un par un
     (pas de requête `DELETE` en masse) — non-problème à l'échelle actuelle (~50 utilisateurs),
     à revoir si le volume change significativement.
+  - **Découvert lors de la review croisée TICKET-014/015/045** : `activate`/`resetPassword`
+    n'effacent pas le verrou de `LoginAttemptService` pour cet email — un utilisateur qui vient de
+    prouver un code reçu par email (preuve plus forte qu'un mot de passe) peut donc rester bloqué
+    par `429` sur `/login` jusqu'à 15 min de plus s'il avait déjà échoué 5 fois avant de
+    réinitialiser. Correctif possible : `LoginAttemptService.clearAllLocksFor(email)` (retirer
+    toutes les clés `email|*`, appelé depuis `activate`/`resetPassword`) — pas fait ici, pure
+    gêne UX récupérable, pas une faille de sécurité, pas de ticket ouvert.
+  - Même review : `/activate` et `/reset-password` n'ont pas de limite par IP (seul `/login` en a
+    une) — le plafond par compte (3 codes/15min, 3 essais/token) borne le brute-force par email
+    mais pas le nombre de comptes différents qu'une même IP peut cibler. Accepté vu l'échelle du
+    projet (~50 comptes connus, création admin uniquement) ; à revoir si ça change.
 
 ---
 
@@ -515,6 +535,7 @@ services:
       MAIL_PORT: ${MAIL_PORT}
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_KEY: ${SUPABASE_KEY}
       SUPABASE_BUCKET: ${SUPABASE_BUCKET}
@@ -590,7 +611,9 @@ server {
         proxy_pass http://backend:8080/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # $remote_addr, never $proxy_add_x_forwarded_for — see § Authentification, "IP réelle
+        # derrière nginx" (TICKET-045) for why the latter is a login-lockout bypass.
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
