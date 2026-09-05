@@ -26,6 +26,9 @@ public class FormationResponse {
     private Modalite modalite;
     private FormationStatus status;
 
+    /** Always populated, even when {@code category.isActive} is false — see docs/tech.md. */
+    private CategoryResponse category;
+
     /** May be the Super Admin (see docs/tech.md). */
     private UserResponse formateur;
 

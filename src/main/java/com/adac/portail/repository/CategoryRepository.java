@@ -9,5 +9,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     boolean existsByNomIgnoreCase(String nom);
 
+    /** Used by the PUT /{id} uniqueness check — excludes the category being edited itself. */
+    boolean existsByNomIgnoreCaseAndIdNot(String nom, Long id);
+
     List<Category> findAllByIsActiveTrue();
 }

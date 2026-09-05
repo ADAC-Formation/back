@@ -4,6 +4,7 @@ import com.adac.portail.dto.response.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,6 +29,38 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRateLimit(RateLimitException ex) {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(new ErrorResponse(HttpStatus.TOO_MANY_REQUESTS.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(CategoryAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
+    }
+
+    /**
+     * Method-security ({@code @PreAuthorize}, TICKET-047) denial — {@code CategoryController}'s
+     * write endpoints are the first in this branch to use it. A {@code @PreAuthorize} check runs
+     * as an AOP proxy around the controller method, inside {@code DispatcherServlet}, so this
+     * {@code @RestControllerAdvice} resolves it before {@code ExceptionTranslationFilter} (in the
+     * security filter chain, upstream of the dispatcher) would ever see it — in production that
+     * means {@code SecurityConfig}'s {@code accessDeniedHandler} never actually fires for a
+     * method-security denial, only for a URL-rule one, even though both produce the identical body
+     * here. Also what makes a {@code @WebMvcTest} slice with the filter chain disabled (see
+     * {@code CategoryControllerTest}) see a proper 403 at all, since there's no
+     * {@code ExceptionTranslationFilter} running in that slice to fall back on. Spring Security 6's
+     * {@code AuthorizationDeniedException} (what {@code @PreAuthorize} actually throws) extends
+     * this class, so it's caught here too without a separate handler.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), "Droits insuffisants"));
     }
 
     /**

@@ -176,7 +176,13 @@ src/
 │   │   │   │   ├── SecurityConfig.java               ← config Spring Security + CORS + règles
 │   │   │   │   │                                        (JWT stateless depuis TICKET-006 ; routes publiques
 │   │   │   │   │                                         explicites depuis TICKET-045 — plus de wildcard
-│   │   │   │   │                                         /api/auth/**, voir § Authentification ci-dessous)
+│   │   │   │   │                                         /api/auth/**, voir § Authentification ci-dessous ;
+│   │   │   │   │                                         @EnableMethodSecurity ajouté ici en TICKET-047 —
+│   │   │   │   │                                         cette branche avait été créée avant que TICKET-019
+│   │   │   │   │                                         (dev) ne l'ajoute pour UserController, donc
+│   │   │   │   │                                         @PreAuthorize sur CategoryController était un no-op
+│   │   │   │   │                                         en prod jusqu'à cette review — trouvé en review,
+│   │   │   │   │                                         voir la Javadoc de la classe)
 │   │   │   │   └── CustomUserDetailsService.java     ← charge l'utilisateur depuis la DB, renvoie un
 │   │   │   │                                            AdacUserDetails
 │   │   │   │
@@ -187,12 +193,20 @@ src/
 │   │   │   │
 │   │   │   ├── exception/
 │   │   │   │   ├── GlobalExceptionHandler.java       ← @RestControllerAdvice (TICKET-015 — première version,
-│   │   │   │   │                                        ne gère pour l'instant que les 3 exceptions ci-dessous ;
-│   │   │   │   │                                        login/me restent gérés dans security/, voir leur note)
+│   │   │   │   │                                        ne gérait que 3 exceptions ; TICKET-047 ajoute
+│   │   │   │   │                                        CategoryAlreadyExistsException (409),
+│   │   │   │   │                                        ResourceNotFoundException (404) et
+│   │   │   │   │                                        AccessDeniedException (403 — @PreAuthorize de
+│   │   │   │   │                                        CategoryController, premier endpoint de ce
+│   │   │   │   │                                        type sur cette branche) ; login/me restent
+│   │   │   │   │                                        gérés dans security/, voir leur note)
 │   │   │   │   ├── ActivationTokenExpiredException.java  ← 400 (TICKET-015)
 │   │   │   │   ├── ActivationTokenInvalidException.java  ← 400, même message que ci-dessus (TICKET-015)
 │   │   │   │   ├── RateLimitException.java               ← 429 (TICKET-015)
-│   │   │   │   ├── ResourceNotFoundException.java    ← 404 (pas encore créée — arrivera avec un ticket CRUD)
+│   │   │   │   ├── CategoryAlreadyExistsException.java   ← 409 (TICKET-047)
+│   │   │   │   ├── ResourceNotFoundException.java    ← 404, générique (TICKET-047 — même nom que sur
+│   │   │   │   │                                        feature/users pour éviter deux classes
+│   │   │   │   │                                        équivalentes une fois les branches fusionnées)
 │   │   │   │   ├── UnauthorizedException.java        ← 403 (pas encore créée)
 │   │   │   │   └── BadRequestException.java          ← 400 (pas encore créée)
 │   │   │   │

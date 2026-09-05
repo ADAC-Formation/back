@@ -73,6 +73,33 @@ class CategoryRepositoryTest {
         assertThat(exists).isFalse();
     }
 
+    // TICKET-047: existsByNomIgnoreCaseAndIdNot backs the PUT /{id} uniqueness check — it must
+    // exclude the category being edited itself, or a no-op rename (same name, same id) would
+    // spuriously 409.
+    @Test
+    void existsByNomIgnoreCaseAndIdNotIsFalseWhenTheOnlyMatchIsTheCategoryItself() {
+        Category category = categoryRepository.findAll().stream()
+                .filter(c -> SEED_NOMS.contains(c.getNom()))
+                .findFirst().orElseThrow();
+
+        boolean exists = categoryRepository.existsByNomIgnoreCaseAndIdNot(
+                category.getNom().toUpperCase(), category.getId());
+
+        assertThat(exists).isFalse();
+    }
+
+    @Test
+    void existsByNomIgnoreCaseAndIdNotIsTrueWhenAnotherCategoryHasTheName() {
+        Category category = categoryRepository.findAll().stream()
+                .filter(c -> SEED_NOMS.contains(c.getNom()))
+                .findFirst().orElseThrow();
+
+        boolean exists = categoryRepository.existsByNomIgnoreCaseAndIdNot(
+                category.getNom().toLowerCase(), category.getId() + 1_000_000L);
+
+        assertThat(exists).isTrue();
+    }
+
     @Test
     void findAllByIsActiveTrueExcludesADeactivatedCategory() {
         List<Category> activeCategories = categoryRepository.findAllByIsActiveTrue();
