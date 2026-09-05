@@ -7,6 +7,14 @@
 ## Description
 Créer les endpoints de gestion des utilisateurs (Formateurs et Stagiaires) : création (avec envoi d'email d'activation automatique), liste, suspension/réactivation. Seul le SUPER_ADMIN peut créer des comptes. Le Formateur ne voit que les stagiaires actifs.
 
+> **Révision 2026-09-04** : la section "Contrat API" ci-dessous (endpoints génériques `/api/users`)
+> date d'une conception antérieure et contredisait `docs/tech.md`, qui sépare
+> `/api/users/formateurs` et `/api/users/stagiaires` avec deux PATCH distincts
+> (`.../deactivate`, `.../reactivate`). L'implémentation suit `docs/tech.md` (le contrat partagé
+> avec Manon), pas le texte ci-dessous — conservé tel quel pour l'historique. Voir aussi
+> `docs/ARCHI.md` § Endpoints principaux (table mise à jour) et `UserServiceImplTest`/
+> `UserControllerTest` pour le détail des routes réellement implémentées.
+
 Contrat API (`docs/tech.md`) :
 - `POST /api/users` — créer formateur ou stagiaire
 - `GET /api/users` — liste (avec filtre `role`, `isActive`)
@@ -75,4 +83,4 @@ Conventional commits format (always in English):
 3h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

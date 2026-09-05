@@ -193,9 +193,12 @@ Créer un stagiaire (SUPER_ADMIN uniquement). Déclenche l'email d'activation.
 ```
 
 ### GET /api/users/{id}
-Profil d'un utilisateur.
+Profil d'un utilisateur. Réservé à SUPER_ADMIN et ADMIN — un STAGIAIRE consulte son propre profil
+via `PATCH /api/users/me` (pas de `GET /api/users/me` séparé pour l'instant), jamais celui d'un
+tiers par id.
 ```json
 // 200 OK → UserResponse
+// 403 — appelant STAGIAIRE
 // 404
 ```
 

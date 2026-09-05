@@ -49,6 +49,8 @@ import java.util.List;
  */
 @Configuration
 @EnableWebSecurity
+// TICKET-019: UserController uses @PreAuthorize (per-route role + role-dependent response body,
+// see its Javadoc) instead of one more block of requestMatchers here — this turns that on.
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {

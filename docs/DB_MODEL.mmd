@@ -10,6 +10,7 @@ erDiagram
         varchar role "SUPER_ADMIN | ADMIN | STAGIAIRE"
         boolean is_active "DEFAULT true"
         boolean email_notifications_enabled "DEFAULT true"
+        bigint version "DEFAULT 0 — optimistic lock, TICKET-019"
         timestamptz created_at "DEFAULT NOW()"
         timestamptz updated_at
     }
