@@ -1,0 +1,6 @@
+interface:
+  display_name: "Backend Agent ADAC"
+  short_description: "Traite ou reprend un seul ticket backend ADAC."
+  default_prompt: "Traite ou reprends un seul ticket backend ADAC conformément au workflow partagé."
+policy:
+  allow_implicit_invocation: false
