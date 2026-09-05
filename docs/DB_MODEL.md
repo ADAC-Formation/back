@@ -15,6 +15,9 @@ Tous les utilisateurs de la plateforme, quel que soit leur rôle.
 - `is_active` : false = compte suspendu/désactivé (conservé pour l'historique)
 - `email_notifications_enabled` : toggle du profil utilisateur
 - `password_hash` : BCrypt — jamais le mot de passe en clair
+- `version` : verrou optimiste JPA (`@Version`) — sans ça, un `PATCH /api/users/me` concurrent à
+  une suspension/réactivation/reset MDP peut réécrire silencieusement l'ancienne valeur de
+  `is_active`/`password_hash` (TICKET-019, review croisée)
 
 ### categories
 Catégorie de classement d'une formation (ex : "Estime de soi en travail social").

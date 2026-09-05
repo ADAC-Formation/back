@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -63,4 +64,17 @@ public class User {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    /**
+     * Optimistic lock (TICKET-019 branch-wide review) — without it, Hibernate writes every column
+     * on {@code save()}, so a {@code PATCH /api/users/me} that reads this row before a concurrent
+     * {@code deactivate}/{@code activate}/{@code reset-password} commits will flush a stale
+     * {@code is_active}/{@code password_hash} back over it, silently undoing the other request.
+     * A concurrent writer now gets {@link org.springframework.orm.ObjectOptimisticLockingFailureException}
+     * instead.
+     */
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private long version = 0L;
 }

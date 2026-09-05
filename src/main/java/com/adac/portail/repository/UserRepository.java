@@ -12,4 +12,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     List<User> findAllByRole(Role role);
+
+    /** Used by {@code UserServiceImpl.deactivate} to refuse suspending the last active SUPER_ADMIN. */
+    long countByRoleAndIsActiveTrue(Role role);
 }

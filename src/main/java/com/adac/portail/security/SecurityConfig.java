@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -39,6 +40,9 @@ import java.util.List;
  */
 @Configuration
 @EnableWebSecurity
+// TICKET-019: UserController uses @PreAuthorize (per-route role + role-dependent response body,
+// see its Javadoc) instead of one more block of requestMatchers here — this turns that on.
+@EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 

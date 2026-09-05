@@ -46,6 +46,9 @@ public class ActivationServiceImpl implements ActivationService {
     private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
     private static final String INVALID_CODE_MESSAGE = "Code invalide ou expiré";
     private static final String RATE_LIMIT_MESSAGE = "Trop de demandes. Réessayez dans 15 minutes.";
+    private static final String ACTIVATION_SUBJECT = "Votre code d'activation ADAC";
+    private static final String ACTIVATION_BODY =
+            "Bonjour %s,\n\nVotre code d'activation est : %s\nIl expire dans 30 minutes.";
 
     private final UserRepository userRepository;
     private final ActivationTokenRepository activationTokenRepository;
@@ -83,9 +86,7 @@ public class ActivationServiceImpl implements ActivationService {
                 .filter(this::isPendingFirstActivation)
                 .ifPresent(user -> {
                     try {
-                        issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION,
-                                "Votre code d'activation ADAC",
-                                "Bonjour %s,\n\nVotre code d'activation est : %s\nIl expire dans 30 minutes.");
+                        issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION, ACTIVATION_SUBJECT, ACTIVATION_BODY);
                     } catch (MailException e) {
                         // Unlike RateLimitException (left to propagate — this endpoint's own AC
                         // wants the 429 visible), an SMTP failure must not turn into a 500 for a
@@ -133,6 +134,26 @@ public class ActivationServiceImpl implements ActivationService {
         userRepository.save(user);
     }
 
+    @Override
+    @Transactional
+    public void sendActivationCode(User user) {
+        try {
+            issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION, ACTIVATION_SUBJECT, ACTIVATION_BODY);
+        } catch (MailException e) {
+            // Same reasoning as resendActivation: an SMTP failure must not blow up account
+            // creation, which already succeeded (the row is saved) by the time this runs. Logs
+            // the id, not the email (TICKET-019 review) — same choice as the other three catch
+            // blocks in this class, unlike this one before the fix: an application log typically
+            // has wider access and longer retention than the database itself.
+            log.warn("Failed to send activation email to newly created user id={}", user.getId(), e);
+        }
+    }
+
+    @Override
+    public boolean hasEverActivated(User user) {
+        return activationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull(user, TokenType.ACCOUNT_ACTIVATION);
+    }
+
     /**
      * An already-activated user has no legitimate reason to request a fresh
      * {@code ACCOUNT_ACTIVATION} code, and — critically — {@code User.isActive} doubles as both
@@ -147,7 +168,7 @@ public class ActivationServiceImpl implements ActivationService {
         if (user.isActive()) {
             return false;
         }
-        return !activationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull(user, TokenType.ACCOUNT_ACTIVATION);
+        return !hasEverActivated(user);
     }
 
     /**
