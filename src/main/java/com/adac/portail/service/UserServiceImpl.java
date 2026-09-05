@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.Objects;
@@ -40,7 +42,7 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse createFormateur(CreateUserRequest request) {
         User user = createPendingUser(request, Role.ADMIN);
-        activationService.sendActivationCode(user);
+        sendActivationCodeAfterCommit(user);
         return userMapper.toResponse(user);
     }
 
@@ -49,16 +51,16 @@ public class UserServiceImpl implements UserService {
     public UserResponse createStagiaire(CreateUserRequest request) {
         User user = createPendingUser(request, Role.STAGIAIRE);
         enroll(user, request.getFormationIds());
-        activationService.sendActivationCode(user);
+        sendActivationCodeAfterCommit(user);
         return userMapper.toResponse(user);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<UserResponse> getFormateurs(Boolean active, AdacUserDetails principal) {
-        boolean activeOnly = principal.getUser().getRole() == Role.ADMIN || Boolean.TRUE.equals(active);
+        boolean forceActiveOnly = principal.getUser().getRole() == Role.ADMIN;
         return userRepository.findAllByRole(Role.ADMIN).stream()
-                .filter(formateur -> !activeOnly || formateur.isActive())
+                .filter(formateur -> matchesActiveFilter(formateur, active, forceActiveOnly))
                 .map(userMapper::toResponse)
                 .toList();
     }
@@ -67,7 +69,6 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public List<UserResponse> getStagiaires(Boolean active, Long formationId, AdacUserDetails principal) {
         boolean isAdmin = principal.getUser().getRole() == Role.ADMIN;
-        boolean activeOnly = isAdmin || Boolean.TRUE.equals(active);
 
         List<User> stagiaires;
         if (formationId != null) {
@@ -89,7 +90,7 @@ public class UserServiceImpl implements UserService {
         }
 
         return stagiaires.stream()
-                .filter(stagiaire -> !activeOnly || stagiaire.isActive())
+                .filter(stagiaire -> matchesActiveFilter(stagiaire, active, isAdmin))
                 .map(userMapper::toResponse)
                 .toList();
     }
@@ -98,16 +99,41 @@ public class UserServiceImpl implements UserService {
     @Transactional(readOnly = true)
     public UserResponse getById(Long id, AdacUserDetails principal) {
         User target = findUserOrThrow(id);
-        // An ADMIN gets the same unrestricted profile lookup as SUPER_ADMIN for a fellow
-        // formateur/admin, but a stagiaire profile is only visible if enrolled in one of their
-        // formations — the same ownership rule already enforced on the list endpoint (TICKET-019
-        // review: this had no scoping at all, letting any ADMIN enumerate every user by id).
-        boolean isAdmin = principal.getUser().getRole() == Role.ADMIN;
-        if (isAdmin && target.getRole() == Role.STAGIAIRE
-                && !inscriptionRepository.existsByStagiaireAndFormation_Formateur(target, principal.getUser())) {
-            throw new ResourceNotFoundException("Utilisateur introuvable");
+        User caller = principal.getUser();
+        // An ADMIN gets an unrestricted lookup of their own profile, but every other target is
+        // scoped exactly like the list endpoints: a fellow formateur only if still active, a
+        // stagiaire only if enrolled in one of the caller's own formations (and active), and a
+        // SUPER_ADMIN never (branch-wide review: this had no scoping at all outside the stagiaire
+        // case, letting any ADMIN enumerate every SUPER_ADMIN or suspended account by id — a gap
+        // every list endpoint already closed).
+        if (caller.getRole() == Role.ADMIN && !Objects.equals(target.getId(), caller.getId())) {
+            boolean visible = switch (target.getRole()) {
+                case STAGIAIRE -> target.isActive()
+                        && inscriptionRepository.existsByStagiaireAndFormation_Formateur(target, caller);
+                case ADMIN -> target.isActive();
+                case SUPER_ADMIN -> false;
+            };
+            if (!visible) {
+                throw new ResourceNotFoundException("Utilisateur introuvable");
+            }
         }
         return userMapper.toResponse(target);
+    }
+
+    /**
+     * @param forceActiveOnly {@code true} short-circuits to "active only" regardless of
+     *                        {@code active} (the ADMIN-viewing-formateurs/stagiaires rule);
+     *                        otherwise a {@code null} filter means no restriction and a non-null
+     *                        one is honoured as-is — including {@code false} (branch-wide review:
+     *                        {@code Boolean.TRUE.equals(active)} used to collapse {@code false}
+     *                        and "absent" into the same "no filter" behaviour, so a SUPER_ADMIN
+     *                        asking for suspended accounts silently got everyone back).
+     */
+    private boolean matchesActiveFilter(User user, Boolean active, boolean forceActiveOnly) {
+        if (forceActiveOnly) {
+            return user.isActive();
+        }
+        return active == null || user.isActive() == active;
     }
 
     @Override
@@ -205,6 +231,29 @@ public class UserServiceImpl implements UserService {
         // trip even outside a write transaction. null means the Super Admin auto-assigned
         // themselves (see Formation.formateur's Javadoc), so it never matches an ADMIN caller.
         return formation.getFormateur() != null && formation.getFormateur().getId().equals(formateur.getId());
+    }
+
+    /**
+     * Defers the activation email until the enclosing transaction actually commits. Both
+     * {@code sendActivationCode} and its caller ({@code createFormateur}/{@code createStagiaire})
+     * are {@code @Transactional}, so calling it inline would send the mail *before* commit — on
+     * the exact concurrent-duplicate-email race {@link com.adac.portail.exception.GlobalExceptionHandler}
+     * exists to catch, the loser has already mailed a real activation code for a row that then
+     * rolls back (branch-wide review). Falls back to sending immediately when no transaction
+     * synchronization is active (e.g. a plain unit test calling the service directly, with no real
+     * transaction to hook into) so existing behaviour there is unchanged.
+     */
+    private void sendActivationCodeAfterCommit(User user) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            activationService.sendActivationCode(user);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                activationService.sendActivationCode(user);
+            }
+        });
     }
 
     private User findUserOrThrow(Long id) {

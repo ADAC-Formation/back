@@ -47,10 +47,14 @@ public interface UserService {
     List<UserResponse> getStagiaires(Boolean active, Long formationId, AdacUserDetails principal);
 
     /**
-     * @throws ResourceNotFoundException no user with this id, or (TICKET-019 review) the caller
-     *                                    is an ADMIN and the target is a STAGIAIRE not enrolled in
-     *                                    any formation they teach — same status as an unknown id,
-     *                                    on purpose: a 403 here would confirm the id exists.
+     * @throws ResourceNotFoundException no user with this id, or (TICKET-019 branch-wide review)
+     *                                    the caller is an ADMIN and the target isn't visible to
+     *                                    them under the same rule the list endpoints already
+     *                                    enforce: a STAGIAIRE not enrolled in any formation they
+     *                                    teach, a suspended fellow ADMIN, or any SUPER_ADMIN — same
+     *                                    status as an unknown id either way, never 403 (a 403 would
+     *                                    itself confirm the id exists). An ADMIN's own profile is
+     *                                    always visible regardless of the above.
      */
     UserResponse getById(Long id, AdacUserDetails principal);
 

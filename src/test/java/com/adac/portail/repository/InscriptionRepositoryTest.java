@@ -19,14 +19,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Against a real Postgres/Hibernate session (unlike {@code UserServiceImplTest}, which mocks
- * this repository) — specifically to cover what a mocked test cannot: {@code TICKET-019}'s
- * review found that reading {@code Inscription.stagiaire} (a LAZY association) through
- * {@code UserServiceImpl}'s original {@code findAllByFormation(...).stream()
- * .map(Inscription::getStagiaire)} pattern returned an uninitialized proxy that blew up with
- * {@code LazyInitializationException} once touched outside a transaction (this app runs with
- * {@code spring.jpa.open-in-view: false}) — invisible to Mockito, which just hands back whatever
- * plain object the test built. These queries project straight to {@code User} in one SQL query
- * instead, so there's no proxy left to mishandle.
+ * this repository) — proves the JPQL projects straight to a fully-loaded {@code User} row per
+ * query, rather than returning {@code Inscription.stagiaire} (a LAZY association) as an
+ * uninitialized proxy.
+ *
+ * <p><b>What this class does NOT prove</b> (branch-wide review correction): {@code @DataJpaTest}
+ * is {@code @Transactional} by default, so the persistence context stays open for the whole test
+ * method and the {@code User} returned here is often the very same managed instance saved earlier
+ * in it (first-level cache) — a LAZY proxy would happily initialize under those conditions too,
+ * and the assertions below would pass just as well against the old, buggy
+ * {@code findAllByFormation(...).stream().map(Inscription::getStagiaire)} implementation that
+ * originally threw {@code LazyInitializationException} in production (this app runs with
+ * {@code spring.jpa.open-in-view: false}, so there the persistence context is long closed by the
+ * time the controller serializes the response). That regression is only actually reproducible —
+ * and only actually guarded — by a real HTTP round trip through the full filter chain with no
+ * open transaction left by the time the response body is built; see
+ * {@code JwtAuthenticationIntegrationTest#getStagiairesThroughRealFilterChainReturnsFullyUsableUsersNotLazyProxies()}.</p>
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

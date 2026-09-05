@@ -1,7 +1,13 @@
 package com.adac.portail.security;
 
+import com.adac.portail.entity.Formation;
+import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
+import com.adac.portail.entity.enums.FormationStatus;
+import com.adac.portail.entity.enums.Modalite;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.repository.FormationRepository;
+import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
@@ -61,6 +67,12 @@ class JwtAuthenticationIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FormationRepository formationRepository;
+
+    @Autowired
+    private InscriptionRepository inscriptionRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -395,6 +407,69 @@ class JwtAuthenticationIntegrationTest {
 
         User persisted = userRepository.findByEmail(TEST_EMAIL).orElseThrow();
         assertThat(persisted.isEmailNotificationsEnabled()).isFalse();
+    }
+
+    @Test
+    void getStagiairesThroughRealFilterChainReturnsFullyUsableUsersNotLazyProxies() throws Exception {
+        // TICKET-019 branch-wide review: InscriptionRepositoryTest (@DataJpaTest) cannot actually
+        // prove this — its open transaction and first-level cache mean a LAZY-proxy regression of
+        // UserServiceImpl.getStagiaires would pass there too. Only a real HTTP round trip with
+        // spring.jpa.open-in-view: false (the persistence context is long closed by the time this
+        // response body is serialized) reproduces the LazyInitializationException this guards.
+        String formateurEmail = "jwt-lazy-formateur@adac.fr";
+        String formateurPassword = "F0rmateur-Pass!";
+        User formateur = userRepository.save(User.builder()
+                .email(formateurEmail)
+                .passwordHash(passwordEncoder.encode(formateurPassword))
+                .nom("Lazy")
+                .prenom("Formateur")
+                .role(Role.ADMIN)
+                .build());
+        User superAdmin = userRepository.save(User.builder()
+                .email("jwt-lazy-admin@adac.fr")
+                .passwordHash(passwordEncoder.encode("whatever"))
+                .nom("Lazy")
+                .prenom("Admin")
+                .role(Role.SUPER_ADMIN)
+                .build());
+        Formation formation = formationRepository.save(Formation.builder()
+                .intitule("Formation lazy-proxy regression test")
+                .dateDebut(java.time.LocalDate.of(2026, 3, 10))
+                .dateFin(java.time.LocalDate.of(2026, 3, 12))
+                .modalite(Modalite.PRESENTIEL)
+                .status(FormationStatus.ACTIVE)
+                .formateur(formateur)
+                .createdBy(superAdmin)
+                .build());
+        User stagiaire = userRepository.save(User.builder()
+                .email("jwt-lazy-stagiaire@adac.fr")
+                .passwordHash(passwordEncoder.encode("whatever"))
+                .nom("Lazy")
+                .prenom("Stagiaire")
+                .role(Role.STAGIAIRE)
+                .build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire).formation(formation).build());
+
+        try {
+            MvcResult loginResult = mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(loginBody(formateurEmail, formateurPassword)))
+                    .andExpect(status().isOk())
+                    .andReturn();
+            Cookie jwtCookie = loginResult.getResponse().getCookie("jwt");
+
+            mockMvc.perform(get("/api/users/stagiaires").cookie(jwtCookie))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].email").value("jwt-lazy-stagiaire@adac.fr"))
+                    .andExpect(jsonPath("$[0].isActive").value(true));
+        } finally {
+            inscriptionRepository.findAllByStagiaire(stagiaire).forEach(inscriptionRepository::delete);
+            formationRepository.delete(formation);
+            userRepository.delete(stagiaire);
+            userRepository.delete(formateur);
+            userRepository.delete(superAdmin);
+        }
     }
 
     private String loginBody(String email, String password) throws Exception {

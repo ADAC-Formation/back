@@ -1,6 +1,9 @@
 package com.adac.portail.exception;
 
 import com.adac.portail.dto.response.ErrorResponse;
+import org.hibernate.exception.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +22,8 @@ import java.util.List;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler({ActivationTokenExpiredException.class, ActivationTokenInvalidException.class})
     public ResponseEntity<ErrorResponse> handleInvalidActivationToken(RuntimeException ex) {
@@ -58,11 +63,30 @@ public class GlobalExceptionHandler {
      * generic (not tied to the email message specifically) since this handler is global and any
      * future unique constraint could trigger it the same way; the specific, friendlier message
      * from the pre-check is still what callers see in the overwhelmingly common case.
+     *
+     * <p>Narrowed to an actual unique-constraint violation (SQLState {@code 23505}) — this
+     * exception also covers NOT NULL, foreign-key and check-constraint violations, which are
+     * server-side bugs, not a client-side conflict. Reporting those as 409 hid them from the
+     * client-facing status code *and* from the logs (TICKET-019 branch-wide review: {@code ex} was
+     * never logged, so a real data bug would leave zero trace). Anything else falls through to a
+     * logged 500.</p>
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), "Conflit : cette ressource existe déjà"));
+        if (isUniqueConstraintViolation(ex)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new ErrorResponse(HttpStatus.CONFLICT.value(), "Conflit : cette ressource existe déjà"));
+        }
+        log.error("Unexpected data integrity violation", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Erreur interne"));
+    }
+
+    private boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {
+        // The immediate cause, not getMostSpecificCause(): ConstraintViolationException itself
+        // wraps the driver's SQLException as its own cause, so walking to the deepest cause would
+        // skip straight past it to the SQLException instead.
+        return ex.getCause() instanceof ConstraintViolationException cve && "23505".equals(cve.getSQLState());
     }
 
     /**

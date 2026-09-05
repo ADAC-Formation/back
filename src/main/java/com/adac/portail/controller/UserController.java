@@ -94,10 +94,10 @@ public class UserController {
         return ResponseEntity.ok(userService.getStagiaires(active, formationId, principal));
     }
 
-    @Operation(summary = "Get user profile", description = "SUPER_ADMIN and ADMIN only — a STAGIAIRE reads their own profile via GET /api/auth/me instead. An ADMIN caller only sees a stagiaire profile if enrolled in one of their formations (same rule as GET /api/users/stagiaires); a 404 either way.")
+    @Operation(summary = "Get user profile", description = "SUPER_ADMIN and ADMIN only — a STAGIAIRE reads their own profile via GET /api/auth/me instead. An ADMIN caller sees their own profile unrestricted, but any other target is scoped exactly like the list endpoints: a stagiaire only if enrolled in one of their formations, a fellow formateur only if still active, and never a SUPER_ADMIN — 404 in every refused case, never 403.")
     @ApiResponse(responseCode = "200", description = "OK",
             content = @Content(schema = @Schema(implementation = UserResponse.class)))
-    @ApiResponse(responseCode = "404", description = "No such user, or an ADMIN caller has no formation in common with this stagiaire",
+    @ApiResponse(responseCode = "404", description = "No such user, or an ADMIN caller isn't allowed to see this target (see description)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")

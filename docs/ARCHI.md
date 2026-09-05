@@ -425,15 +425,27 @@ HTTP Request
   sur le chemin par défaut (sans `formationId`), laissant n'importe quel ADMIN lire le listing de
   n'importe quelle formation en fournissant son id directement. Un id hors périmètre renvoie 404,
   jamais 403 (un 403 confirmerait que l'id existe).
+- **`GET /api/users/{id}`, portée complète** — **trouvé en review branch-wide** : la scoping
+  ci-dessus ne couvrait que la cible STAGIAIRE ; un ADMIN pouvait lire le profil de n'importe quel
+  SUPER_ADMIN ou de n'importe quel compte suspendu (formateur ou stagiaire) par simple énumération
+  d'id, alors que ces comptes sont déjà masqués sur les listes (`GET /formateurs`,
+  `GET /stagiaires`). `UserServiceImpl.getById` applique désormais la même règle que les listes à
+  toute cible autre que soi-même : STAGIAIRE → actif + inscrit dans une formation du caller,
+  ADMIN → actif, SUPER_ADMIN → jamais visible pour un ADMIN. 404 dans tous les cas de refus, jamais
+  403.
 - **Ces deux requêtes projettent directement vers `User`** (`select i.stagiaire from Inscription i
   where ...`), pas vers `Inscription` puis `.map(Inscription::getStagiaire)` — cette dernière forme
   renvoie un proxy Hibernate LAZY non initialisé ; avec `spring.jpa.open-in-view: false` (pas de
   session ouverte après la fin de la requête HTTP) et aucune méthode `@Transactional` à l'appel, le
   moindre accès à un champ du stagiaire (`isActive()`, le mapper MapStruct) levait
   `LazyInitializationException` — **trouvé en review croisée**, invisible aux tests Mockito (qui
-  renvoient des `User` déjà pleinement construits, jamais de vrai proxy). Couvert par un
-  `@DataJpaTest` dédié (`InscriptionRepositoryTest`), le seul type de test qui peut réellement
-  détecter ce genre de bug.
+  renvoient des `User` déjà pleinement construits, jamais de vrai proxy).
+  `InscriptionRepositoryTest` (`@DataJpaTest`) prouve que la requête JPQL projette bien un `User`
+  complet ; **correction, review branch-wide** : `@DataJpaTest` garde une transaction ouverte et le
+  cache de premier niveau pendant tout le test, donc il n'aurait pas détecté la régression
+  elle-même (le proxy LAZY s'initialise sans broncher dans ces conditions). Le vrai test de
+  non-régression est `JwtAuthenticationIntegrationTest` (`@SpringBootTest` + vraie requête HTTP à
+  travers la chaîne de filtres, transaction fermée avant sérialisation).
 - **`PATCH /api/users/{id}/deactivate`** refuse l'auto-suspension et la suspension du dernier
   SUPER_ADMIN actif (`ConflictException`, 409) — ni le logout ni un reset de mot de passe ne
   révoquent le JWT lui-même (voir § Authentification plus haut), donc une auto-suspension

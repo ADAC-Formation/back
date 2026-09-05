@@ -72,7 +72,9 @@ Conventional commits format (always in English):
 
 ## PR (only on last ticket of this branch)
 
-- [ ] This is NOT the last ticket on `feature/users` — see TICKET-021
+- [x] Last backend ticket on `feature/users` — TICKET-021 is a frontend ticket in the separate
+      `ADAC-Formation/front` repo and never lands here, so the back repo's branch is considered
+      complete once TICKET-019/020 are done. PR opened to `dev`.
 
 ## Skills to invoke
 
