@@ -37,6 +37,12 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.TOO_MANY_REQUESTS.value(), ex.getMessage()));
     }
 
+    @ExceptionHandler(CategoryAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleCategoryAlreadyExists(CategoryAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
@@ -49,6 +55,20 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
     }
 
+    /**
+     * Method-security ({@code @PreAuthorize}, TICKET-047) denial — {@code CategoryController}'s
+     * write endpoints are the first in this branch to use it. A {@code @PreAuthorize} check runs
+     * as an AOP proxy around the controller method, inside {@code DispatcherServlet}, so this
+     * {@code @RestControllerAdvice} resolves it before {@code ExceptionTranslationFilter} (in the
+     * security filter chain, upstream of the dispatcher) would ever see it — in production that
+     * means {@code SecurityConfig}'s {@code accessDeniedHandler} never actually fires for a
+     * method-security denial, only for a URL-rule one, even though both produce the identical body
+     * here. Also what makes a {@code @WebMvcTest} slice with the filter chain disabled (see
+     * {@code CategoryControllerTest}) see a proper 403 at all, since there's no
+     * {@code ExceptionTranslationFilter} running in that slice to fall back on. Spring Security 6's
+     * {@code AuthorizationDeniedException} (what {@code @PreAuthorize} actually throws) extends
+     * this class, so it's caught here too without a separate handler.
+     */
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

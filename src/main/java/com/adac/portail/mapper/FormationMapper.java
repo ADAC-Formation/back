@@ -5,14 +5,15 @@ import com.adac.portail.entity.Formation;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
-@Mapper(componentModel = "spring", uses = UserMapper.class)
+@Mapper(componentModel = "spring", uses = {UserMapper.class, CategoryMapper.class})
 public interface FormationMapper {
 
     /**
      * {@code inscriptionsCount} isn't derivable from the (deliberately lean, no back-reference
      * collection) Formation entity — it needs a count query the mapper doesn't have access to.
      * Use {@link #toResponse(Formation, int)} once that count is known (e.g. from
-     * InscriptionRepository in the service layer).
+     * InscriptionRepository in the service layer). {@code category} maps via {@link CategoryMapper}
+     * with no explicit rule needed (TICKET-047 — base wiring only, full integration in TICKET-022).
      */
     @Mapping(target = "inscriptionsCount", ignore = true)
     FormationResponse toResponse(Formation formation);

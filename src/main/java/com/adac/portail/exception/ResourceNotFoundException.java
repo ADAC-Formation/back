@@ -7,7 +7,6 @@ package com.adac.portail.exception;
  * its own 404 exception (see docs/ARCHI.md).
  */
 public class ResourceNotFoundException extends RuntimeException {
-
     public ResourceNotFoundException(String message) {
         super(message);
     }

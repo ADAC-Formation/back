@@ -30,19 +30,19 @@ Contrat API (`docs/tech.md`) :
   de TICKET-022 pour l'intégration complète, mais le mapper de base peut être posé ici)
 
 ## Acceptance criteria
-- [ ] `POST /api/categories` (SUPER_ADMIN) → 201 + `CategoryResponse`, `isActive = true` par défaut
-- [ ] `POST /api/categories` avec un nom déjà utilisé (insensible à la casse) → 409
-- [ ] `POST /api/categories` par ADMIN ou STAGIAIRE → 403
-- [ ] `POST /api/categories` avec `couleur` qui ne matche pas `^#[0-9A-Fa-f]{6}$` → 400
-- [ ] `GET /api/categories` → toutes les catégories, actives et désactivées
-- [ ] `GET /api/categories?active=true` → uniquement les actives
-- [ ] `PUT /api/categories/{id}` → nom et/ou couleur mis à jour, `isActive` inchangé
-- [ ] `PUT /api/categories/{id}` avec un nom déjà pris par une **autre** catégorie → 409
-- [ ] `PATCH /api/categories/{id}/deactivate` → `isActive = false` ; les formations existantes
+- [x] `POST /api/categories` (SUPER_ADMIN) → 201 + `CategoryResponse`, `isActive = true` par défaut
+- [x] `POST /api/categories` avec un nom déjà utilisé (insensible à la casse) → 409
+- [x] `POST /api/categories` par ADMIN ou STAGIAIRE → 403
+- [x] `POST /api/categories` avec `couleur` qui ne matche pas `^#[0-9A-Fa-f]{6}$` → 400
+- [x] `GET /api/categories` → toutes les catégories, actives et désactivées
+- [x] `GET /api/categories?active=true` → uniquement les actives
+- [x] `PUT /api/categories/{id}` → nom et/ou couleur mis à jour, `isActive` inchangé
+- [x] `PUT /api/categories/{id}` avec un nom déjà pris par une **autre** catégorie → 409
+- [x] `PATCH /api/categories/{id}/deactivate` → `isActive = false` ; les formations existantes
       référençant cette catégorie ne sont pas modifiées
-- [ ] `PATCH /api/categories/{id}/activate` sur une catégorie déjà active → 200, no-op (idempotent)
-- [ ] Aucun endpoint `DELETE /api/categories/{id}` n'existe
-- [ ] Tous les endpoints documentés Swagger
+- [x] `PATCH /api/categories/{id}/activate` sur une catégorie déjà active → 200, no-op (idempotent)
+- [x] Aucun endpoint `DELETE /api/categories/{id}` n'existe
+- [x] Tous les endpoints documentés Swagger
 
 ## Branch
 `feature/categories`
@@ -51,15 +51,20 @@ Contrat API (`docs/tech.md`) :
 
 ## Write tests first (TDD)
 Before writing any implementation code:
-- [ ] Test 1 (`@WebMvcTest(CategoryController.class)`) : `POST /api/categories` SUPER_ADMIN, body
+- [x] Test 1 (`@WebMvcTest(CategoryController.class)`) : `POST /api/categories` SUPER_ADMIN, body
       valide → 201
-- [ ] Test 2 : `POST /api/categories` par ADMIN → 403
-- [ ] Test 3 (`@ExtendWith(MockitoExtension)`, `CategoryServiceImplTest`) : `createCategory` avec un
+- [x] Test 2 : `POST /api/categories` par ADMIN → 403
+- [x] Test 3 (`@ExtendWith(MockitoExtension)`, `CategoryServiceImplTest`) : `createCategory` avec un
       nom déjà pris (`existsByNomIgnoreCase` = true) → `CategoryAlreadyExistsException`
-- [ ] Test 4 (`@WebMvcTest`) : `POST /api/categories` avec `couleur = "rouge"` → 400
-- [ ] Test 5 (Mockito) : `deactivateCategory` puis `activateCategory` → `isActive` repasse à `true`,
+- [x] Test 4 (`@WebMvcTest`) : `POST /api/categories` avec `couleur = "rouge"` → 400
+- [x] Test 5 (Mockito) : `deactivateCategory` puis `activateCategory` → `isActive` repasse à `true`,
       sans toucher aux formations (pas d'appel à `FormationRepository`)
-- [ ] Test 6 (`@WebMvcTest`) : `GET /api/categories?active=true` → ne retourne que les catégories actives
+- [x] Test 6 (`@WebMvcTest`) : `GET /api/categories?active=true` → ne retourne que les catégories actives
+
+Plus, hors liste minimale du ticket : 403 STAGIAIRE, 403 sur PUT/activate/deactivate, 404 sur PUT
+et activate avec id inconnu, blank `nom` → 400, validation PUT, `DELETE` absent, contrat JSON
+`isActive`, race TOCTOU sur l'unicité (create + rename) — voir la review branch-wide (21 tests
+contrôleur + 14 tests service + 2 repository + 1 contrat JSON, tous verts).
 
 Run tests → confirm RED. Then implement. Run tests → confirm GREEN.
 
@@ -90,4 +95,4 @@ Conventional commits format (always in English):
 2h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done
