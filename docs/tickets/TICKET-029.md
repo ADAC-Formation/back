@@ -6,11 +6,19 @@
 ## Description
 Créer les endpoints de messagerie individuelle : liste des conversations, messages dans une conversation, envoi de message, marquage comme lu. Les règles de destinataires varient selon le rôle (voir `docs/tech.md`).
 
-Contrat API (`docs/tech.md`) :
-- `GET /api/messages/conversations` — liste des conversations
-- `GET /api/messages/conversations/{conversationId}` — messages d'une conversation
-- `POST /api/messages` — envoyer un message individuel
-- `PATCH /api/messages/conversations/{conversationId}/read` — marquer comme lu
+**Note de révision (2026-09-05)** : les URLs ci-dessous et le marquage "lu" sont corrigés pour suivre
+`docs/tech.md` tel qu'il existe réellement (et les DTOs/entités déjà posés par TICKET-005 —
+`SendMessageRequest`, `ConversationResponse`, `MessageMapper` — qui anticipent tous ce contrat-là,
+pas celui écrit ci-dessous à l'origine) : pas de préfixe `/conversations`, `POST` va sur
+`/api/messages/send` (un seul endpoint pour l'individuel ET le groupé, `SendMessageRequest` porte
+les deux formes de body — le groupé est TICKET-030, hors périmètre ici), et **`PATCH
+/api/messages/{id}/read` marque un seul message** (par son id) — pas tous les messages d'une
+conversation, malgré Test 5 plus bas à l'origine. Décision validée avec Charlotte : le contrat
+partagé avec Manon (tech.md) prime. Contrat réel :
+- `GET /api/messages` — liste des conversations
+- `GET /api/messages/{conversationId}` — messages d'une conversation (`conversationId` = id de l'autre participant)
+- `POST /api/messages/send` — envoyer un message individuel (`recipientIds`) — le groupé (`filter`) est TICKET-030
+- `PATCH /api/messages/{id}/read` — marquer UN message comme lu
 
 ## Repo
 [ ] front/   [x] back   [ ] both
@@ -18,20 +26,30 @@ Contrat API (`docs/tech.md`) :
 ## Files to create or modify
 - `controller/MessageController.java` — tous les endpoints avec autorisations et Swagger
 - `service/MessageService.java` (interface) + `MessageServiceImpl.java` — logique envoi, conversations, règles d'accès
-- `dto/request/SendMessageRequest.java` — `recipientId`, `content`
-- `dto/response/MessageResponse.java` — `id`, `sender`, `content`, `sentAt`, `readAt`
-- `dto/response/ConversationResponse.java` — `otherUser`, `lastMessage`, `unreadCount`
-- `mapper/MessageMapper.java`
+- `service/NotificationService.java` (interface minimale) + `NotificationServiceImpl.java` — juste de
+  quoi satisfaire l'AC "déclenche une notification" ; le CRUD complet (liste, marquer lu, etc.) est
+  TICKET-033, hors périmètre ici
+- `dto/request/SendMessageRequest.java`, `dto/response/MessageResponse.java`,
+  `dto/response/ConversationResponse.java` — déjà posés par TICKET-005, inchangés ici
+- `mapper/MessageMapper.java` — déjà posé par TICKET-005, inchangé ici
 
 ## Acceptance criteria
-- [ ] `POST /api/messages` — SUPER_ADMIN peut écrire à n'importe qui
-- [ ] ADMIN peut écrire à : SUPER_ADMIN, tout ADMIN actif, tout STAGIAIRE actif
-- [ ] STAGIAIRE peut écrire à : SUPER_ADMIN, tout ADMIN actif
-- [ ] Tentative d'écriture vers un rôle non autorisé → 403
-- [ ] `GET /api/messages/conversations` → triées par date du dernier message (plus récente en premier)
-- [ ] `PATCH /api/messages/conversations/{id}/read` → tous les messages non lus de la conversation marqués `readAt = now()`
-- [ ] Envoi d'un message → déclenche une notification pour le destinataire (appel `NotificationService`)
-- [ ] Tous les endpoints documentés Swagger
+- [x] `POST /api/messages/send` — SUPER_ADMIN peut écrire à n'importe qui
+- [x] ADMIN peut écrire à : SUPER_ADMIN, tout ADMIN actif, tout STAGIAIRE actif
+- [x] STAGIAIRE peut écrire à : SUPER_ADMIN, tout ADMIN actif
+- [x] Tentative d'écriture vers un rôle non autorisé → 403
+- [x] `GET /api/messages` → triées par date du dernier message (plus récente en premier)
+- [x] `PATCH /api/messages/{id}/read` → le message `id` marqué `readAt = now()` (un seul message, voir note de révision)
+- [x] Envoi d'un message → déclenche une notification pour le destinataire (appel `NotificationService`)
+- [x] Tous les endpoints documentés Swagger
+
+Hors liste minimale, couvert en plus (voir review branch-wide) : matrice de rôles exhaustive
+(`@ParameterizedTest`, 14 cas), `recipientIds` avec 0, 2+ ou `null` éléments → 400, destinataire
+inconnu → 403 (pas 404, oracle d'énumération fermé), `GET /api/messages/{conversationId}` inconnu
+→ `[]` (même raison), idempotence de `markAsRead`, `readAt`/`recipients` résolus par lot (pas de
+N+1) sur la lecture d'un fil et sur la liste des conversations, `/api/messages/**` protégé par
+cookie (`JwtAuthenticationIntegrationTest`) — 73 nouveaux tests au total (216 vs 143 avant ce
+ticket).
 
 ## Branch
 `feature/messagerie`
@@ -40,11 +58,12 @@ Contrat API (`docs/tech.md`) :
 
 ## Write tests first (TDD)
 Before writing any implementation code:
-- [ ] Test 1 (`@WebMvcTest(MessageController.class)`): `POST /api/messages` SUPER_ADMIN → STAGIAIRE → 201
-- [ ] Test 2 : STAGIAIRE → ADMIN → 201 ; STAGIAIRE → STAGIAIRE → 403
-- [ ] Test 3 (`@DataJpaTest`): requête conversations — triées par `sentAt DESC`
-- [ ] Test 4 (`@ExtendWith(MockitoExtension)`): `sendMessage` → `NotificationService.notify` appelé (verify mock)
-- [ ] Test 5 : `markConversationAsRead` → tous les messages de la conversation ont `readAt != null`
+- [x] Test 1 (`@WebMvcTest(MessageController.class)`): `POST /api/messages/send` SUPER_ADMIN → STAGIAIRE → 201
+- [x] Test 2 : STAGIAIRE → ADMIN → 201 ; STAGIAIRE → STAGIAIRE → 403
+- [x] Test 3 (`@DataJpaTest`): requête conversations — triées par `createdAt DESC`
+- [x] Test 4 (`@ExtendWith(MockitoExtension)`): `sendMessage` → `NotificationService.notify` appelé (verify mock)
+- [x] Test 5 : `markAsRead(messageId)` → le message a `readAt != null` (voir note de révision — un seul
+      message, pas toute la conversation)
 
 Run tests → confirm RED. Then implement. Run tests → confirm GREEN.
 
@@ -74,4 +93,4 @@ Conventional commits format (always in English):
 3h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

@@ -56,6 +56,28 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * A business-rule 403 raised directly by a service (TICKET-029: role-based messaging
+     * restrictions) — distinct from {@link AccessDeniedException} below, which is Spring
+     * Security's own, thrown by {@code @PreAuthorize}'s static per-route check. See
+     * {@link UnauthorizedException}'s Javadoc for why the two need separate types.
+     */
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), ex.getMessage()));
+    }
+
+    /**
+     * A well-formed body {@code @Valid} can't reject on its own — a cross-field/business rule
+     * (TICKET-029: {@code SendMessageRequest} needs exactly one of two mutually-exclusive shapes).
+     */
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+    }
+
+    /**
      * Last-resort fallback for a UNIQUE constraint the service layer's own pre-check didn't catch
      * — e.g. two concurrent {@code POST /api/users/formateurs} for the same email both pass
      * {@code UserServiceImpl}'s {@code findByEmail} check before either commits (TICKET-019

@@ -72,7 +72,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-029 | Backend — Messagerie individuelle | back | TICKET-005 | 3h | À faire |
+| TICKET-029 | Backend — Messagerie individuelle | back | TICKET-005 | 3h | Done |
 | TICKET-030 | Backend — Messagerie groupée + filtres | back | TICKET-029, TICKET-022 | 2h | À faire |
 | TICKET-031 | Frontend — Interface messagerie | front | TICKET-029 | 3h | À faire |
 | TICKET-032 | Frontend — Messagerie groupée | front | TICKET-030, TICKET-031 | 2h | À faire |
