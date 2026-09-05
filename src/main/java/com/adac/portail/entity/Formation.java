@@ -58,7 +58,7 @@ public class Formation {
     @Builder.Default
     private FormationStatus status = FormationStatus.ACTIVE;
 
-    /** NOT NULL since V2 (TICKET-046) — every formation belongs to exactly one category. */
+    /** NOT NULL since V3 (TICKET-046) — every formation belongs to exactly one category. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;

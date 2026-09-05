@@ -74,7 +74,7 @@ class CategoryServiceImplTest {
 
     // Branch-wide review: existsByNomIgnoreCase is check-then-act, not race-proof — two concurrent
     // creates with the same name can both pass it before either commits. uk_categories_nom_upper
-    // (V2__add_categories.sql) is the real guarantee; this proves the resulting
+    // (V3__add_categories.sql) is the real guarantee; this proves the resulting
     // DataIntegrityViolationException on the losing request still surfaces as the same 409, not a
     // raw 500.
     @Test

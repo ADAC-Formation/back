@@ -12,9 +12,9 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * TICKET-046 — V2__add_categories.sql seeds 6 categories; this exercises them via the real
+ * TICKET-046 — V3__add_categories.sql seeds 6 categories; this exercises them via the real
  * migrated schema (AutoConfigureTestDatabase.Replace.NONE, like FormationRepositoryTest), not an
- * in-memory DB, so Flyway actually runs V2 for this test too.
+ * in-memory DB, so Flyway actually runs V3 for this test too.
  *
  * <p>Assertions below are deliberately state-relative (never "the DB has exactly N rows" /
  * "every row is active"): this runs against the real shared dev Postgres, not an isolated

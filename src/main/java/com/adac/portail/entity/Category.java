@@ -35,7 +35,7 @@ public class Category {
     private Long id;
 
     // Not `unique = true`: the DB enforces case-insensitive uniqueness via the expression index
-    // `uk_categories_nom_upper ON categories (UPPER(nom))` (V2__add_categories.sql), not a plain
+    // `uk_categories_nom_upper ON categories (UPPER(nom))` (V3__add_categories.sql), not a plain
     // unique constraint on this column — `unique = true` here would misdescribe it as
     // case-sensitive (review, TICKET-047).
     @Column(nullable = false)

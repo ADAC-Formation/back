@@ -88,7 +88,7 @@ public class CategoryServiceImpl implements CategoryService {
      * The {@code existsByNomIgnoreCase*} pre-check in {@link #createCategory} / {@link
      * #updateCategory} is check-then-act, not race-proof — two concurrent calls with the same name
      * can both pass it before either commits. {@code uk_categories_nom_upper}
-     * (V2__add_categories.sql) is what actually guarantees uniqueness at the database level; this
+     * (V3__add_categories.sql) is what actually guarantees uniqueness at the database level; this
      * turns the resulting {@link DataIntegrityViolationException} on the losing request into the
      * same friendly 409 the pre-check produces in the common case, instead of a request that leaks
      * the driver's default 500 (review, TICKET-047).
