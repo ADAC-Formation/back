@@ -244,12 +244,19 @@
 
 **Story** : En tant que Super Admin ou Formateur, je veux envoyer un message à un groupe de stagiaires pour communiquer efficacement avec plusieurs personnes à la fois.
 
+**Note de révision (TICKET-030)** : "documents manquants" (AC-01) n'a aucune définition dans le
+modèle de données — pas de notion de "document requis" par formation (voir `docs/DB_MODEL.md`).
+Décidé avec Charlotte : un stagiaire compte comme "documents manquants" s'il n'a **aucun document
+ciblé sur aucune de ses inscriptions**, toutes formations confondues. L'aperçu (AC-03) est exposé
+via `GET /api/messages/group/preview` (`docs/tech.md` § 7), ajouté à cette occasion — pas
+d'endpoint dédié prévu à l'origine dans le contrat.
+
 **Critères d'acceptation :**
-- [ ] AC-01 : Le Super Admin peut filtrer les destinataires par : formation / documents manquants / sélection libre
-- [ ] AC-02 : Le Formateur peut filtrer par formation → envoyer à tous les membres de cette formation
-- [ ] AC-03 : L'aperçu des destinataires est affiché avant l'envoi
-- [ ] AC-04 : Chaque destinataire reçoit une notification individuelle
-- [ ] AC-05 : Le message groupé est visible dans la messagerie de chaque destinataire
+- [x] AC-01 : Le Super Admin peut filtrer les destinataires par : formation / documents manquants / sélection libre
+- [x] AC-02 : Le Formateur peut filtrer par formation → envoyer à tous les membres de cette formation
+- [x] AC-03 : L'aperçu des destinataires est affiché avant l'envoi
+- [x] AC-04 : Chaque destinataire reçoit une notification individuelle
+- [x] AC-05 : Le message groupé est visible dans la messagerie de chaque destinataire
 
 **Taille** : M
 **Dépend de** : US-013

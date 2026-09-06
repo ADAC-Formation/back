@@ -7,25 +7,58 @@
 Implémenter l'envoi de messages groupés avec filtres de destinataires. Le SUPER_ADMIN peut filtrer par formation, documents manquants ou sélection libre. Le ADMIN peut filtrer par formation uniquement.
 
 Contrat API (`docs/tech.md`) :
-- `POST /api/messages/group` — envoyer un message groupé
-- `GET /api/messages/group/preview` — prévisualiser les destinataires avant envoi
+- `POST /api/messages/send` — envoi groupé via `filter` (pas d'endpoint `POST /messages/group`
+  séparé — décision : `docs/tech.md` documentait déjà la réutilisation de l'endpoint d'envoi
+  individuel, avec `SendMessageRequest.Filter`/`MessageFilterType` pré-posés par TICKET-005 ;
+  la fiche ci-dessous, écrite avant ce contrat, décrivait un endpoint dédié — non retenu)
+- `GET /api/messages/group/preview` — prévisualiser les destinataires avant envoi (ajouté au
+  contrat à cette occasion, absent de `tech.md` à l'origine)
+
+> **Écarts assumés avec cette fiche** (décidés avec Charlotte) :
+> 1. Pas de `POST /api/messages/group` : réutilise `POST /api/messages/send` (`filter` au lieu de
+>    `recipientIds`), conformément à `docs/tech.md` §7 déjà en place.
+>    `filterType` s'appelle `MessageFilterType.MANUAL`, pas `FREE_SELECT` (déjà posé par TICKET-005).
+> 2. "Documents manquants" (`MISSING_DOCS`) n'a aucune définition dans le modèle de données (pas de
+>    notion de "document requis" par formation) — défini comme : stagiaire dont AUCUNE inscription
+>    n'a de document ciblé, toutes formations confondues. Voir `docs/STORIES.md` US-014.
 
 ## Repo
 [ ] front/   [x] back   [ ] both
 
 ## Files to create or modify
-- `controller/MessageController.java` — ajouter `POST /messages/group` et `GET /messages/group/preview`
+- `controller/MessageController.java` — étendre `sendMessage` (branche `filter`) + ajouter `GET /messages/group/preview`
 - `service/MessageService.java` (extend) + `MessageServiceImpl.java` — logique de filtrage, fan-out vers chaque destinataire
-- `dto/request/SendGroupMessageRequest.java` — `content`, `filterType` (FORMATION / MISSING_DOCS / FREE_SELECT), `formationId` (optionnel), `userIds` (optionnel pour FREE_SELECT)
+- `repository/InscriptionRepository.java` — `findStagiairesWithNoDocuments()` (filtre `MISSING_DOCS`)
+- `dto/request/SendMessageRequest.java` — `Filter.userIds` ajouté (au lieu d'un DTO séparé, voir écart ci-dessus)
 
 ## Acceptance criteria
-- [ ] `POST /api/messages/group` SUPER_ADMIN, filtre FORMATION → un message individuel créé pour chaque inscrit à la formation
-- [ ] `POST /api/messages/group` SUPER_ADMIN, filtre MISSING_DOCS → destinataires = stagiaires sans documents requis
-- [ ] `POST /api/messages/group` SUPER_ADMIN, filtre FREE_SELECT → destinataires = `userIds` fournis
-- [ ] `POST /api/messages/group` ADMIN, filtre FORMATION → destinataires = inscrits à ses formations uniquement
-- [ ] `POST /api/messages/group` ADMIN, filtre MISSING_DOCS ou FREE_SELECT → 403
-- [ ] `GET /api/messages/group/preview?filterType=FORMATION&formationId=1` → liste des destinataires sans envoyer
-- [ ] Chaque destinataire reçoit une notification individuelle
+- [x] `POST /api/messages/send` (filter) SUPER_ADMIN, filtre FORMATION → un message groupé (1 `Message` +
+      N `MessageRecipient`, pas N `Message` séparés — voir `docs/DB_MODEL.md`) créé pour chaque inscrit
+- [x] `POST /api/messages/send` (filter) SUPER_ADMIN, filtre MISSING_DOCS → destinataires = stagiaires sans documents ciblés
+- [x] `POST /api/messages/send` (filter) SUPER_ADMIN, filtre MANUAL → destinataires = `userIds` fournis
+- [x] `POST /api/messages/send` (filter) ADMIN, filtre FORMATION → destinataires = inscrits à sa formation uniquement
+- [x] `POST /api/messages/send` (filter) ADMIN, filtre MISSING_DOCS ou MANUAL → 403
+- [x] `GET /api/messages/group/preview?filterType=FORMATION&formationId=1` → liste des destinataires sans envoyer
+- [x] Chaque destinataire reçoit une notification individuelle
+
+### Ajouté en revue (branch-wide, 2 agents : sécurité, backend+clean-code)
+- [x] Filtre FORMATION : ADMIN non-propriétaire → 404 (pas 403), en délégant à
+      `FormationService.findVisibleFormationOrThrow` plutôt qu'une copie divergente de la règle
+      (rouvrait l'oracle d'énumération de formations qu'une revue précédente avait fermé)
+- [x] Résolution des destinataires groupés repassée par `canMessage` (matrice TICKET-029) — sans
+      ça, un ADMIN pouvait joindre/découvrir (preview) un stagiaire désactivé via FORMATION alors
+      que l'envoi individuel au même destinataire renvoie 403
+- [x] `userIds` dupliqués dans `MANUAL` ne provoquent plus un faux 404 (dédupliqué avant `findAllById`)
+- [x] Test ajouté prouvant que `MessageResponse.recipients` contient bien tous les destinataires résolus
+- [x] `GET /group/preview` : `@Validated` + `List<@NotNull Long> userIds`, pour que la garde
+      "élément null" (déjà sur `recipientIds`/`Filter.userIds` côté JSON) s'applique aussi aux
+      query params, qui construisent le `Filter` à la main hors du cycle `@Valid`
+- [x] Gestion `MissingServletRequestParameterException`/`MethodArgumentTypeMismatchException`/
+      `ConstraintViolationException` (jakarta) ajoutée à `GlobalExceptionHandler` — sinon 500 par défaut
+- [ ] **Déféré** : fan-out des notifications = N transactions séparées (une par destinataire) au lieu
+      d'un batch — acceptable à l'échelle actuelle (formations de 10-30 inscrits), potentiellement
+      coûteux pour `MISSING_DOCS` à l'échelle de tout l'organisme ; nécessiterait une méthode batch
+      sur `NotificationService`, hors périmètre de ce ticket (voir TICKET-033)
 
 ## Branch
 `feature/messagerie`
@@ -34,10 +67,11 @@ Contrat API (`docs/tech.md`) :
 
 ## Write tests first (TDD)
 Before writing any implementation code:
-- [ ] Test 1 (`@WebMvcTest`): `POST /api/messages/group` SUPER_ADMIN FORMATION → 201
-- [ ] Test 2 : ADMIN filtre FREE_SELECT → 403
-- [ ] Test 3 (`@ExtendWith(MockitoExtension)`): `sendGroupMessage` FORMATION avec 3 inscrits → 3 messages créés, 3 notifications envoyées
-- [ ] Test 4 : `previewGroupRecipients` MISSING_DOCS → retourne uniquement les stagiaires sans documents
+- [x] Test 1 (`@WebMvcTest`): `POST /api/messages/send` (filter FORMATION) SUPER_ADMIN → 201
+- [x] Test 2 : ADMIN filtre MANUAL → 403
+- [x] Test 3 (`@ExtendWith(MockitoExtension)`): `sendMessage` (filter FORMATION) avec 3 inscrits → 1 message groupé
+      (1 `Message` + 3 `MessageRecipient`, voir écart ci-dessus), 3 notifications envoyées
+- [x] Test 4 : `previewGroupRecipients` MISSING_DOCS → retourne uniquement les stagiaires sans documents
 
 Run tests → confirm RED. Then implement. Run tests → confirm GREEN.
 
@@ -68,4 +102,4 @@ Conventional commits format (always in English):
 2h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [ ] In progress   [x] Done

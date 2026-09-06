@@ -11,8 +11,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
@@ -229,5 +231,38 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : fichier manquant"));
+    }
+
+    /**
+     * A required {@code @RequestParam} is missing — e.g. {@code GET /api/messages/group/preview}
+     * without {@code filterType} (TICKET-030, branch-wide review: the first required query param
+     * in this codebase). Thrown before the controller method runs, so without this it escapes
+     * {@code @RestControllerAdvice}'s usual coverage the same way {@link
+     * #handleMaxUploadSizeExceeded} exists to catch a pre-dispatch multipart failure.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre manquant"));
+    }
+
+    /** A query param doesn't match its declared type — e.g. {@code ?filterType=BOGUS} or {@code ?formationId=abc}. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre invalide"));
+    }
+
+    /**
+     * {@code @Validated} on a controller (TICKET-030: {@code MessageController}, for the
+     * container-element guard on {@code @RequestParam List<@NotNull Long> userIds}) throws this
+     * — distinct from {@link jakarta.validation.ConstraintViolationException}'s namesake in {@code
+     * org.hibernate.exception} already handled by {@link #handleDataIntegrityViolation}'s cause,
+     * hence the fully-qualified reference here rather than a second import of the same simple name.
+     */
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(jakarta.validation.ConstraintViolationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide"));
     }
 }

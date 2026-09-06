@@ -1,9 +1,11 @@
 package com.adac.portail.service;
 
+import com.adac.portail.dto.request.MessageFilterType;
 import com.adac.portail.dto.request.SendMessageRequest;
 import com.adac.portail.dto.response.ConversationResponse;
 import com.adac.portail.dto.response.MessageResponse;
 import com.adac.portail.dto.response.UserResponse;
+import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Message;
 import com.adac.portail.entity.MessageRecipient;
 import com.adac.portail.entity.User;
@@ -15,6 +17,7 @@ import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.exception.UnauthorizedException;
 import com.adac.portail.mapper.MessageMapper;
 import com.adac.portail.mapper.UserMapper;
+import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.MessageRecipientRepository;
 import com.adac.portail.repository.MessageRepository;
 import com.adac.portail.repository.UserRepository;
@@ -37,7 +40,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /** TICKET-029 — see docs/tickets/TICKET-029.md § Write tests first. */
@@ -61,6 +66,12 @@ class MessageServiceImplTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private FormationService formationService;
+
+    @Mock
+    private InscriptionRepository inscriptionRepository;
 
     @InjectMocks
     private MessageServiceImpl messageService;
@@ -216,6 +227,304 @@ class MessageServiceImplTest {
         assertThat(result.isGroup()).isFalse();
         assertThat(result.getReadAt()).isNull();
         assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(2L);
+    }
+
+    // --- sendMessage: group send (TICKET-030) -------------------------------------------------
+
+    private static SendMessageRequest.Filter filter(MessageFilterType type, Long formationId, List<Long> userIds) {
+        return new SendMessageRequest.Filter(type, formationId, userIds);
+    }
+
+    @Test
+    void sendMessageWithBothRecipientIdsAndFilterThrowsBadRequest() {
+        User sender = user(1L, Role.SUPER_ADMIN, true);
+
+        assertThatThrownBy(() -> messageService.sendMessage(principal(sender),
+                new SendMessageRequest("Salut", List.of(2L), filter(MessageFilterType.MANUAL, null, List.of(2L)))))
+                .isInstanceOf(BadRequestException.class);
+
+        verifyNoInteractions(messageRepository, formationService, inscriptionRepository);
+    }
+
+    // Ticket Test 1 (adapted, see plan): SUPER_ADMIN, filtre FORMATION, 3 inscrits -> un seul
+    // Message, 3 MessageRecipient, 3 notifications (schéma message_recipients, pas 3 Message).
+    // Branch-wide review: also asserts MessageResponse.recipients holds all three, not just a
+    // count — the previous version of this test only verified save()/notify() call counts, which
+    // stayed green even if the assembled response silently dropped or duplicated recipients.
+    @Test
+    void sendGroupMessageWithFormationFilterSendsOneMessageToEveryEnrolledStagiaire() {
+        User superAdmin = user(1L, Role.SUPER_ADMIN, true);
+        Formation formation = Formation.builder().id(5L).build();
+        User s1 = user(10L, Role.STAGIAIRE, true);
+        User s2 = user(11L, Role.STAGIAIRE, true);
+        User s3 = user(12L, Role.STAGIAIRE, true);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(s1, s2, s3));
+        Message saved = Message.builder().id(20L).sender(superAdmin).content("Rappel").isGroup(true)
+                .createdAt(OffsetDateTime.now()).build();
+        when(messageRepository.save(any())).thenReturn(saved);
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(saved)).thenReturn(MessageResponse.builder().id(20L).group(true).build());
+        when(userMapper.toResponse(s1)).thenReturn(UserResponse.builder().id(10L).build());
+        when(userMapper.toResponse(s2)).thenReturn(UserResponse.builder().id(11L).build());
+        when(userMapper.toResponse(s3)).thenReturn(UserResponse.builder().id(12L).build());
+
+        MessageResponse result = messageService.sendMessage(principal(superAdmin),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null)));
+
+        verify(messageRepository, times(1)).save(any());
+        verify(messageRecipientRepository, times(3)).save(any());
+        verify(notificationService, times(3)).notify(any(), eq(NotificationType.NEW_MESSAGE), any(), any(), any());
+        verify(notificationService).notify(eq(10L), any(), any(), any(), any());
+        verify(notificationService).notify(eq(11L), any(), any(), any(), any());
+        verify(notificationService).notify(eq(12L), any(), any(), any(), any());
+        assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(10L, 11L, 12L);
+    }
+
+    @Test
+    void sendGroupMessageSetsIsGroupTrue() {
+        User superAdmin = user(1L, Role.SUPER_ADMIN, true);
+        Formation formation = Formation.builder().id(5L).build();
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(user(10L, Role.STAGIAIRE, true)));
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(any())).thenReturn(MessageResponse.builder().build());
+        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        messageService.sendMessage(principal(superAdmin),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null)));
+
+        ArgumentCaptor<Message> captor = ArgumentCaptor.forClass(Message.class);
+        verify(messageRepository).save(captor.capture());
+        assertThat(captor.getValue().isGroup()).isTrue();
+    }
+
+    @Test
+    void sendGroupMessageWithFormationFilterByAdminOnOwnFormationSucceeds() {
+        User formateur = user(2L, Role.ADMIN, true);
+        Formation formation = Formation.builder().id(5L).formateur(formateur).build();
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(user(10L, Role.STAGIAIRE, true)));
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(any())).thenReturn(MessageResponse.builder().build());
+        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        assertThat(messageService.sendMessage(principal(formateur),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null))))
+                .isNotNull();
+    }
+
+    // Branch-wide review (BLOCKING): formation visibility/ownership is FormationService's rule
+    // (404 for a non-owning ADMIN, not 403 — see findVisibleFormationOrThrow's Javadoc); this
+    // service only has to propagate whatever it throws, not re-implement the rule. Mocking
+    // ResourceNotFoundException here proves that propagation, not the ownership rule itself
+    // (already covered by FormationServiceImplTest).
+    @Test
+    void sendGroupMessageWithFormationFilterPropagatesFormationServicesVisibilityDecision() {
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any()))
+                .thenThrow(new ResourceNotFoundException("Formation introuvable"));
+
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(2L, Role.ADMIN, true)),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null))))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verifyNoInteractions(messageRepository);
+    }
+
+    // Branch-wide review (BLOCKING): STAGIAIRE is rejected before any formation lookup — they may
+    // never use this filter regardless of formationId, unlike the ADMIN-ownership case above.
+    @Test
+    void sendGroupMessageWithFormationFilterByStagiaireThrowsForbiddenWithoutLookingUpTheFormation() {
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(7L, Role.STAGIAIRE, true)),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null))))
+                .isInstanceOf(UnauthorizedException.class);
+
+        verifyNoInteractions(formationService);
+    }
+
+    // Branch-wide review (BLOCKING): the individual-send role matrix (canMessage) must still apply
+    // to a group send — an ADMIN can't reach a deactivated stagiaire via FORMATION when the
+    // identical individual send would 403 on that same target.
+    @Test
+    void sendGroupMessageWithFormationFilterExcludesStagiairesTheCallerCouldNotMessageIndividually() {
+        User formateur = user(2L, Role.ADMIN, true);
+        Formation formation = Formation.builder().id(5L).formateur(formateur).build();
+        User activeStagiaire = user(10L, Role.STAGIAIRE, true);
+        User deactivatedStagiaire = user(11L, Role.STAGIAIRE, false);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation))
+                .thenReturn(List.of(activeStagiaire, deactivatedStagiaire));
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(any())).thenReturn(MessageResponse.builder().build());
+        when(userMapper.toResponse(activeStagiaire)).thenReturn(UserResponse.builder().id(10L).build());
+
+        MessageResponse result = messageService.sendMessage(principal(formateur),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null)));
+
+        assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(10L);
+        verify(notificationService, times(1)).notify(any(), any(), any(), any(), any());
+        verify(notificationService, never()).notify(eq(11L), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendGroupMessageWithFormationFilterMissingFormationIdThrowsBadRequest() {
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, null, null))))
+                .isInstanceOf(BadRequestException.class);
+
+        verifyNoInteractions(formationService);
+    }
+
+    // Ticket Test 3: sendGroupMessage FORMATION avec 3 inscrits -> 3 notifications (voir test
+    // ci-dessus pour le compte exact) ; ce test couvre en plus MISSING_DOCS.
+    @Test
+    void sendGroupMessageWithMissingDocsFilterBySuperAdminSucceeds() {
+        User stagiaireWithoutDocs = user(10L, Role.STAGIAIRE, true);
+        when(inscriptionRepository.findStagiairesWithNoDocuments()).thenReturn(List.of(stagiaireWithoutDocs));
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(any())).thenReturn(MessageResponse.builder().build());
+        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Pensez à vos documents", null, filter(MessageFilterType.MISSING_DOCS, null, null)));
+
+        verify(notificationService).notify(eq(10L), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendGroupMessageWithMissingDocsFilterByAdminThrowsForbidden() {
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(2L, Role.ADMIN, true)),
+                new SendMessageRequest("Pensez à vos documents", null, filter(MessageFilterType.MISSING_DOCS, null, null))))
+                .isInstanceOf(UnauthorizedException.class);
+
+        verifyNoInteractions(inscriptionRepository, messageRepository);
+    }
+
+    @Test
+    void sendGroupMessageWithManualFilterBySuperAdminSendsToGivenUserIds() {
+        User u1 = user(10L, Role.STAGIAIRE, true);
+        User u2 = user(11L, Role.ADMIN, true);
+        when(userRepository.findAllById(List.of(10L, 11L))).thenReturn(List.of(u1, u2));
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(any())).thenReturn(MessageResponse.builder().build());
+        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Salut à vous deux", null, filter(MessageFilterType.MANUAL, null, List.of(10L, 11L))));
+
+        verify(messageRecipientRepository, times(2)).save(any());
+        verify(notificationService).notify(eq(10L), any(), any(), any(), any());
+        verify(notificationService).notify(eq(11L), any(), any(), any(), any());
+    }
+
+    @Test
+    void sendGroupMessageWithManualFilterByAdminThrowsForbidden() {
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(2L, Role.ADMIN, true)),
+                new SendMessageRequest("Salut", null, filter(MessageFilterType.MANUAL, null, List.of(10L)))))
+                .isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void sendGroupMessageWithManualFilterEmptyUserIdsThrowsBadRequest() {
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Salut", null, filter(MessageFilterType.MANUAL, null, List.of()))))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void sendGroupMessageWithManualFilterUnknownUserIdThrowsResourceNotFound() {
+        when(userRepository.findAllById(List.of(10L, 404L))).thenReturn(List.of(user(10L, Role.STAGIAIRE, true)));
+
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Salut", null, filter(MessageFilterType.MANUAL, null, List.of(10L, 404L)))))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verifyNoInteractions(messageRepository);
+    }
+
+    // Duplicate ids in userIds must not be rejected as "unknown destinataire" — findAllById
+    // collapses them to one row (branch-wide review).
+    @Test
+    void sendGroupMessageWithManualFilterDuplicateUserIdsStillSucceeds() {
+        User u1 = user(10L, Role.STAGIAIRE, true);
+        when(userRepository.findAllById(List.of(10L))).thenReturn(List.of(u1));
+        when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(any())).thenReturn(MessageResponse.builder().build());
+        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Salut", null, filter(MessageFilterType.MANUAL, null, List.of(10L, 10L))));
+
+        verify(messageRecipientRepository, times(1)).save(any());
+    }
+
+    @Test
+    void sendGroupMessageWithNoResolvedRecipientsThrowsBadRequest() {
+        Formation formation = Formation.builder().id(5L).build();
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Rappel", null, filter(MessageFilterType.FORMATION, 5L, null))))
+                .isInstanceOf(BadRequestException.class);
+
+        verifyNoInteractions(messageRepository);
+    }
+
+    // --- previewGroupRecipients (TICKET-030) --------------------------------------------------
+
+    // Ticket Test 4: previewGroupRecipients MISSING_DOCS -> uniquement les stagiaires sans documents.
+    @Test
+    void previewGroupRecipientsWithMissingDocsFilterReturnsStagiairesWithoutDocs() {
+        User stagiaire = user(10L, Role.STAGIAIRE, true);
+        when(inscriptionRepository.findStagiairesWithNoDocuments()).thenReturn(List.of(stagiaire));
+        when(userMapper.toResponse(stagiaire)).thenReturn(UserResponse.builder().id(10L).build());
+
+        List<UserResponse> result = messageService.previewGroupRecipients(
+                principal(user(1L, Role.SUPER_ADMIN, true)), filter(MessageFilterType.MISSING_DOCS, null, null));
+
+        assertThat(result).extracting(UserResponse::getId).containsExactly(10L);
+    }
+
+    @Test
+    void previewGroupRecipientsWithFormationFilterReturnsEnrolledStagiaires() {
+        User formateur = user(2L, Role.ADMIN, true);
+        Formation formation = Formation.builder().id(5L).formateur(formateur).build();
+        User stagiaire = user(10L, Role.STAGIAIRE, true);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(stagiaire));
+        when(userMapper.toResponse(stagiaire)).thenReturn(UserResponse.builder().id(10L).build());
+
+        List<UserResponse> result = messageService.previewGroupRecipients(
+                principal(formateur), filter(MessageFilterType.FORMATION, 5L, null));
+
+        assertThat(result).hasSize(1);
+    }
+
+    @Test
+    void previewGroupRecipientsByAdminWithMissingDocsFilterThrowsForbidden() {
+        assertThatThrownBy(() -> messageService.previewGroupRecipients(
+                principal(user(2L, Role.ADMIN, true)), filter(MessageFilterType.MISSING_DOCS, null, null)))
+                .isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void previewGroupRecipientsNeverPersistsAnything() {
+        Formation formation = Formation.builder().id(5L).build();
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(user(10L, Role.STAGIAIRE, true)));
+        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+
+        messageService.previewGroupRecipients(principal(user(1L, Role.SUPER_ADMIN, true)),
+                filter(MessageFilterType.FORMATION, 5L, null));
+
+        verifyNoInteractions(messageRepository, messageRecipientRepository, notificationService);
     }
 
     // --- markAsRead --------------------------------------------------------------------------

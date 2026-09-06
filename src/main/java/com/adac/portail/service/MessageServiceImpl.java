@@ -1,8 +1,11 @@
 package com.adac.portail.service;
 
+import com.adac.portail.dto.request.MessageFilterType;
 import com.adac.portail.dto.request.SendMessageRequest;
 import com.adac.portail.dto.response.ConversationResponse;
 import com.adac.portail.dto.response.MessageResponse;
+import com.adac.portail.dto.response.UserResponse;
+import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Message;
 import com.adac.portail.entity.MessageRecipient;
 import com.adac.portail.entity.User;
@@ -14,6 +17,7 @@ import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.exception.UnauthorizedException;
 import com.adac.portail.mapper.MessageMapper;
 import com.adac.portail.mapper.UserMapper;
+import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.MessageRecipientRepository;
 import com.adac.portail.repository.MessageRepository;
 import com.adac.portail.repository.UserRepository;
@@ -28,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -38,10 +43,11 @@ import java.util.stream.Stream;
 /**
  * See {@link MessageService} for the contract; docs/tech.md § 7 for the wire shapes.
  *
- * <p>Every message this service creates has exactly one recipient — {@link #sendMessage} rejects
- * anything else (see its Javadoc). Group send (TICKET-030) needs its own read-side design when it
- * lands: this class's batch reads are written defensively (filtered by the exact recipient ids a
- * caller may see), but nothing here assembles a multi-recipient {@code recipients} list yet.</p>
+ * <p>Group send (TICKET-030, {@code request.getFilter()} set instead of {@code recipientIds})
+ * shares the same {@code Message} + N {@code MessageRecipient} rows model an individual send
+ * already uses for its one row — {@link MessageRepository}'s batch reads were written defensively
+ * from the start specifically to already tolerate this (see their own Javadoc), so no read-side
+ * change was needed to support it.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -51,6 +57,9 @@ public class MessageServiceImpl implements MessageService {
 
     private static final String UNAUTHORIZED_MESSAGE = "Vous ne pouvez pas écrire à ce destinataire";
     private static final String NOT_FOUND_MESSAGE = "Message introuvable";
+    private static final String SUPER_ADMIN_ONLY = "Ce filtre est réservé au Super Admin";
+    private static final String GROUP_SEND_RESTRICTED = "L'envoi groupé est réservé au Super Admin et aux formateurs";
+    private static final String NO_RECIPIENTS_RESOLVED = "Aucun destinataire trouvé pour ce filtre";
 
     private final MessageRepository messageRepository;
     private final MessageRecipientRepository messageRecipientRepository;
@@ -58,6 +67,8 @@ public class MessageServiceImpl implements MessageService {
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
     private final NotificationService notificationService;
+    private final FormationService formationService;
+    private final InscriptionRepository inscriptionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -132,15 +143,24 @@ public class MessageServiceImpl implements MessageService {
     @Transactional
     public MessageResponse sendMessage(AdacUserDetails principal, SendMessageRequest request) {
         User sender = principal.getUser();
-        List<Long> recipientIds = request.getRecipientIds();
-        // Exactly one, not "at least one": tech.md's own individual-send example is a
-        // single-element list, and allowing more here would make a "recipient's readAt" or
-        // "recipient list" for a later thread read ambiguous — group semantics (multiple
-        // MessageRecipient rows per Message) are TICKET-030's problem to design properly,
-        // including how a thread read then interprets them.
-        if (recipientIds == null || recipientIds.size() != 1) {
+        boolean hasRecipientIds = request.getRecipientIds() != null;
+        boolean hasFilter = request.getFilter() != null;
+        if (hasRecipientIds == hasFilter) {
             throw new BadRequestException(
-                    "recipientIds doit contenir exactement un destinataire (l'envoi groupé arrive avec TICKET-030)");
+                    "Fournir exactement un des deux : recipientIds (individuel) ou filter (groupé)");
+        }
+
+        return hasFilter
+                ? sendGroupMessage(principal, request.getContent(), request.getFilter())
+                : sendIndividualMessage(sender, request.getContent(), request.getRecipientIds());
+    }
+
+    private MessageResponse sendIndividualMessage(User sender, String content, List<Long> recipientIds) {
+        // Exactly one, not "at least one": tech.md's own individual-send example is a
+        // single-element list — group sends now go through sendGroupMessage instead (TICKET-030).
+        if (recipientIds.size() != 1) {
+            throw new BadRequestException(
+                    "recipientIds doit contenir exactement un destinataire pour un envoi individuel");
         }
 
         // Unknown id and disallowed-target id get the identical 403: distinguishing them (the
@@ -153,7 +173,7 @@ public class MessageServiceImpl implements MessageService {
 
         Message message = messageRepository.save(Message.builder()
                 .sender(sender)
-                .content(request.getContent())
+                .content(content)
                 .isGroup(false)
                 .build());
         MessageRecipient recipientRow = messageRecipientRepository.save(MessageRecipient.builder()
@@ -165,6 +185,121 @@ public class MessageServiceImpl implements MessageService {
                 EntityType.MESSAGE, sender.getId());
 
         return toMessageResponse(message, recipientRow);
+    }
+
+    /**
+     * TICKET-030 — one {@code Message} row, one {@code MessageRecipient} row (and one
+     * notification) per resolved recipient. Reuses {@link #resolveGroupRecipients}, the same
+     * resolution {@link #previewGroupRecipients} uses, so "who would receive this" and "who
+     * actually did" can never drift apart. Plain {@code for} loop, not {@code stream().map(...)}:
+     * each iteration does two side effects (persist the recipient row, register a notification)
+     * before producing a value — a stream pretends that's a pure transformation (branch-wide
+     * review).
+     */
+    private MessageResponse sendGroupMessage(AdacUserDetails principal, String content, SendMessageRequest.Filter filter) {
+        User sender = principal.getUser();
+        List<User> recipients = resolveGroupRecipients(principal, filter);
+        if (recipients.isEmpty()) {
+            throw new BadRequestException(NO_RECIPIENTS_RESOLVED);
+        }
+
+        Message message = messageRepository.save(Message.builder()
+                .sender(sender)
+                .content(content)
+                .isGroup(true)
+                .build());
+
+        List<UserResponse> recipientResponses = new ArrayList<>();
+        for (User recipient : recipients) {
+            messageRecipientRepository.save(MessageRecipient.builder()
+                    .message(message)
+                    .recipient(recipient)
+                    .build());
+            notifyAfterCommit(recipient.getId(), NotificationType.NEW_MESSAGE,
+                    "Nouveau message de " + sender.getPrenom() + " " + sender.getNom(),
+                    EntityType.MESSAGE, sender.getId());
+            recipientResponses.add(userMapper.toResponse(recipient));
+        }
+
+        MessageResponse response = messageMapper.toResponse(message);
+        response.setRecipients(recipientResponses);
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> previewGroupRecipients(AdacUserDetails principal, SendMessageRequest.Filter filter) {
+        return resolveGroupRecipients(principal, filter).stream().map(userMapper::toResponse).toList();
+    }
+
+    /**
+     * docs/tech.md § 7 filter types, role rules per docs/tickets/TICKET-030.md's acceptance
+     * criteria: {@code FORMATION} — SUPER_ADMIN any formation, ADMIN their own only, STAGIAIRE
+     * never; {@code MISSING_DOCS}/{@code MANUAL} — SUPER_ADMIN only.
+     *
+     * <p>Branch-wide review (BLOCKING): the resolved list is re-filtered through {@link
+     * #canMessage} before being returned — without this, a filter was a way to reach (group send)
+     * or discover (preview, via {@code UserResponse}) a target the identical individual send would
+     * reject with 403 (e.g. an ADMIN's own deactivated stagiaire). {@code canMessage(SUPER_ADMIN,
+     * _)} is always {@code true}, so this is a no-op for that role.</p>
+     */
+    private List<User> resolveGroupRecipients(AdacUserDetails principal, SendMessageRequest.Filter filter) {
+        User caller = principal.getUser();
+        List<User> resolved = switch (filter.getType()) {
+            case FORMATION -> resolveFormationRecipients(principal, filter.getFormationId());
+            case MISSING_DOCS -> {
+                requireSuperAdmin(caller);
+                yield inscriptionRepository.findStagiairesWithNoDocuments();
+            }
+            case MANUAL -> {
+                requireSuperAdmin(caller);
+                yield resolveManualRecipients(filter.getUserIds());
+            }
+        };
+        return resolved.stream().filter(target -> canMessage(caller.getRole(), target)).toList();
+    }
+
+    /**
+     * Branch-wide review (BLOCKING): STAGIAIRE is rejected <em>before</em> the formation lookup —
+     * they may never use this filter regardless of {@code formationId}, so no lookup should run
+     * for them at all (matches {@code MISSING_DOCS}/{@code MANUAL}'s {@code requireSuperAdmin}
+     * running first, and avoids a second id-enumeration surface for a role that's blocked
+     * unconditionally). ADMIN/SUPER_ADMIN then delegate to {@link
+     * FormationService#findVisibleFormationOrThrow} — the same 404-for-non-owning-ADMIN rule
+     * {@code InscriptionServiceImpl} already reuses, instead of a second, divergent copy of it
+     * (the previous version of this method threw 403 here, reopening the id-enumeration oracle
+     * that method's own Javadoc documents closing).
+     */
+    private List<User> resolveFormationRecipients(AdacUserDetails principal, Long formationId) {
+        if (formationId == null) {
+            throw new BadRequestException("formationId est requis pour le filtre FORMATION");
+        }
+        if (principal.getUser().getRole() == Role.STAGIAIRE) {
+            throw new UnauthorizedException(GROUP_SEND_RESTRICTED);
+        }
+        Formation formation = formationService.findVisibleFormationOrThrow(formationId, principal);
+        return inscriptionRepository.findStagiairesByFormation(formation);
+    }
+
+    private List<User> resolveManualRecipients(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            throw new BadRequestException("userIds est requis et non vide pour le filtre MANUAL");
+        }
+        // distinct() before the lookup (branch-wide review): findAllById collapses a duplicate id
+        // to one row, so comparing its size against the raw, non-deduped userIds would reject a
+        // fully valid request (e.g. ?userIds=4&userIds=4) as "destinataire introuvable".
+        List<Long> distinctIds = userIds.stream().distinct().toList();
+        List<User> found = userRepository.findAllById(distinctIds);
+        if (found.size() != distinctIds.size()) {
+            throw new ResourceNotFoundException("Un ou plusieurs destinataires sont introuvables");
+        }
+        return found;
+    }
+
+    private void requireSuperAdmin(User caller) {
+        if (caller.getRole() != Role.SUPER_ADMIN) {
+            throw new UnauthorizedException(SUPER_ADMIN_ONLY);
+        }
     }
 
     @Override

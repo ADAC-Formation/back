@@ -76,3 +76,54 @@ Conserver la branche et les changements existants. Préserver les changements é
     révision du fichier ticket.
   - Les fichiers de coordination Codex listés ci-dessus restent non commités dans ce dépôt local ;
     aucune décision prise sur leur sort par cette intervention.
+
+## Ticket 030 — Backend, Messagerie groupée + filtres
+
+- Outil ayant préparé le rapport : Claude Code
+- Branche et HEAD observés : feature/messagerie (recréée depuis dev à jour — l'ancienne
+  feature/messagerie, TICKET-029, avait déjà été mergée dans dev via PR #6 entre-temps)
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-029 (Done), TICKET-022 (Done)
+- Écarts assumés (validés avec Charlotte avant codage) : pas de `POST /api/messages/group` dédié
+  — réutilise `POST /api/messages/send` (`filter`) conformément à `docs/tech.md`, déjà pré-posé par
+  TICKET-005 (`SendMessageRequest.Filter`, `MessageFilterType`) ; "documents manquants"
+  (`MISSING_DOCS`) défini comme "stagiaire sans aucun document ciblé sur aucune inscription",
+  faute de notion de "document requis" dans le schéma — voir docs/STORIES.md US-014.
+- Travail réalisé : `MessageServiceImpl.sendMessage` étendu (branche `filter`, 3 types :
+  FORMATION/MISSING_DOCS/MANUAL), `GET /api/messages/group/preview` ajouté,
+  `InscriptionRepository.findStagiairesWithNoDocuments()`. Revue branch-wide (2 agents Opus :
+  sécurité, backend+clean-code) ayant trouvé et corrigé 2 BLOCKING identiques indépendamment :
+  (1) le filtre FORMATION réimplémentait la règle de visibilité de formation au lieu de réutiliser
+  `FormationService.findVisibleFormationOrThrow`, et en la copiant renvoyait 403 au lieu de 404
+  pour un ADMIN non-propriétaire — rouvrant l'oracle d'énumération de formations qu'une revue
+  précédente (TICKET-019/022) avait fermé ; (2) la résolution des destinataires groupés ne
+  repassait jamais par `canMessage` (matrice TICKET-029), laissant un ADMIN atteindre/découvrir
+  (preview) un stagiaire désactivé que l'envoi individuel au même destinataire rejette en 403.
+  Corrigés en délégant à `findVisibleFormationOrThrow` (STAGIAIRE rejeté avant tout lookup) et en
+  filtrant la liste résolue par `canMessage` avant de la retourner. Corrigés aussi : userIds
+  dupliqués dans MANUAL (faux 404), aucun test ne prouvait que `MessageResponse.recipients`
+  contenait bien tous les destinataires, `GET /group/preview` contournait la validation Bean
+  (`@Validated` + `List<@NotNull Long>` ajoutés), pas de handler pour paramètre manquant/invalide
+  sur le nouvel endpoint GET (ajoutés à GlobalExceptionHandler).
+- Tests exécutés : `mvn test` — 388/388 GREEN (37 nouveaux tests pour ce ticket)
+- Revue : review-code branch-wide (sécurité, backend+clean-code — 2 agents Opus) ; les 2 BLOCKING
+  et 4 CRITICAL/SUGGESTION notables ci-dessus corrigés et re-testés (GREEN confirmé). Déféré,
+  disclosé dans la fiche : fan-out des notifications en N transactions séparées au lieu d'un batch
+  — acceptable à l'échelle actuelle, nécessiterait une méthode batch sur NotificationService
+  (TICKET-033), hors périmètre ici.
+- Documentation mise à jour : docs/tech.md (§7 — endpoint preview, règle 404 vs 403 FORMATION,
+  définition MISSING_DOCS), docs/STORIES.md (US-014, note de révision), docs/TICKETS.md,
+  docs/tickets/TICKET-030.md (écarts, critères cochés, section revue).
+- État Git observé : tous les fichiers du ticket indexés avant commit ; aucun fichier étranger.
+  Note technique de session : la DB Postgres locale (persistante, pas recréée par run) portait
+  encore la migration V5/`storage_path` d'une session précédente sur feature/documents (non
+  mergée) — nettoyée manuellement (colonne + ligne flyway_schema_history) pour retrouver l'état
+  attendu de cette branche (V1-V4) ; un `mvn clean` a aussi été nécessaire (target/classes gardait
+  le fichier V5 d'un build précédent). Aucun impact sur le code committé.
+- Étape suivante : aucun nouveau ticket entamé. Prochain ticket backend admissible dans
+  docs/TICKETS.md : TICKET-033 (Notifications CRUD, deps TICKET-005/TICKET-029 toutes Done).
+- Risques, divergences ou décisions attendues :
+  - Fan-out de notifications non batché (voir ci-dessus) — dette technique disclosée, pas
+    d'action requise tant que le volume reste modeste.
+  - `feature/documents` (TICKET-026) reste une branche séparée non mergée à ce stade — le ticket
+    026 lui-même a son propre rapport de passation sur cette branche.
