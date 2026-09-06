@@ -364,6 +364,8 @@ Modifier une formation (SUPER_ADMIN uniquement).
 // 400 — formation archivée (modification impossible), categoryId introuvable, formateurId invalide,
 //       ou dateFin avant dateDebut
 // 404
+// 409 — verrou optimiste (modifiée entre-temps par une autre requête, ex. concurrent avec
+//       PATCH .../archive) — recharger et réessayer
 ```
 
 ### PATCH /api/formations/{id}/archive

@@ -145,14 +145,17 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).save(any());
     }
 
+    // Review (branch-wide pass): an unknown formateurId used to be a separate 404
+    // (ResourceNotFoundException), inconsistent with the STAGIAIRE-id/deactivated cases just below
+    // (400) and with docs/tech.md § 4, which documents every formateurId problem as 400.
     @Test
-    void createFormationWithUnknownFormateurIdThrowsResourceNotFound() {
+    void createFormationWithUnknownFormateurIdThrowsBadRequest() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
         when(categoryRepository.findById(1L)).thenReturn(Optional.of(Category.builder().id(1L).build()));
         when(userRepository.findById(404L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> formationService.createFormation(createRequest(1L, 404L), principal))
-                .isInstanceOf(ResourceNotFoundException.class);
+                .isInstanceOf(InvalidFormationDataException.class);
 
         verify(formationRepository, never()).save(any());
     }

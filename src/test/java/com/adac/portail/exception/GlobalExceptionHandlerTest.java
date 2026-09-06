@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.sql.SQLException;
 
@@ -57,5 +58,20 @@ class GlobalExceptionHandlerTest {
         ResponseEntity<ErrorResponse> response = handler.handleDataIntegrityViolation(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // Branch-wide review: Formation.version (TICKET-022) and User.version (TICKET-019) both exist
+    // to make a lost-update race throw this instead of silently overwriting, but neither ticket
+    // added a handler — ObjectOptimisticLockingFailureException extends ConcurrencyFailureException,
+    // not DataIntegrityViolationException, so it fell through to Spring Boot's default 500 body.
+    @Test
+    void optimisticLockingFailureReturnsConflict() {
+        ObjectOptimisticLockingFailureException ex =
+                new ObjectOptimisticLockingFailureException("formations", 1L);
+
+        ResponseEntity<ErrorResponse> response = handler.handleOptimisticLockingFailure(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().status()).isEqualTo(409);
     }
 }

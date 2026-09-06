@@ -5,6 +5,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -114,6 +115,23 @@ public class GlobalExceptionHandler {
         log.error("Unexpected data integrity violation", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Erreur interne"));
+    }
+
+    /**
+     * The {@code @Version} optimistic lock (branch-wide review) — {@code User.version}
+     * (TICKET-019) and {@code Formation.version} (TICKET-022) both exist specifically to make a
+     * lost-update race throw this instead of silently overwriting, but neither ticket added a
+     * handler for it: {@link ObjectOptimisticLockingFailureException} extends
+     * {@code ConcurrencyFailureException}, not {@link DataIntegrityViolationException}, so
+     * {@link #handleDataIntegrityViolation} never saw it — it fell through to Spring Boot's
+     * default {@code /error} body (an unlogged 500) instead of the documented contract.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex) {
+        log.warn("Optimistic locking conflict", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(),
+                        "Cette ressource a été modifiée entre-temps, veuillez recharger et réessayer"));
     }
 
     private boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {

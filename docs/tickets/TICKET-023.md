@@ -55,6 +55,24 @@ Contrat API (`docs/tech.md`) :
   d'être toujours à 0
 - `MaxUploadSizeExceededException`/partie multipart manquante → 413/400 au lieu du body par défaut
   de Spring
+- Verrou optimiste (`Formation.version`/`User.version`, TICKET-022/019) sans handler jusqu'ici →
+  `ObjectOptimisticLockingFailureException` retournait un 500 non loggé au lieu du 409 documenté ;
+  handler ajouté dans `GlobalExceptionHandler`
+- `formateurId` inconnu renvoyait 404 (`ResourceNotFoundException`) alors que `docs/tech.md`
+  documente tous les cas `formateurId` en 400 — uniformisé en `InvalidFormationDataException`
+
+**Suivi identifié en review, non bloquant (pas corrigé dans ce ticket)** :
+- `createFormation` exécute un `countByFormation` inutile (toujours 0 sur une formation qui vient
+  d'être créée) — amplifié ×N par l'import Excel
+- `GET /api/formations` reste un 3N+1 (`countByFormation` + `formateur`/`category` LAZY par ligne)
+  — `GET .../inscriptions` a eu le traitement `@EntityGraph`, pas cette liste
+- Une catégorie désactivée reste acceptable à la création d'une formation (JSON et Excel) — seul le
+  sélecteur front la masque, rien ne l'interdit côté serveur
+- Import Excel : pas de garde pour un `.xlsx` valide à 0 feuille (500 au lieu de 400) ; le 413
+  (fichier > 20 Mo, config globale) n'est pas documenté dans `tech.md`/Swagger à côté du 400
+  (> 2 Mo, cap local)
+- `InscriptionServiceImpl.findFormationOrThrow` duplique la logique de
+  `FormationServiceImpl.findFormationOrThrow` au lieu de la réutiliser
 
 ## Branch
 `feature/formations`

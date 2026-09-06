@@ -53,7 +53,7 @@ public class FormationController {
     @Operation(summary = "Create formation", description = "SUPER_ADMIN only. formateurId null auto-assigns the caller.")
     @ApiResponse(responseCode = "201", description = "Created",
             content = @Content(schema = @Schema(implementation = FormationResponse.class)))
-    @ApiResponse(responseCode = "400", description = "categoryId missing or unknown",
+    @ApiResponse(responseCode = "400", description = "categoryId missing or unknown, or formateurId invalid",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "Insufficient role",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -107,9 +107,11 @@ public class FormationController {
     @Operation(summary = "Update formation", description = "SUPER_ADMIN only. Only the fields present in the body are applied. 400 if the formation is archived.")
     @ApiResponse(responseCode = "200", description = "OK",
             content = @Content(schema = @Schema(implementation = FormationResponse.class)))
-    @ApiResponse(responseCode = "400", description = "Formation archived, or categoryId unknown",
+    @ApiResponse(responseCode = "400", description = "Formation archived, categoryId unknown, or formateurId invalid",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "No such formation",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Optimistic lock conflict — modified concurrently",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")

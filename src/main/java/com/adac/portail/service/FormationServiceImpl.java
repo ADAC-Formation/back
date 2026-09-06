@@ -188,16 +188,18 @@ public class FormationServiceImpl implements FormationService {
     }
 
     /**
-     * Rejects a {@code STAGIAIRE} id and a deactivated account (review) — "formateur" means an
-     * active {@code ADMIN} or {@code SUPER_ADMIN} everywhere else in this codebase (see
-     * {@code UserServiceImpl.createFormateur}), and every formateur-scoped query
-     * ({@code FormationRepository.findAllByFormateur}, {@code getFormations} above) trusts the FK
-     * without re-checking the role.
+     * Rejects an unknown id, a {@code STAGIAIRE} id and a deactivated account — all as the same
+     * 400 (review, branch-wide pass: the unknown-id case used to be a separate
+     * {@code ResourceNotFoundException} (404), contradicting docs/tech.md § 4, which documents
+     * every {@code formateurId} problem as 400, and mixing two status codes inside one field's
+     * validation). "Formateur" means an active {@code ADMIN} or {@code SUPER_ADMIN} everywhere
+     * else in this codebase (see {@code UserServiceImpl.createFormateur}), and every
+     * formateur-scoped query ({@code FormationRepository.findAllByFormateur}, {@code getFormations}
+     * above) trusts the FK without re-checking the role.
      */
     private User findFormateurOrThrow(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Formateur introuvable"));
-        if (user.getRole() == Role.STAGIAIRE || !user.isActive()) {
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null || user.getRole() == Role.STAGIAIRE || !user.isActive()) {
             throw new InvalidFormationDataException("formateurId invalide : doit être un formateur actif");
         }
         return user;
