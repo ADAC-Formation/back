@@ -203,14 +203,27 @@ src/
 │   │   │   │   ├── ActivationTokenInvalidException.java  ← 400 (TICKET-015)
 │   │   │   │   ├── RateLimitException.java               ← 429 (TICKET-015)
 │   │   │   │   ├── CategoryAlreadyExistsException.java   ← 409 (TICKET-047)
-│   │   │   │   ├── DuplicateEmailException.java          ← 409 (TICKET-019)
+│   │   │   │   ├── DuplicateEmailException.java          ← 409 (TICKET-019 — email déjà utilisé à la création)
 │   │   │   │   ├── DuplicateInscriptionException.java    ← 409 (TICKET-023)
-│   │   │   │   ├── ResourceNotFoundException.java        ← 404, générique
-│   │   │   │   ├── ConflictException.java                ← 409 générique (TICKET-019)
+│   │   │   │   ├── ResourceNotFoundException.java        ← 404, générique (TICKET-019, réutilisée par les
+│   │   │   │   │                                            tickets CRUD suivants plutôt qu'une exception
+│   │   │   │   │                                            par entité)
+│   │   │   │   ├── ConflictException.java                ← 409 générique (TICKET-019 — auto-suspension,
+│   │   │   │   │                                            suspension du dernier Super Admin actif,
+│   │   │   │   │                                            réactivation d'un compte jamais activé — voir
+│   │   │   │   │                                            § Gestion des comptes ci-dessous)
 │   │   │   │   ├── FormationArchivedException.java       ← 400 (TICKET-022, réutilisée TICKET-023
 │   │   │   │   │                                            pour l'inscription sur formation archivée)
-│   │   │   │   └── InvalidFormationDataException.java    ← 400, générique formations (TICKET-022,
-│   │   │   │                                                réutilisée TICKET-023 pour l'import Excel)
+│   │   │   │   ├── InvalidFormationDataException.java    ← 400, générique formations (TICKET-022,
+│   │   │   │   │                                            réutilisée TICKET-023 pour l'import Excel)
+│   │   │   │   ├── UnauthorizedException.java            ← 403 (TICKET-029 — refus métier data-dépendant,
+│   │   │   │   │                                            ex. règles de destinataire de messagerie ;
+│   │   │   │   │                                            distinct d'AccessDeniedException, qui vient
+│   │   │   │   │                                            de @PreAuthorize, une règle statique par route)
+│   │   │   │   └── BadRequestException.java              ← 400 (TICKET-029 — SendMessageRequest doit avoir
+│   │   │   │                                                exactement un des deux formats mutuellement
+│   │   │   │                                                exclusifs, règle qu'une simple @Valid ne peut
+│   │   │   │                                                pas exprimer)
 │   │   │   │
 │   │   │   ├── utils/
 │   │   │   │   ├── EmailTemplateBuilder.java         ← construit le HTML des emails
@@ -472,6 +485,46 @@ HTTP Request
   et `/resend-activation` (tous deux vérifient `isPendingFirstActivation`) tout en conservant son
   hash de mot de passe aléatoire jamais communiqué — un compte devenu impossible à utiliser.
   **Trouvé en review croisée**.
+- **Messagerie individuelle (TICKET-029)** : `POST /api/messages/send` n'accepte ici qu'un seul
+  `recipientId` — pas la liste `recipientIds` que `docs/tech.md` autorise en général. Au-delà d'un
+  seul destinataire, savoir à qui `readAt`/`recipients` se réfère dans une relecture de fil (`GET
+  /api/messages/{conversationId}`) devient ambigu ; c'est justement ce que l'envoi groupé
+  (`filter`, TICKET-030) doit définir proprement, avec son propre design côté lecture. `PATCH
+  /api/messages/{id}/read` marque **un seul message** (par son id), pas tout le fil — décision
+  validée avec Charlotte, le contrat `tech.md` partagé avec Manon prime sur le sketch initial du
+  ticket (voir sa note de révision, `docs/tickets/TICKET-029.md`).
+- **`NotificationService`** existe déjà, en avance sur TICKET-033, avec la seule méthode dont
+  `MessageServiceImpl` a besoin (`notify(recipientId, type, content, entityType, entityId)`) — même
+  pattern qu'`ActivationServiceImpl` envoyant des emails directement avant qu'`EmailService`
+  n'existe (TICKET-034). Le CRUD complet (cloche, historique, marquer lu, supprimer de la cloche)
+  reste TICKET-033, qui étendra cette interface plutôt que la remplacer. `content` est tronqué à
+  255 caractères avant écriture (`notifications.content VARCHAR(255)`) — **trouvé en review
+  croisée** : la chaîne générée par `MessageServiceImpl` (prénom + nom, chacun jusqu'à 255
+  caractères) pouvait dépasser la colonne et faire échouer silencieusement l'envoi du message
+  entier (voir point suivant sur le découplage transactionnel).
+- **`MessageServiceImpl.sendMessage`** appelle `notify` **après commit** de la transaction d'envoi
+  (`TransactionSynchronization`, même mécanisme que `UserServiceImpl.sendActivationCodeAfterCommit`),
+  jamais dans la même transaction — **trouvé en review croisée** : `notify` fait sa propre écriture
+  DB, donc un échec là (ex. dépassement de colonne avant le correctif ci-dessus) aurait fait
+  rollback le message lui-même, qui avait pourtant réussi. Un échec de notification est dégradé,
+  pas bloquant : il est loggé, jamais remonté à l'appelant.
+- **Oracle d'énumération fermé (review croisée)** : `GET /api/messages/{conversationId}` ne 404
+  jamais sur un `conversationId` inconnu — un fil vide (aucun message partagé) et un id qui
+  n'existe pas produisent la même réponse (`[]`), pour la même raison que `markAsRead` traite déjà
+  "message inconnu" et "message pas adressé à l'appelant" de façon identique. `POST
+  /api/messages/send` fait pareil entre destinataire inconnu et destinataire interdit : les deux
+  renvoient le même 403 (`UnauthorizedException`), jamais un 404 séparé pour "inconnu" — sinon
+  n'importe quel STAGIAIRE authentifié pourrait cartographier l'espace des id utilisateur en
+  observant lequel des deux statuts revient (même famille de faille que l'oracle de statut de
+  login fermé au commit `0acb86b`).
+- **`GET /api/messages` sans N+1 (review croisée)** : la version initiale bouclait sur chaque
+  correspondant (thread complet + comptage + résolution destinataire = 3 requêtes par
+  correspondant, plus tout l'historique chargé en mémoire pour ne garder que le dernier message).
+  `MessageRepository.findLastMessageIdPerPartner` (requête SQL native, `GROUP BY 1` positionnel —
+  PostgreSQL rejette un `GROUP BY` sur une expression `CASE` paramétrée répétée, les occurrences de
+  `:userId` étant des marqueurs de bind distincts) et
+  `MessageRecipientRepository.countUnreadGroupedBySender` ramènent tout en 6 requêtes fixes, quel
+  que soit le nombre de correspondants.
 
 ---
 
@@ -504,8 +557,10 @@ HTTP Request
 | POST | `/api/formations/{id}/inscriptions` | SUPER_ADMIN | Inscrire un stagiaire |
 | POST | `/api/documents` | SUPER_ADMIN, ADMIN | Upload document |
 | GET | `/api/documents/{id}` | Tous (selon droits) | Télécharger |
-| GET | `/api/messages` | Tous | Boîte de réception |
-| POST | `/api/messages` | Tous | Envoyer un message |
+| GET | `/api/messages` | Tous | Liste des conversations |
+| GET | `/api/messages/{conversationId}` | Tous | Messages d'un fil (id = l'autre participant) |
+| POST | `/api/messages/send` | Tous | Envoyer un message (individuel ici ; groupé = TICKET-030) |
+| PATCH | `/api/messages/{id}/read` | Tous | Marquer UN message comme lu |
 | GET | `/api/notifications` | Tous | Liste notifications |
 | PATCH | `/api/notifications/{id}/read` | Tous | Marquer comme lue |
 | DELETE | `/api/notifications/{id}` | Tous | Supprimer (cloche) |

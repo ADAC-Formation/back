@@ -508,10 +508,14 @@ Envoyer un message individuel ou groupé.
 }
 
 // 201 Created → MessageResponse
+// 400 — recipientIds sans exactement un élément (TICKET-029 : l'envoi individuel n'accepte
+//       qu'un seul destinataire ; l'envoi groupé (filter, plusieurs destinataires) arrive avec
+//       TICKET-030)
+// 403 — le rôle de l'appelant ne peut pas écrire à ce destinataire (voir règles § Messagerie)
 ```
 
 ### PATCH /api/messages/{id}/read
-Marquer un message comme lu.
+Marquer un message comme lu — un seul message, pas tout le fil de conversation.
 ```json
 // 200 OK
 ```
@@ -519,6 +523,11 @@ Marquer un message comme lu.
 ---
 
 ## 8. Notifications
+
+> `entityType = 'MESSAGE'` : `entityId` est l'id de l'**autre participant** de la conversation
+> (= le `conversationId` de `GET /api/messages/{conversationId}`), **pas** l'id du message lui-même
+> — il n'existe pas d'endpoint pour récupérer un message unique, donc la navigation "cliquer la
+> notification" doit rouvrir le fil, pas un message isolé (TICKET-029).
 
 ### GET /api/notifications
 Toutes les notifications (page plein écran — conservées, non supprimables).

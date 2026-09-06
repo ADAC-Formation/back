@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -385,6 +386,19 @@ class JwtAuthenticationIntegrationTest {
         mockMvc.perform(patch("/api/users/me")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void messagesEndpointsWithoutCookieReturnUnauthorized() throws Exception {
+        // TICKET-029. MessageController has no @PreAuthorize either (see its Javadoc) — same
+        // reasoning as updateMeWithoutCookieReturnsUnauthorized above: this is the only test
+        // proving SecurityConfig's .anyRequest().authenticated() actually covers /api/messages/**.
+        mockMvc.perform(get("/api/messages"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/messages/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("content", "Salut", "recipientIds", List.of(1)))))
                 .andExpect(status().isUnauthorized());
     }
 

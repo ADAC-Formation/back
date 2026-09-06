@@ -28,8 +28,13 @@ public class SendMessageRequest {
     @Size(max = 5000)
     private String content;
 
-    /** Set for an individual message; null for a group message (use {@code filter} instead). */
-    private List<Long> recipientIds;
+    /**
+     * Set for an individual message; null for a group message (use {@code filter} instead).
+     * {@code @NotNull} on the element type (not the list itself, which legitimately stays null for
+     * a group send) — without it, {@code [null]} reaches the service layer and blows up as an
+     * unhandled 500 on the repository lookup rather than a clean 400 (branch-wide review).
+     */
+    private List<@NotNull Long> recipientIds;
 
     /** Set for a group message; null for an individual message (use {@code recipientIds} instead). */
     @Valid

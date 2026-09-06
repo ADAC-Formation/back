@@ -1,3 +1,7 @@
+# Workflow ADAC partagé
+
+Avant tout travail backend, Claude Code doit lire `AGENTS.md`, `docs/BACKEND_WORKFLOW.md`, `docs/ADAC_KNOWLEDGE.md` et `docs/AGENT_HANDOFF.md`. `docs/BACKEND_WORKFLOW.md` est le workflow de référence partagé avec Codex. Les instructions du projet ci-dessous restent applicables et fournissent le contexte d'exécution propre à Claude Code.
+
 # Portail de Formation ADAC — Contexte projet
 
 ## Vue d'ensemble
