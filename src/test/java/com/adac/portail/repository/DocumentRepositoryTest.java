@@ -1,5 +1,6 @@
 package com.adac.portail.repository;
 
+import com.adac.portail.entity.Category;
 import com.adac.portail.entity.Document;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
@@ -31,6 +32,9 @@ class DocumentRepositoryTest {
     private FormationRepository formationRepository;
 
     @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
     private DocumentRepository documentRepository;
 
     @Autowired
@@ -45,6 +49,9 @@ class DocumentRepositoryTest {
                 .prenom("Super")
                 .role(Role.SUPER_ADMIN)
                 .build());
+        // TICKET-046: formations.category_id is NOT NULL since V2 — any seeded category works,
+        // this test isn't about categories.
+        Category category = categoryRepository.findAll().get(0);
 
         Formation formation = formationRepository.save(Formation.builder()
                 .intitule("Formation avec document")
@@ -52,6 +59,7 @@ class DocumentRepositoryTest {
                 .dateFin(LocalDate.of(2026, 4, 2))
                 .modalite(Modalite.VISIO)
                 .status(FormationStatus.ACTIVE)
+                .category(category)
                 .createdBy(uploader)
                 .build());
 
@@ -108,6 +116,7 @@ class DocumentRepositoryTest {
                 .dateFin(LocalDate.of(2026, 5, 2))
                 .modalite(Modalite.VISIO)
                 .status(FormationStatus.ACTIVE)
+                .category(categoryRepository.findAll().get(0))
                 .createdBy(uploader)
                 .build());
 

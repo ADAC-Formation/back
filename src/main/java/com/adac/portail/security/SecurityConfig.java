@@ -37,6 +37,15 @@ import java.util.List;
  * being sent on cross-site requests, which neutralizes the classic CSRF vector
  * (see ARCHI.md —
  * Authentification for the full reasoning and its accepted residual risk).
+ *
+ * <p>{@code @EnableMethodSecurity} (branch-wide review, TICKET-047): without it, Spring never
+ * builds the AOP advisor behind {@code @PreAuthorize}, so every such annotation is silently
+ * ignored — the URL rules below (just {@code .anyRequest().authenticated()} for anything not in
+ * {@code PUBLIC_ROUTES}) are all that would actually run. {@code CategoryController} is the first
+ * {@code @PreAuthorize} consumer on this branch, which is what surfaced the gap: any authenticated
+ * role, not just SUPER_ADMIN, could otherwise create/rename/activate/deactivate categories. The
+ * equivalent annotation already exists on {@code dev} (added alongside {@code UserController} in
+ * TICKET-019) — this branch simply predates that commit.</p>
  */
 @Configuration
 @EnableWebSecurity

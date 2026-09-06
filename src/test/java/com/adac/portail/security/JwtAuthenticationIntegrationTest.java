@@ -6,6 +6,7 @@ import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Modalite;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.repository.CategoryRepository;
 import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
@@ -71,6 +72,9 @@ class JwtAuthenticationIntegrationTest {
 
     @Autowired
     private FormationRepository formationRepository;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
 
     @Autowired
     private InscriptionRepository inscriptionRepository;
@@ -452,6 +456,10 @@ class JwtAuthenticationIntegrationTest {
                 .dateFin(java.time.LocalDate.of(2026, 3, 12))
                 .modalite(Modalite.PRESENTIEL)
                 .status(FormationStatus.ACTIVE)
+                // category_id is NOT NULL since V3 (TICKET-046) — any of the seeded categories
+                // works, this test isn't about which one (pre-existing gap fixed in TICKET-022
+                // review: this fixture predates that migration and was never updated).
+                .category(categoryRepository.findAll().get(0))
                 .formateur(formateur)
                 .createdBy(superAdmin)
                 .build());
