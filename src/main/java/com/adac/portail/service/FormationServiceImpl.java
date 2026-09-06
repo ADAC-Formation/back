@@ -17,10 +17,12 @@ import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
+import com.adac.portail.utils.ExcelImportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -38,6 +40,7 @@ public class FormationServiceImpl implements FormationService {
     private final UserRepository userRepository;
     private final InscriptionRepository inscriptionRepository;
     private final FormationMapper formationMapper;
+    private final ExcelImportUtil excelImportUtil;
 
     @Override
     @Transactional
@@ -86,6 +89,12 @@ public class FormationServiceImpl implements FormationService {
     @Override
     @Transactional(readOnly = true)
     public FormationResponse getFormationById(Long id, AdacUserDetails principal) {
+        return toResponse(findVisibleFormationOrThrow(id, principal));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Formation findVisibleFormationOrThrow(Long id, AdacUserDetails principal) {
         Formation formation = findFormationOrThrow(id);
         User caller = principal.getUser();
         // Scoped like GET /api/formations, not left wide open (review: this endpoint used to be
@@ -100,7 +109,7 @@ public class FormationServiceImpl implements FormationService {
         if (caller.getRole() == Role.STAGIAIRE && !inscriptionRepository.existsByStagiaireAndFormation(caller, formation)) {
             throw new AccessDeniedException("Accès refusé");
         }
-        return toResponse(formation);
+        return formation;
     }
 
     @Override
@@ -153,6 +162,19 @@ public class FormationServiceImpl implements FormationService {
         // Idempotent — same convention as CategoryServiceImpl.activateCategory/deactivateCategory.
         formation.setStatus(FormationStatus.ARCHIVED);
         return toResponse(formationRepository.save(formation));
+    }
+
+    @Override
+    @Transactional
+    public List<FormationResponse> importFormations(MultipartFile file, AdacUserDetails principal) {
+        // ExcelImportUtil validates every row before returning anything (see its Javadoc) — by
+        // the time execution reaches here the whole file is known-good, so looping createFormation
+        // per row reuses its exact validation/auto-assignment logic instead of duplicating it.
+        // The @Transactional above still makes this atomic against a rarer failure (e.g. a
+        // category deleted between parse and save).
+        return excelImportUtil.parse(file).stream()
+                .map(request -> createFormation(request, principal))
+                .toList();
     }
 
     private FormationResponse toResponse(Formation formation) {

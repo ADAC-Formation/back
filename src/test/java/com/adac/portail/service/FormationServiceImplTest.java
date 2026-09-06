@@ -18,13 +18,16 @@ import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
+import com.adac.portail.utils.ExcelImportUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,10 +38,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** TICKET-022 — see docs/tickets/TICKET-022.md § Write tests first. */
+/** TICKET-022/023 — see docs/tickets/TICKET-022.md and TICKET-023.md § Write tests first. */
 @ExtendWith(MockitoExtension.class)
 class FormationServiceImplTest {
 
@@ -56,6 +60,9 @@ class FormationServiceImplTest {
 
     @Mock
     private FormationMapper formationMapper;
+
+    @Mock
+    private ExcelImportUtil excelImportUtil;
 
     @InjectMocks
     private FormationServiceImpl formationService;
@@ -472,5 +479,55 @@ class FormationServiceImplTest {
 
         assertThatThrownBy(() -> formationService.archiveFormation(404L))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    // --- importFormations (TICKET-023) --------------------------------------------------------
+
+    // Test 1 (ticket): fichier xlsx valide -> formations créées, liste retournée. ExcelImportUtil's
+    // own parsing/validation is ExcelImportUtilTest's job — here it's mocked to isolate
+    // "each parsed row becomes a formation, exactly like createFormation".
+    @Test
+    void importFormationsCreatesOneFormationPerParsedRow() {
+        AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
+        MultipartFile file = new MockMultipartFile("file", "formations.xlsx", null, new byte[0]);
+        Category category = Category.builder().id(1L).build();
+        CreateFormationRequest row1 = createRequest(1L, null);
+        CreateFormationRequest row2 = createRequest(1L, null);
+        when(excelImportUtil.parse(file)).thenReturn(List.of(row1, row2));
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        Formation saved = Formation.builder().id(1L).category(category).formateur(principal.getUser()).build();
+        when(formationRepository.save(any())).thenReturn(saved);
+        when(inscriptionRepository.countByFormation(saved)).thenReturn(0L);
+        when(formationMapper.toResponse(saved, 0)).thenReturn(FormationResponse.builder().id(1L).build());
+
+        List<FormationResponse> result = formationService.importFormations(file, principal);
+
+        assertThat(result).hasSize(2);
+        verify(formationRepository, times(2)).save(any());
+    }
+
+    @Test
+    void importFormationsWithEmptyFileReturnsEmptyList() {
+        AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
+        MultipartFile file = new MockMultipartFile("file", "formations.xlsx", null, new byte[0]);
+        when(excelImportUtil.parse(file)).thenReturn(List.of());
+
+        assertThat(formationService.importFormations(file, principal)).isEmpty();
+        verify(formationRepository, never()).save(any());
+    }
+
+    // Test 2 (ticket): ExcelImportUtil's own rejection (wrong format, bad row) must propagate
+    // unchanged — no formation created before the whole file is known to be valid.
+    @Test
+    void importFormationsPropagatesExcelImportUtilRejection() {
+        AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
+        MultipartFile file = new MockMultipartFile("file", "formations.pdf", null, new byte[0]);
+        when(excelImportUtil.parse(file)).thenThrow(
+                new InvalidFormationDataException("Format invalide, seuls les fichiers .xlsx sont acceptés"));
+
+        assertThatThrownBy(() -> formationService.importFormations(file, principal))
+                .isInstanceOf(InvalidFormationDataException.class);
+
+        verify(formationRepository, never()).save(any());
     }
 }

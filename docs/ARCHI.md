@@ -144,6 +144,7 @@ src/
 │   │   │   │   ├── UserMapper.java
 │   │   │   │   ├── CategoryMapper.java
 │   │   │   │   ├── FormationMapper.java
+│   │   │   │   ├── InscriptionMapper.java            ← TICKET-023
 │   │   │   │   ├── DocumentMapper.java
 │   │   │   │   ├── MessageMapper.java
 │   │   │   │   └── NotificationMapper.java
@@ -193,8 +194,9 @@ src/
 │   │   │   │
 │   │   │   ├── exception/
 │   │   │   │   ├── GlobalExceptionHandler.java       ← @RestControllerAdvice (TICKET-015, étendu en
-│   │   │   │   │                                        TICKET-019, TICKET-047 et TICKET-022 avec les
-│   │   │   │   │                                        conflits, ResourceNotFoundException et
+│   │   │   │   │                                        TICKET-019, TICKET-047, TICKET-022 et
+│   │   │   │   │                                        TICKET-023 avec les conflits,
+│   │   │   │   │                                        ResourceNotFoundException et
 │   │   │   │   │                                        AccessDeniedException ; login/me restent gérés
 │   │   │   │   │                                        dans security/)
 │   │   │   │   ├── ActivationTokenExpiredException.java  ← 400 (TICKET-015)
@@ -202,10 +204,13 @@ src/
 │   │   │   │   ├── RateLimitException.java               ← 429 (TICKET-015)
 │   │   │   │   ├── CategoryAlreadyExistsException.java   ← 409 (TICKET-047)
 │   │   │   │   ├── DuplicateEmailException.java          ← 409 (TICKET-019)
+│   │   │   │   ├── DuplicateInscriptionException.java    ← 409 (TICKET-023)
 │   │   │   │   ├── ResourceNotFoundException.java        ← 404, générique
 │   │   │   │   ├── ConflictException.java                ← 409 générique (TICKET-019)
-│   │   │   │   ├── FormationArchivedException.java       ← 400 (TICKET-022)
-│   │   │   │   └── InvalidFormationDataException.java    ← 400, générique formations (TICKET-022)
+│   │   │   │   ├── FormationArchivedException.java       ← 400 (TICKET-022, réutilisée TICKET-023
+│   │   │   │   │                                            pour l'inscription sur formation archivée)
+│   │   │   │   └── InvalidFormationDataException.java    ← 400, générique formations (TICKET-022,
+│   │   │   │                                                réutilisée TICKET-023 pour l'import Excel)
 │   │   │   │
 │   │   │   ├── utils/
 │   │   │   │   ├── EmailTemplateBuilder.java         ← construit le HTML des emails

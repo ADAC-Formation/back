@@ -79,6 +79,28 @@ class InscriptionRepositoryTest {
                 .build());
     }
 
+    // TICKET-023 review: @EntityGraph(attributePaths = "stagiaire") added to fix an N+1 on the
+    // roster endpoint. @DataJpaTest's open transaction can't actually prove the fetch join fired
+    // (same caveat as findStagiairesByFormation below) — this only proves the query itself still
+    // returns the right rows after adding the annotation.
+    @Test
+    void findAllByFormationReturnsEveryInscriptionForThatFormation() {
+        User superAdmin = saveUser("inscr-repo-admin7@adac.fr", Role.SUPER_ADMIN);
+        Formation formation = saveFormation(superAdmin, null);
+        Formation otherFormation = saveFormation(superAdmin, null);
+        User stagiaire1 = saveUser("inscr-repo-eg-1@adac.fr", Role.STAGIAIRE);
+        User stagiaire2 = saveUser("inscr-repo-eg-2@adac.fr", Role.STAGIAIRE);
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire1).formation(formation).build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire2).formation(formation).build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire1).formation(otherFormation).build());
+
+        List<Inscription> found = inscriptionRepository.findAllByFormation(formation);
+
+        assertThat(found).hasSize(2);
+        assertThat(found).extracting(i -> i.getStagiaire().getEmail())
+                .containsExactlyInAnyOrder("inscr-repo-eg-1@adac.fr", "inscr-repo-eg-2@adac.fr");
+    }
+
     @Test
     void findStagiairesByFormationReturnsFullyUsableUsersNotLazyProxies() {
         User superAdmin = saveUser("inscr-repo-admin@adac.fr", Role.SUPER_ADMIN);

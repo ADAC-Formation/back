@@ -9,6 +9,7 @@ import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.service.FormationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -61,6 +63,21 @@ public class FormationController {
             @Valid @RequestBody CreateFormationRequest request,
             @AuthenticationPrincipal AdacUserDetails principal) {
         return ResponseEntity.status(HttpStatus.CREATED).body(formationService.createFormation(request, principal));
+    }
+
+    @Operation(summary = "Import formations from Excel", description = "SUPER_ADMIN only. All-or-nothing: any invalid row rejects the whole file, see docs/tech.md.")
+    @ApiResponse(responseCode = "201", description = "Created",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = FormationResponse.class))))
+    @ApiResponse(responseCode = "400", description = "Not a .xlsx file, or a row is invalid",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient role",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PostMapping("/import")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<List<FormationResponse>> importFormations(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(formationService.importFormations(file, principal));
     }
 
     @Operation(summary = "List formations", description = "SUPER_ADMIN sees all; ADMIN sees only formations they teach; STAGIAIRE sees only their enrollments. ?status and ?categoryId filter further within that scope.")

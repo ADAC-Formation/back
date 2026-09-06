@@ -56,7 +56,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
 | TICKET-022 | Backend — CRUD Formations + archive + formateur | back | TICKET-005, TICKET-019, TICKET-046, TICKET-047 | 3h | Done |
-| TICKET-023 | Backend — Import Excel + Inscriptions | back | TICKET-022 | 3h | À faire |
+| TICKET-023 | Backend — Import Excel + Inscriptions | back | TICKET-022 | 3h | Done |
 | TICKET-024 | Frontend — Liste et détail des formations | front | TICKET-022 | 2h | À faire |
 | TICKET-025 | Frontend — Formulaire création + import Excel | front | TICKET-023 | 3h | À faire |
 

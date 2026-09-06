@@ -310,12 +310,29 @@ Créer une formation (SUPER_ADMIN uniquement).
 ```
 
 ### POST /api/formations/import
-Import Excel (SUPER_ADMIN uniquement).
+Import Excel (SUPER_ADMIN uniquement). Tout ou rien : une seule ligne invalide rejette tout le
+fichier (400 listant chaque erreur ligne/colonne), aucune formation créée.
+
+> **Colonnes — placeholder** (voir mémoire projet `ticket-023-excel-import-blocked`) : Charlotte
+> n'a pas encore le fichier réel du client, ce schéma sera corrigé dès qu'elle l'aura. Une ligne
+> d'en-tête (ignorée), puis une ligne par formation :
+>
+> | # | Colonne | Requis | Format |
+> |---|---|---|---|
+> | A | intitule | oui | texte |
+> | B | description | non | texte |
+> | C | dateDebut | oui | `AAAA-MM-JJ` ou cellule date Excel |
+> | D | dateFin | oui | `AAAA-MM-JJ` ou cellule date Excel |
+> | E | modalite | oui | `VISIO`\|`PRESENTIEL`\|`MIXTE` |
+> | F | categorie | oui | nom exact d'une catégorie existante |
+> | G | formateur | non | email d'un formateur actif ; vide → Super Admin auto-assigné |
+
 ```
 // Content-Type: multipart/form-data
 // Body: file (fichier .xlsx)
 // 201 Created → FormationResponse[]
-// 400 — format fichier invalide
+// 400 — format fichier invalide (pas un .xlsx), ou une/plusieurs lignes invalides
+//       (categorie/formateur introuvable, date invalide, modalite invalide, colonne requise vide)
 ```
 
 ### GET /api/formations/{id}
@@ -372,25 +389,35 @@ Assigner un formateur (SUPER_ADMIN uniquement).
 ## 5. Inscriptions
 
 ### GET /api/formations/{id}/inscriptions
-Liste des stagiaires inscrits à une formation.
+Liste des stagiaires inscrits à une formation. **SUPER_ADMIN/ADMIN uniquement** — jamais STAGIAIRE,
+même inscrit (review, TICKET-023 : `InscriptionResponse.stagiaire` inclut l'email de chaque
+inscrit, donc autoriser un STAGIAIRE reviendrait à donner l'email de tous ses co-inscrits). ADMIN
+reste scopé à ses propres formations (404 sinon), même règle que `GET /api/formations/{id}`.
 ```json
 // 200 OK → InscriptionResponse[]
+// 403 — rôle insuffisant (STAGIAIRE)
+// 404 — formation inconnue, ou ADMIN non-formateur de cette formation
 ```
 
 ### POST /api/formations/{id}/inscriptions
-Inscrire un stagiaire (SUPER_ADMIN uniquement).
+Inscrire un stagiaire (SUPER_ADMIN uniquement). `stagiaireId` doit être un compte `STAGIAIRE`
+existant (404 sinon, même traitement qu'un id inconnu).
 ```json
 // Body
 { "stagiaireId": 5 }
 
 // 201 Created → InscriptionResponse
+// 400 — formation archivée
+// 404 — formation ou stagiaire introuvable
 // 409 — déjà inscrit
 ```
 
 ### DELETE /api/formations/{id}/inscriptions/{stagiaireId}
-Désinscrire un stagiaire (SUPER_ADMIN uniquement).
+Désinscrire un stagiaire (SUPER_ADMIN uniquement). Idempotent : désinscrire un stagiaire qui ne
+l'était pas renvoie quand même 204.
 ```json
 // 204 No Content
+// 404 — formation inconnue
 ```
 
 ---

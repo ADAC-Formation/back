@@ -3,6 +3,7 @@ package com.adac.portail.repository;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,15 @@ import java.util.List;
 
 public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
 
+    /**
+     * {@code @EntityGraph} fetch-joins {@code stagiaire} (TICKET-023 review) — without it,
+     * {@code InscriptionServiceImpl.getInscriptions}/{@code InscriptionMapper} touching each row's
+     * {@code stagiaire} (a LAZY proxy) is an N+1, one query per enrolled stagiaire — exactly the
+     * anti-pattern {@link #findStagiairesByFormation} already exists to avoid, just via the entity
+     * itself instead of a projection (the caller needs the full {@code Inscription}, not just the
+     * {@code User}).
+     */
+    @EntityGraph(attributePaths = "stagiaire")
     List<Inscription> findAllByFormation(Formation formation);
 
     /**
@@ -70,4 +80,12 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
      */
     @Query("select i.formation from Inscription i where i.stagiaire = :stagiaire")
     List<Formation> findFormationsByStagiaire(@Param("stagiaire") User stagiaire);
+
+    /**
+     * Used by {@code InscriptionServiceImpl.deleteInscription} (TICKET-023) — deletes by id pair
+     * directly rather than loading the {@code Inscription} row first (unnecessary: the unique
+     * constraint on (stagiaire_id, formation_id) means there's at most one, and the endpoint is
+     * idempotent either way — see docs/tech.md, "204 No Content").
+     */
+    void deleteByStagiaire_IdAndFormation_Id(Long stagiaireId, Long formationId);
 }

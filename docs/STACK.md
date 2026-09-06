@@ -17,7 +17,8 @@
 - **ORM** : Spring Data JPA + Hibernate (`ddl-auto=validate` — jamais `update`/`create`)
 - **Migrations** : Flyway (`flyway-core` + `flyway-database-postgresql`) — schéma versionné dans
   `src/main/resources/db/migration/`, voir TICKET-004
-- **Utilitaires** : Lombok (getters/setters/constructeurs) + MapStruct (mappers DTO ↔ entités)
+- **Utilitaires** : Lombok (getters/setters/constructeurs) + MapStruct (mappers DTO ↔ entités) +
+  Apache POI (`poi-ooxml`, import Excel `.xlsx` — TICKET-023)
 - **Auth** : Spring Security + JWT (auth0 java-jwt)
   - JWT stocké en **cookie HttpOnly** (inaccessible au JavaScript — protection XSS)
   - Cookie : `HttpOnly`, `Secure` (HTTPS en prod), `SameSite=Strict`

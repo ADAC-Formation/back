@@ -25,6 +25,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -162,6 +164,52 @@ class FormationControllerTest {
                         .content(objectMapper.writeValueAsString(validCreateBody())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400));
+    }
+
+    // --- POST /api/formations/import -----------------------------------------------------------
+
+    // Test 1 (ticket): fichier xlsx valide -> 201.
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void importFormationsWithValidXlsxReturnsCreated() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "formations.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                new byte[] {1, 2, 3});
+        when(formationService.importFormations(any(), any())).thenReturn(
+                List.of(FormationResponse.builder().id(1L).build()));
+
+        mockMvc.perform(multipart("/api/formations/import").file(file))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    // Test 2 (ticket): fichier pdf -> 400.
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void importFormationsWithNonXlsxFileReturnsBadRequest() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "formations.pdf", "application/pdf", new byte[] {1, 2, 3});
+        doThrow(new InvalidFormationDataException("Format invalide, seuls les fichiers .xlsx sont acceptés"))
+                .when(formationService).importFormations(any(), any());
+
+        mockMvc.perform(multipart("/api/formations/import").file(file))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Format invalide, seuls les fichiers .xlsx sont acceptés"));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void importFormationsByAdminReturnsForbidden() throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "formations.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                new byte[] {1, 2, 3});
+
+        mockMvc.perform(multipart("/api/formations/import").file(file))
+                .andExpect(status().isForbidden());
+
+        verify(formationService, never()).importFormations(any(), any());
     }
 
     // --- GET /api/formations ---------------------------------------------------------------------

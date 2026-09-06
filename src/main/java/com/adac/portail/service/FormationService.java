@@ -3,8 +3,10 @@ package com.adac.portail.service;
 import com.adac.portail.dto.request.CreateFormationRequest;
 import com.adac.portail.dto.request.UpdateFormationRequest;
 import com.adac.portail.dto.response.FormationResponse;
+import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.security.AdacUserDetails;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -34,6 +36,15 @@ public interface FormationService {
     FormationResponse getFormationById(Long id, AdacUserDetails principal);
 
     /**
+     * Same visibility rule as {@link #getFormationById}, returning the entity instead of the
+     * mapped DTO — {@code getFormationById} delegates to this (TICKET-023 review), and
+     * {@code InscriptionServiceImpl.getInscriptions} calls it directly so the roster's visibility
+     * check doesn't require building (and discarding) a whole {@link FormationResponse} — including
+     * its own {@code countByFormation} query — just to re-fetch the same entity a line later.
+     */
+    Formation findVisibleFormationOrThrow(Long id, AdacUserDetails principal);
+
+    /**
      * SUPER_ADMIN only (enforced by the controller — no caller-specific rule needs the principal
      * here). Only the fields present (non-null) on {@code request} are applied. Throws
      * {@link com.adac.portail.exception.FormationArchivedException} if the formation is already
@@ -43,4 +54,11 @@ public interface FormationService {
 
     /** SUPER_ADMIN only. Idempotent — archiving an already-archived formation is a no-op. */
     FormationResponse archiveFormation(Long id);
+
+    /**
+     * SUPER_ADMIN only (US-005). All-or-nothing: {@code ExcelImportUtil} validates every row
+     * before any formation is created — see its Javadoc. Each parsed row is created exactly like
+     * {@link #createFormation}, including {@code formateurId} auto-assignment to {@code principal}.
+     */
+    List<FormationResponse> importFormations(MultipartFile file, AdacUserDetails principal);
 }
