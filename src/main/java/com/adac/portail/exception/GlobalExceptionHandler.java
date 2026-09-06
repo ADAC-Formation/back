@@ -230,4 +230,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : fichier manquant"));
     }
+
+    /**
+     * A Supabase Storage failure (TICKET-026, branch-wide review) — network error, non-2xx
+     * response, or an unreadable multipart body. 502, not 500: the API itself is fine, its
+     * upstream storage provider isn't. Logged with the cause since a real outage should be
+     * visible, unlike a plain client error.
+     */
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorageException(StorageException ex) {
+        log.error("Supabase Storage failure", ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), "Service de stockage indisponible"));
+    }
 }
