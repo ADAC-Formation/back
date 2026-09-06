@@ -19,10 +19,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Verifies Flyway actually ran its migrations against the datasource, and that Hibernate is only
  * validating (never creating/updating) the schema Flyway owns.
  *
- * <p>Pinned to "2" (not "latest migration"), same reasoning as originally for V1: this is meant
+ * <p>Pinned to "4" (not "latest migration"), same reasoning as originally for V1: this is meant
  * to fail the moment a new migration lands without updating this test, catching a silently
  * un-applied or mis-numbered script (TICKET-019 branch-wide review added V2 — see
- * {@code V2__add_user_version.sql}).</p>
+ * {@code V2__add_user_version.sql}; TICKET-022 review added V4 — see
+ * {@code V4__add_formation_version.sql}).</p>
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -41,14 +42,10 @@ class FlywayMigrationTest {
     private EntityManagerFactory entityManagerFactory;
 
     @Test
-    void flywayMigratedV3AndHibernateOnlyValidates() {
-        // "3", not "1": TICKET-046 adds a categories migration on top of V1 — current() is the
-        // latest applied version, so this also proves it actually ran (not just present on disk).
-        // Numbered V3, not V2: this branch (feature/categories) was cut from dev before
-        // feature/users existed, so both independently used "V2" for their own migration.
-        // feature/users merged into dev first, so it keeps V2 — this migration renumbers to V3
-        // rather than colliding at merge time (branch-wide review, TICKET-047).
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("3");
+    void flywayMigratedV4AndHibernateOnlyValidates() {
+        // "4": current() is the latest applied version, so this also proves it actually ran (not
+        // just present on disk) — V4__add_formation_version.sql (TICKET-022 review).
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("4");
         assertThat(flyway.info().current().getState()).isEqualTo(MigrationState.SUCCESS);
 
         // Asserting the runtime bean, not just the YAML property: this fails if Hibernate's
@@ -75,16 +72,18 @@ class FlywayMigrationTest {
     }
 
     @Test
-    void flywaySchemaHistoryContainsSuccessfulV3Migration() throws Exception {
+    void flywaySchemaHistoryContainsSuccessfulV3AndV4Migrations() throws Exception {
         try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(
-                     "SELECT success FROM flyway_schema_history WHERE version = '3'")) {
-
-            assertThat(resultSet.next())
-                    .as("flyway_schema_history should have a row for version 3")
-                    .isTrue();
-            assertThat(resultSet.getBoolean("success")).isTrue();
+             Statement statement = connection.createStatement()) {
+            for (String version : new String[] {"3", "4"}) {
+                try (ResultSet resultSet = statement.executeQuery(
+                        "SELECT success FROM flyway_schema_history WHERE version = '" + version + "'")) {
+                    assertThat(resultSet.next())
+                            .as("flyway_schema_history should have a row for version " + version)
+                            .isTrue();
+                    assertThat(resultSet.getBoolean("success")).isTrue();
+                }
+            }
         }
     }
 }

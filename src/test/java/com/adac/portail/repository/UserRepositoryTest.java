@@ -59,4 +59,21 @@ class UserRepositoryTest {
 
         assertThat(found).isEmpty();
     }
+
+    // TICKET-023 — used by ExcelImportUtil to resolve the "formateur" column.
+    @Test
+    void findByEmailIgnoreCaseMatchesRegardlessOfCase() {
+        userRepository.save(User.builder()
+                .email("find-by-email-ignorecase-test@adac.fr")
+                .passwordHash("hashed")
+                .nom("Doe")
+                .prenom("Jane")
+                .role(Role.ADMIN)
+                .build());
+
+        Optional<User> found = userRepository.findByEmailIgnoreCase("Find-By-Email-IgnoreCase-Test@ADAC.fr");
+
+        assertThat(found).isPresent();
+        assertThat(found.get().getNom()).isEqualTo("Doe");
+    }
 }

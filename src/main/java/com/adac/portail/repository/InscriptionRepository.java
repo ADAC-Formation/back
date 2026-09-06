@@ -3,6 +3,7 @@ package com.adac.portail.repository;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,7 +12,24 @@ import java.util.List;
 
 public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
 
+    /**
+     * {@code @EntityGraph} fetch-joins {@code stagiaire} (TICKET-023 review) — without it,
+     * {@code InscriptionServiceImpl.getInscriptions}/{@code InscriptionMapper} touching each row's
+     * {@code stagiaire} (a LAZY proxy) is an N+1, one query per enrolled stagiaire — exactly the
+     * anti-pattern {@link #findStagiairesByFormation} already exists to avoid, just via the entity
+     * itself instead of a projection (the caller needs the full {@code Inscription}, not just the
+     * {@code User}).
+     */
+    @EntityGraph(attributePaths = "stagiaire")
     List<Inscription> findAllByFormation(Formation formation);
+
+    /**
+     * Used by {@code FormationServiceImpl.toResponse} instead of
+     * {@code findAllByFormation(formation).size()} — TICKET-022 review: the latter hydrates every
+     * enrolled {@code User} row per formation just to discard it and count, an N+1 on every
+     * formation list/detail response.
+     */
+    long countByFormation(Formation formation);
 
     /** Named after the entity's actual field ({@code stagiaire}, not {@code user}). */
     List<Inscription> findAllByStagiaire(User stagiaire);
@@ -44,4 +62,30 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
      * their own formations, the same rule already applied to the list endpoint (TICKET-019 review).
      */
     boolean existsByStagiaireAndFormation_Formateur(User stagiaire, User formateur);
+
+    /**
+     * Is {@code stagiaire} enrolled in {@code formation}? Used by
+     * {@code FormationServiceImpl.getFormationById} (TICKET-022) — docs/tech.md: "403 — STAGIAIRE
+     * non inscrit".
+     */
+    boolean existsByStagiaireAndFormation(User stagiaire, Formation formation);
+
+    /**
+     * All formations {@code stagiaire} is enrolled in — used by
+     * {@code FormationServiceImpl.getFormations} for a STAGIAIRE caller (docs/tech.md: "STAGIAIRE
+     * : uniquement ses formations"). Projects straight to {@code Formation}, same reasoning as
+     * {@link #findStagiairesByFormation}: going through
+     * {@code findAllByStagiaire(...).stream().map(Inscription::getFormation)} would hand back an
+     * uninitialized LAZY proxy per {@code formation} instead of letting Hibernate join once in SQL.
+     */
+    @Query("select i.formation from Inscription i where i.stagiaire = :stagiaire")
+    List<Formation> findFormationsByStagiaire(@Param("stagiaire") User stagiaire);
+
+    /**
+     * Used by {@code InscriptionServiceImpl.deleteInscription} (TICKET-023) — deletes by id pair
+     * directly rather than loading the {@code Inscription} row first (unnecessary: the unique
+     * constraint on (stagiaire_id, formation_id) means there's at most one, and the endpoint is
+     * idempotent either way — see docs/tech.md, "204 No Content").
+     */
+    void deleteByStagiaire_IdAndFormation_Id(Long stagiaireId, Long formationId);
 }

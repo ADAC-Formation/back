@@ -5,6 +5,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -12,6 +13,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.util.List;
 
@@ -49,10 +52,22 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
     }
 
+    @ExceptionHandler(DuplicateInscriptionException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateInscription(DuplicateInscriptionException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleResourceNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
+    }
+
+    @ExceptionHandler({FormationArchivedException.class, InvalidFormationDataException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidFormationRequest(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
     /**
@@ -100,6 +115,23 @@ public class GlobalExceptionHandler {
         log.error("Unexpected data integrity violation", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Erreur interne"));
+    }
+
+    /**
+     * The {@code @Version} optimistic lock (branch-wide review) — {@code User.version}
+     * (TICKET-019) and {@code Formation.version} (TICKET-022) both exist specifically to make a
+     * lost-update race throw this instead of silently overwriting, but neither ticket added a
+     * handler for it: {@link ObjectOptimisticLockingFailureException} extends
+     * {@code ConcurrencyFailureException}, not {@link DataIntegrityViolationException}, so
+     * {@link #handleDataIntegrityViolation} never saw it — it fell through to Spring Boot's
+     * default {@code /error} body (an unlogged 500) instead of the documented contract.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex) {
+        log.warn("Optimistic locking conflict", ex);
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErrorResponse(HttpStatus.CONFLICT.value(),
+                        "Cette ressource a été modifiée entre-temps, veuillez recharger et réessayer"));
     }
 
     private boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {
@@ -155,5 +187,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide"));
+    }
+
+    /**
+     * {@code POST /api/formations/import} exceeding {@code spring.servlet.multipart.max-file-size}
+     * (TICKET-023 review) — without this it escapes {@code @RestControllerAdvice} entirely (thrown
+     * by the multipart resolver before the request reaches the dispatcher) and falls back to
+     * Spring Boot's default {@code /error} body, the same {@code {status, message, details}}
+     * contract gap {@link #handleMalformedBody} exists to close for bad JSON.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(new ErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE.value(), "Fichier trop volumineux"));
+    }
+
+    /** The {@code file} multipart part is missing from a {@code POST /api/formations/import} request. */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : fichier manquant"));
     }
 }

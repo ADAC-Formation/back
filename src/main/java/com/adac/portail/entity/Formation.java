@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -79,4 +80,17 @@ public class Formation {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
+
+    /**
+     * Optimistic lock (TICKET-022 review, same pattern as {@code User.version}) — without it, a
+     * {@code PUT /api/formations/{id}} that read this row before a concurrent
+     * {@code PATCH /{id}/archive} commits would flush a stale {@code status = ACTIVE} back over
+     * it on save, silently un-archiving a formation the contract calls irreversible. A concurrent
+     * writer now gets {@link org.springframework.orm.ObjectOptimisticLockingFailureException}
+     * instead.
+     */
+    @Version
+    @Column(nullable = false)
+    @Builder.Default
+    private long version = 0L;
 }

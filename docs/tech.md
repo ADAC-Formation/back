@@ -279,12 +279,13 @@ formation, mais reste inchangée sur les formations qui la référencent déjà.
 ## 4. Formations
 
 ### GET /api/formations
-Liste des formations.
+Liste des formations. Périmètre non filtrable (pas de `?mine`/`?formateurId` — TICKET-022 review :
+retirés du contrat, jamais implémentés) :
 - SUPER_ADMIN : toutes (actives + archivées)
-- ADMIN : toutes actives (filtre par défaut : ses formations)
-- STAGIAIRE : uniquement ses formations
+- ADMIN : uniquement les siennes (celles où il est `formateur`), tous statuts
+- STAGIAIRE : uniquement les formations où il est inscrit
 ```json
-// Query params : ?status=ACTIVE|ARCHIVED | ?formateurId=1 | ?mine=true | ?categoryId=1
+// Query params : ?status=ACTIVE|ARCHIVED | ?categoryId=1 — filtrent à l'intérieur du périmètre ci-dessus
 // 200 OK → FormationResponse[]
 ```
 > `?categoryId` filtre par catégorie — disponible pour SUPER_ADMIN et ADMIN.
@@ -304,24 +305,46 @@ Créer une formation (SUPER_ADMIN uniquement).
 }
 
 // 201 Created → FormationResponse
-// 400 — categoryId manquant ou introuvable
+// 400 — categoryId manquant ou introuvable, ou formateurId n'est pas un formateur actif
+//       (STAGIAIRE ou compte désactivé)
 ```
 
 ### POST /api/formations/import
-Import Excel (SUPER_ADMIN uniquement).
+Import Excel (SUPER_ADMIN uniquement). Tout ou rien : une seule ligne invalide rejette tout le
+fichier (400 listant chaque erreur ligne/colonne), aucune formation créée.
+
+> **Colonnes — placeholder** (voir mémoire projet `ticket-023-excel-import-blocked`) : Charlotte
+> n'a pas encore le fichier réel du client, ce schéma sera corrigé dès qu'elle l'aura. Une ligne
+> d'en-tête (ignorée), puis une ligne par formation :
+>
+> | # | Colonne | Requis | Format |
+> |---|---|---|---|
+> | A | intitule | oui | texte |
+> | B | description | non | texte |
+> | C | dateDebut | oui | `AAAA-MM-JJ` ou cellule date Excel |
+> | D | dateFin | oui | `AAAA-MM-JJ` ou cellule date Excel |
+> | E | modalite | oui | `VISIO`\|`PRESENTIEL`\|`MIXTE` |
+> | F | categorie | oui | nom exact d'une catégorie existante |
+> | G | formateur | non | email d'un formateur actif ; vide → Super Admin auto-assigné |
+
 ```
 // Content-Type: multipart/form-data
 // Body: file (fichier .xlsx)
 // 201 Created → FormationResponse[]
-// 400 — format fichier invalide
+// 400 — format fichier invalide (pas un .xlsx), ou une/plusieurs lignes invalides
+//       (categorie/formateur introuvable, date invalide, modalite invalide, colonne requise vide)
 ```
 
 ### GET /api/formations/{id}
-Détail d'une formation.
+Détail d'une formation. Même périmètre que la liste : SUPER_ADMIN voit tout, ADMIN uniquement ses
+propres formations (404 sinon — même raisonnement que `GET /api/users/{id}`, un statut qui ne
+confirme pas l'existence à quelqu'un qui n'a pas le droit de la voir), STAGIAIRE uniquement s'il y
+est inscrit (403).
 ```json
-// 200 OK → FormationResponse (avec liste des inscrits et documents)
+// 200 OK → FormationResponse (liste des inscrits et documents : pas encore dans cette réponse,
+//           voir TICKET-023/026)
 // 403 — STAGIAIRE non inscrit
-// 404
+// 404 — inconnue, ou ADMIN non-formateur de cette formation
 ```
 
 ### PUT /api/formations/{id}
@@ -338,6 +361,11 @@ Modifier une formation (SUPER_ADMIN uniquement).
   "formateurId": 2
 }
 // 200 OK → FormationResponse
+// 400 — formation archivée (modification impossible), categoryId introuvable, formateurId invalide,
+//       ou dateFin avant dateDebut
+// 404
+// 409 — verrou optimiste (modifiée entre-temps par une autre requête, ex. concurrent avec
+//       PATCH .../archive) — recharger et réessayer
 ```
 
 ### PATCH /api/formations/{id}/archive
@@ -347,6 +375,9 @@ Archiver une formation (SUPER_ADMIN uniquement).
 ```
 
 ### PATCH /api/formations/{id}/formateur
+> Pas encore implémenté (TICKET-022 ne couvre que `PUT /api/formations/{id}`, qui accepte déjà
+> `formateurId` — un endpoint dédié reste à faire si le produit en a besoin séparément).
+
 Assigner un formateur (SUPER_ADMIN uniquement).
 ```json
 // Body
@@ -360,25 +391,35 @@ Assigner un formateur (SUPER_ADMIN uniquement).
 ## 5. Inscriptions
 
 ### GET /api/formations/{id}/inscriptions
-Liste des stagiaires inscrits à une formation.
+Liste des stagiaires inscrits à une formation. **SUPER_ADMIN/ADMIN uniquement** — jamais STAGIAIRE,
+même inscrit (review, TICKET-023 : `InscriptionResponse.stagiaire` inclut l'email de chaque
+inscrit, donc autoriser un STAGIAIRE reviendrait à donner l'email de tous ses co-inscrits). ADMIN
+reste scopé à ses propres formations (404 sinon), même règle que `GET /api/formations/{id}`.
 ```json
 // 200 OK → InscriptionResponse[]
+// 403 — rôle insuffisant (STAGIAIRE)
+// 404 — formation inconnue, ou ADMIN non-formateur de cette formation
 ```
 
 ### POST /api/formations/{id}/inscriptions
-Inscrire un stagiaire (SUPER_ADMIN uniquement).
+Inscrire un stagiaire (SUPER_ADMIN uniquement). `stagiaireId` doit être un compte `STAGIAIRE`
+existant (404 sinon, même traitement qu'un id inconnu).
 ```json
 // Body
 { "stagiaireId": 5 }
 
 // 201 Created → InscriptionResponse
+// 400 — formation archivée
+// 404 — formation ou stagiaire introuvable
 // 409 — déjà inscrit
 ```
 
 ### DELETE /api/formations/{id}/inscriptions/{stagiaireId}
-Désinscrire un stagiaire (SUPER_ADMIN uniquement).
+Désinscrire un stagiaire (SUPER_ADMIN uniquement). Idempotent : désinscrire un stagiaire qui ne
+l'était pas renvoie quand même 204.
 ```json
 // 204 No Content
+// 404 — formation inconnue
 ```
 
 ---

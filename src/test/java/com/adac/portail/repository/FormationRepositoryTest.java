@@ -62,6 +62,48 @@ class FormationRepositoryTest {
         assertThat(found).extracting(Formation::getIntitule).contains("Formation SST");
     }
 
+    // Test 5 (ticket): findAllByStatus(ACTIVE) ne retourne pas les archivées.
+    @Test
+    void findByStatusActiveDoesNotReturnArchivedFormations() {
+        User creator = userRepository.save(User.builder()
+                .email("formation-repo-test-2@adac.fr")
+                .passwordHash("hashed")
+                .nom("Admin")
+                .prenom("Super")
+                .role(Role.SUPER_ADMIN)
+                .build());
+        Category category = categoryRepository.findAll().get(0);
+
+        Formation active = Formation.builder()
+                .intitule("Formation active")
+                .dateDebut(LocalDate.of(2026, 1, 10))
+                .dateFin(LocalDate.of(2026, 1, 12))
+                .modalite(Modalite.PRESENTIEL)
+                .status(FormationStatus.ACTIVE)
+                .category(category)
+                .createdBy(creator)
+                .build();
+        Formation archived = Formation.builder()
+                .intitule("Formation archivée")
+                .dateDebut(LocalDate.of(2026, 1, 10))
+                .dateFin(LocalDate.of(2026, 1, 12))
+                .modalite(Modalite.PRESENTIEL)
+                .status(FormationStatus.ARCHIVED)
+                .category(category)
+                .createdBy(creator)
+                .build();
+        formationRepository.save(active);
+        formationRepository.save(archived);
+
+        // Both saved, not just the archived one — otherwise "returns nothing" would pass this
+        // assertion just as well as "filters correctly" (review).
+        List<Formation> found = formationRepository.findByStatus(FormationStatus.ACTIVE);
+
+        assertThat(found).extracting(Formation::getIntitule)
+                .contains("Formation active")
+                .doesNotContain("Formation archivée");
+    }
+
     @Test
     void savingFormationWithoutCategoryThrowsDataIntegrityViolationException() {
         // TICKET-046 acceptance criterion: category_id NOT NULL + FK, enforced at the DB level —

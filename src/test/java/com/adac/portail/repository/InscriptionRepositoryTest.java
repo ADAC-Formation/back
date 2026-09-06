@@ -48,6 +48,9 @@ class InscriptionRepositoryTest {
     private FormationRepository formationRepository;
 
     @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
     private InscriptionRepository inscriptionRepository;
 
     private User saveUser(String email, Role role) {
@@ -67,9 +70,35 @@ class InscriptionRepositoryTest {
                 .dateFin(LocalDate.of(2026, 3, 12))
                 .modalite(Modalite.PRESENTIEL)
                 .status(FormationStatus.ACTIVE)
+                // category_id is NOT NULL since V3 (TICKET-046) — any seeded category works, this
+                // fixture isn't about which one (pre-existing gap fixed in TICKET-022 review: this
+                // helper predates that migration and was never updated).
+                .category(categoryRepository.findAll().get(0))
                 .formateur(formateur)
                 .createdBy(creator)
                 .build());
+    }
+
+    // TICKET-023 review: @EntityGraph(attributePaths = "stagiaire") added to fix an N+1 on the
+    // roster endpoint. @DataJpaTest's open transaction can't actually prove the fetch join fired
+    // (same caveat as findStagiairesByFormation below) — this only proves the query itself still
+    // returns the right rows after adding the annotation.
+    @Test
+    void findAllByFormationReturnsEveryInscriptionForThatFormation() {
+        User superAdmin = saveUser("inscr-repo-admin7@adac.fr", Role.SUPER_ADMIN);
+        Formation formation = saveFormation(superAdmin, null);
+        Formation otherFormation = saveFormation(superAdmin, null);
+        User stagiaire1 = saveUser("inscr-repo-eg-1@adac.fr", Role.STAGIAIRE);
+        User stagiaire2 = saveUser("inscr-repo-eg-2@adac.fr", Role.STAGIAIRE);
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire1).formation(formation).build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire2).formation(formation).build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire1).formation(otherFormation).build());
+
+        List<Inscription> found = inscriptionRepository.findAllByFormation(formation);
+
+        assertThat(found).hasSize(2);
+        assertThat(found).extracting(i -> i.getStagiaire().getEmail())
+                .containsExactlyInAnyOrder("inscr-repo-eg-1@adac.fr", "inscr-repo-eg-2@adac.fr");
     }
 
     @Test
@@ -128,5 +157,34 @@ class InscriptionRepositoryTest {
 
         assertThat(inscriptionRepository.existsByStagiaireAndFormation_Formateur(stagiaire, formateur)).isTrue();
         assertThat(inscriptionRepository.existsByStagiaireAndFormation_Formateur(stagiaire, otherFormateur)).isFalse();
+    }
+
+    // TICKET-022 review: this custom @Query had no @DataJpaTest coverage (its two siblings above
+    // do) — only mocked in FormationServiceImplTest, which can't catch a wrong projection.
+    @Test
+    void findFormationsByStagiaireReturnsOnlyTheFormationsTheyAreEnrolledIn() {
+        User superAdmin = saveUser("inscr-repo-admin5@adac.fr", Role.SUPER_ADMIN);
+        Formation enrolled = saveFormation(superAdmin, null);
+        Formation notEnrolled = saveFormation(superAdmin, null);
+        User stagiaire = saveUser("inscr-repo-formations-stagiaire@adac.fr", Role.STAGIAIRE);
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire).formation(enrolled).build());
+
+        List<Formation> found = inscriptionRepository.findFormationsByStagiaire(stagiaire);
+
+        assertThat(found).extracting(Formation::getId)
+                .containsExactly(enrolled.getId())
+                .doesNotContain(notEnrolled.getId());
+    }
+
+    @Test
+    void existsByStagiaireAndFormationIsFalseWhenNotEnrolled() {
+        User superAdmin = saveUser("inscr-repo-admin6@adac.fr", Role.SUPER_ADMIN);
+        Formation formation = saveFormation(superAdmin, null);
+        User enrolledStagiaire = saveUser("inscr-repo-enrolled@adac.fr", Role.STAGIAIRE);
+        User otherStagiaire = saveUser("inscr-repo-not-enrolled@adac.fr", Role.STAGIAIRE);
+        inscriptionRepository.save(Inscription.builder().stagiaire(enrolledStagiaire).formation(formation).build());
+
+        assertThat(inscriptionRepository.existsByStagiaireAndFormation(enrolledStagiaire, formation)).isTrue();
+        assertThat(inscriptionRepository.existsByStagiaireAndFormation(otherStagiaire, formation)).isFalse();
     }
 }
