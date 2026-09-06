@@ -37,6 +37,9 @@ Une session de formation planifiée.
 - FK `created_by → users.id` : toujours le Super Admin
 - `status` : `ACTIVE` (default) ou `ARCHIVED` (lecture seule)
 - Contrainte CHECK : `date_fin >= date_debut`
+- `version` : verrou optimiste JPA (`@Version`) — sans ça, un `PUT /api/formations/{id}` concurrent
+  à un `PATCH .../archive` peut réécrire silencieusement `status = ACTIVE` sur une formation censée
+  être irréversiblement archivée (TICKET-022, review)
 
 ### inscriptions
 Table de jonction entre un stagiaire et une formation. Porte la date d'inscription.

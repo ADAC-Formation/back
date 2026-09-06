@@ -279,12 +279,13 @@ formation, mais reste inchangée sur les formations qui la référencent déjà.
 ## 4. Formations
 
 ### GET /api/formations
-Liste des formations.
+Liste des formations. Périmètre non filtrable (pas de `?mine`/`?formateurId` — TICKET-022 review :
+retirés du contrat, jamais implémentés) :
 - SUPER_ADMIN : toutes (actives + archivées)
-- ADMIN : toutes actives (filtre par défaut : ses formations)
-- STAGIAIRE : uniquement ses formations
+- ADMIN : uniquement les siennes (celles où il est `formateur`), tous statuts
+- STAGIAIRE : uniquement les formations où il est inscrit
 ```json
-// Query params : ?status=ACTIVE|ARCHIVED | ?formateurId=1 | ?mine=true | ?categoryId=1
+// Query params : ?status=ACTIVE|ARCHIVED | ?categoryId=1 — filtrent à l'intérieur du périmètre ci-dessus
 // 200 OK → FormationResponse[]
 ```
 > `?categoryId` filtre par catégorie — disponible pour SUPER_ADMIN et ADMIN.
@@ -304,7 +305,8 @@ Créer une formation (SUPER_ADMIN uniquement).
 }
 
 // 201 Created → FormationResponse
-// 400 — categoryId manquant ou introuvable
+// 400 — categoryId manquant ou introuvable, ou formateurId n'est pas un formateur actif
+//       (STAGIAIRE ou compte désactivé)
 ```
 
 ### POST /api/formations/import
@@ -317,11 +319,15 @@ Import Excel (SUPER_ADMIN uniquement).
 ```
 
 ### GET /api/formations/{id}
-Détail d'une formation.
+Détail d'une formation. Même périmètre que la liste : SUPER_ADMIN voit tout, ADMIN uniquement ses
+propres formations (404 sinon — même raisonnement que `GET /api/users/{id}`, un statut qui ne
+confirme pas l'existence à quelqu'un qui n'a pas le droit de la voir), STAGIAIRE uniquement s'il y
+est inscrit (403).
 ```json
-// 200 OK → FormationResponse (avec liste des inscrits et documents)
+// 200 OK → FormationResponse (liste des inscrits et documents : pas encore dans cette réponse,
+//           voir TICKET-023/026)
 // 403 — STAGIAIRE non inscrit
-// 404
+// 404 — inconnue, ou ADMIN non-formateur de cette formation
 ```
 
 ### PUT /api/formations/{id}
@@ -338,6 +344,9 @@ Modifier une formation (SUPER_ADMIN uniquement).
   "formateurId": 2
 }
 // 200 OK → FormationResponse
+// 400 — formation archivée (modification impossible), categoryId introuvable, formateurId invalide,
+//       ou dateFin avant dateDebut
+// 404
 ```
 
 ### PATCH /api/formations/{id}/archive
@@ -347,6 +356,9 @@ Archiver une formation (SUPER_ADMIN uniquement).
 ```
 
 ### PATCH /api/formations/{id}/formateur
+> Pas encore implémenté (TICKET-022 ne couvre que `PUT /api/formations/{id}`, qui accepte déjà
+> `formateurId` — un endpoint dédié reste à faire si le produit en a besoin séparément).
+
 Assigner un formateur (SUPER_ADMIN uniquement).
 ```json
 // Body

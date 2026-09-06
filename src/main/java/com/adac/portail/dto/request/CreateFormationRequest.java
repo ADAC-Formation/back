@@ -35,6 +35,10 @@ public class CreateFormationRequest {
     @NotNull
     private Modalite modalite;
 
+    /** Obligatoire — see docs/tech.md § 4, "400 — categoryId manquant ou introuvable". */
+    @NotNull
+    private Long categoryId;
+
     /** Nullable — null means the Super Admin is auto-assigned. */
     private Long formateurId;
 

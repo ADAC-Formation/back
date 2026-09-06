@@ -55,6 +55,12 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), ex.getMessage()));
     }
 
+    @ExceptionHandler({FormationArchivedException.class, InvalidFormationDataException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidFormationRequest(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
+    }
+
     /**
      * Method-security ({@code @PreAuthorize}, TICKET-047) denial — {@code CategoryController}'s
      * write endpoints are the first in this branch to use it. A {@code @PreAuthorize} check runs

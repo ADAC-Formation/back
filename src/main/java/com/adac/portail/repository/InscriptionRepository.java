@@ -13,6 +13,14 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
 
     List<Inscription> findAllByFormation(Formation formation);
 
+    /**
+     * Used by {@code FormationServiceImpl.toResponse} instead of
+     * {@code findAllByFormation(formation).size()} — TICKET-022 review: the latter hydrates every
+     * enrolled {@code User} row per formation just to discard it and count, an N+1 on every
+     * formation list/detail response.
+     */
+    long countByFormation(Formation formation);
+
     /** Named after the entity's actual field ({@code stagiaire}, not {@code user}). */
     List<Inscription> findAllByStagiaire(User stagiaire);
 
@@ -44,4 +52,22 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
      * their own formations, the same rule already applied to the list endpoint (TICKET-019 review).
      */
     boolean existsByStagiaireAndFormation_Formateur(User stagiaire, User formateur);
+
+    /**
+     * Is {@code stagiaire} enrolled in {@code formation}? Used by
+     * {@code FormationServiceImpl.getFormationById} (TICKET-022) — docs/tech.md: "403 — STAGIAIRE
+     * non inscrit".
+     */
+    boolean existsByStagiaireAndFormation(User stagiaire, Formation formation);
+
+    /**
+     * All formations {@code stagiaire} is enrolled in — used by
+     * {@code FormationServiceImpl.getFormations} for a STAGIAIRE caller (docs/tech.md: "STAGIAIRE
+     * : uniquement ses formations"). Projects straight to {@code Formation}, same reasoning as
+     * {@link #findStagiairesByFormation}: going through
+     * {@code findAllByStagiaire(...).stream().map(Inscription::getFormation)} would hand back an
+     * uninitialized LAZY proxy per {@code formation} instead of letting Hibernate join once in SQL.
+     */
+    @Query("select i.formation from Inscription i where i.stagiaire = :stagiaire")
+    List<Formation> findFormationsByStagiaire(@Param("stagiaire") User stagiaire);
 }

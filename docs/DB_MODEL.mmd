@@ -35,6 +35,7 @@ erDiagram
         bigint category_id FK "NOT NULL"
         bigint formateur_id FK "nullable — NULL = Super Admin auto-assigné"
         bigint created_by FK "NOT NULL"
+        bigint version "DEFAULT 0 — optimistic lock, TICKET-022"
         timestamptz created_at "DEFAULT NOW()"
         timestamptz updated_at
     }

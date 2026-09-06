@@ -193,9 +193,10 @@ src/
 │   │   │   │
 │   │   │   ├── exception/
 │   │   │   │   ├── GlobalExceptionHandler.java       ← @RestControllerAdvice (TICKET-015, étendu en
-│   │   │   │   │                                        TICKET-019 et TICKET-047 avec les conflits,
-│   │   │   │   │                                        ResourceNotFoundException et AccessDeniedException ;
-│   │   │   │   │                                        login/me restent gérés dans security/)
+│   │   │   │   │                                        TICKET-019, TICKET-047 et TICKET-022 avec les
+│   │   │   │   │                                        conflits, ResourceNotFoundException et
+│   │   │   │   │                                        AccessDeniedException ; login/me restent gérés
+│   │   │   │   │                                        dans security/)
 │   │   │   │   ├── ActivationTokenExpiredException.java  ← 400 (TICKET-015)
 │   │   │   │   ├── ActivationTokenInvalidException.java  ← 400 (TICKET-015)
 │   │   │   │   ├── RateLimitException.java               ← 429 (TICKET-015)
@@ -203,8 +204,8 @@ src/
 │   │   │   │   ├── DuplicateEmailException.java          ← 409 (TICKET-019)
 │   │   │   │   ├── ResourceNotFoundException.java        ← 404, générique
 │   │   │   │   ├── ConflictException.java                ← 409 générique (TICKET-019)
-│   │   │   │   ├── UnauthorizedException.java            ← 403 (pas encore créée)
-│   │   │   │   └── BadRequestException.java              ← 400 (pas encore créée)
+│   │   │   │   ├── FormationArchivedException.java       ← 400 (TICKET-022)
+│   │   │   │   └── InvalidFormationDataException.java    ← 400, générique formations (TICKET-022)
 │   │   │   │
 │   │   │   ├── utils/
 │   │   │   │   ├── EmailTemplateBuilder.java         ← construit le HTML des emails
@@ -221,9 +222,11 @@ src/
 │   │       ├── db/migration/
 │   │       │   ├── V1__init_schema.sql             ← DDL des 8 tables, géré par Flyway (TICKET-004) — ne jamais
 │   │       │   │                                      éditer une fois appliqué, ajouter Vn__... à la place
-│   │       │   └── V3__add_categories.sql          ← table `categories` + seed des 6 catégories +
-│   │       │                                          `formations.category_id` (nullable → backfill →
-│   │       │                                          NOT NULL + FK), voir TICKET-046
+│   │       │   ├── V2__add_user_version.sql        ← `users.version`, verrou optimiste (TICKET-019 review)
+│   │       │   ├── V3__add_categories.sql          ← table `categories` + seed des 6 catégories +
+│   │       │   │                                      `formations.category_id` (nullable → backfill →
+│   │       │   │                                      NOT NULL + FK), voir TICKET-046
+│   │       │   └── V4__add_formation_version.sql   ← `formations.version`, verrou optimiste (TICKET-022 review)
 │   │       │
 │   │       │   ⚠️ Si ta DB locale `adac_portail` a été créée avant le TICKET-004 (schéma posé par l'ancien
 │   │       │      `schema.sql` intérimaire), Flyway refuse de démarrer : "Found non-empty schema(s) but
