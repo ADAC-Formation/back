@@ -127,3 +127,50 @@ Conserver la branche et les changements existants. Préserver les changements é
   - Trois branches backend actives en parallèle non mergées (feature/documents, feature/messagerie,
     feature/notifications) — aucune PR ouverte sur aucune des trois à ce stade, sur décision de
     Charlotte (attend explicitement avant de pousser).
+
+## Ticket 034 — Backend, Service email (JavaMailSender + templates)
+
+- Outil ayant préparé le rapport : Claude Code
+- Branche et HEAD observés : feature/notifications (même branche que TICKET-033 — fiche : "Switch
+  to existing", pas "Create")
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-007 (Done), TICKET-015 (Done)
+- Décision validée avec Charlotte avant codage : migration de `ActivationServiceImpl` (texte brut
+  via `MailSender`/`SimpleMailMessage`) vers `EmailService` (HTML) incluse dans ce ticket, bien
+  qu'absente de la liste "Files to create or modify" d'origine — `docs/ARCHI.md` l'anticipait déjà
+  explicitement. `EmailService.sendActivationEmail`/`sendPasswordResetEmail` lèvent toujours
+  `MailException` sur échec SMTP exactement comme l'ancien appel direct, donc toute la logique
+  anti-oracle existante (rate-limit, `catch (MailException)`) n'a pas changé de comportement.
+- Travail réalisé : `EmailService`/`Impl` (nouveau), `EmailTemplateBuilder` (nouveau, HTML brandé
+  ADAC), migration de `ActivationServiceImpl` (~20 tests adaptés). Revue branch-wide (2 agents
+  Opus : sécurité, backend+clean-code) — 0 BLOCKING, converge sur 1 CRITICAL commun : `prenom`/
+  `content` interpolés dans le HTML sans échappement (latent aujourd'hui — `prenom` réglable
+  SUPER_ADMIN uniquement, `sendNotificationEmail` sans appelant en prod — mais le test d'origine
+  bénissait explicitement l'absence d'échappement comme "hors périmètre TICKET-033", ce qui
+  aurait activement induit en erreur le futur câblage). Corrigé avec `HtmlUtils.htmlEscape`.
+  Corrigés aussi : tests `EmailServiceImplTest` qui ne vérifiaient que l'appel à `send()` sans le
+  contenu réel (sujet/destinataire/from/Content-Type) ; le wrap `MessagingException →
+  MailPreparationException` n'avait aucun test alors qu'il conditionne l'anti-oracle de
+  `ActivationServiceImpl` ; `if/else` sur `TokenType` remplacé par un `switch` exhaustif ;
+  duplication du gabarit HTML supprimée ; email loggé via l'objet exception contredisant la
+  politique déjà énoncée dans le fichier ; test ajouté liant le code emailé au hash stocké.
+- Tests exécutés : `mvn test` — 403/403 GREEN (14 nouveaux tests pour ce ticket)
+- Revue : review-code branch-wide (sécurité, backend+clean-code — 2 agents Opus) ; tous les
+  CRITICAL corrigés et re-testés (GREEN confirmé). Déféré, disclosé dans la fiche : l'appel SMTP
+  reste dans la transaction `@Transactional` de `resendActivation`/`forgotPassword` au lieu du
+  pattern `afterCommit` déjà utilisé ailleurs (`UserServiceImpl`, `MessageServiceImpl`) —
+  pré-existant, pas une régression, remaniement plus large que ce ticket.
+- Documentation mise à jour : docs/ARCHI.md (migration `ActivationServiceImpl` actée),
+  docs/TICKETS.md, docs/tickets/TICKET-034.md (décision, critères cochés, section revue).
+- État Git observé : tous les fichiers du ticket indexés avant commit ; aucun fichier étranger.
+- Étape suivante : aucun nouveau ticket entamé. Plus de ticket backend admissible restant hors
+  branches déjà ouvertes non mergées (feature/documents — TICKET-026, feature/messagerie —
+  TICKET-030) et tickets infra/frontend hors périmètre de cet agent. `feature/notifications`
+  (TICKET-033 + TICKET-034) est la seule des trois qui pourrait être proposée en PR maintenant si
+  Charlotte le souhaite — TICKET-036 (frontend) est le prochain sur cette branche.
+- Risques, divergences ou décisions attendues :
+  - `sendNotificationEmail` n'a toujours aucun appelant en production — décision de câblage
+    (TICKET-033/036) à prendre séparément, avec l'échappement HTML désormais en place pour cette
+    éventualité.
+  - Refactor `afterCommit` de l'envoi SMTP différé (voir ci-dessus) — dette technique disclosée,
+    pas bloquante.

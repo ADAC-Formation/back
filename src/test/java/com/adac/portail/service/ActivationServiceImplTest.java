@@ -18,11 +18,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.MailSendException;
-import org.springframework.mail.MailSender;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -30,12 +27,21 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * Mocks {@link EmailService} rather than {@code MailSender}/{@code SimpleMailMessage} directly
+ * (TICKET-034 migration — see {@code ActivationServiceImpl}'s Javadoc): the plain-text-vs-HTML
+ * body and the SMTP plumbing are {@code EmailServiceImpl}'s concern now (see its own test), this
+ * class only needs to prove the right {@code EmailService} method is called for the right token
+ * type, and that a {@code MailException} from it doesn't turn into a 500 — same behaviors as
+ * before, just through the new seam.
+ */
 @ExtendWith(MockitoExtension.class)
 class ActivationServiceImplTest {
 
@@ -46,7 +52,7 @@ class ActivationServiceImplTest {
     private ActivationTokenRepository activationTokenRepository;
 
     @Mock
-    private MailSender mailSender;
+    private EmailService emailService;
 
     // Real BCrypt, not mocked: the service hashes/matches the 6-digit code with it, and a mock
     // encoder that just echoes its input would let a wrong-code test pass for the wrong reason.
@@ -59,8 +65,7 @@ class ActivationServiceImplTest {
     @BeforeEach
     void setUp() {
         activationService = new ActivationServiceImpl(userRepository, activationTokenRepository,
-                passwordEncoder, mailSender);
-        ReflectionTestUtils.setField(activationService, "fromAddress", "no-reply@adac.fr");
+                passwordEncoder, emailService);
 
         user = User.builder()
                 .id(1L)
@@ -207,11 +212,17 @@ class ActivationServiceImplTest {
 
         activationService.resendActivation(user.getEmail());
 
-        ArgumentCaptor<ActivationToken> captor = ArgumentCaptor.forClass(ActivationToken.class);
-        verify(activationTokenRepository).save(captor.capture());
-        assertThat(captor.getValue().getType()).isEqualTo(TokenType.ACCOUNT_ACTIVATION);
-        assertThat(captor.getValue().getExpiresAt()).isAfter(OffsetDateTime.now().plusMinutes(29));
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        ArgumentCaptor<ActivationToken> tokenCaptor = ArgumentCaptor.forClass(ActivationToken.class);
+        verify(activationTokenRepository).save(tokenCaptor.capture());
+        assertThat(tokenCaptor.getValue().getType()).isEqualTo(TokenType.ACCOUNT_ACTIVATION);
+        assertThat(tokenCaptor.getValue().getExpiresAt()).isAfter(OffsetDateTime.now().plusMinutes(29));
+
+        // Branch-wide review: anyString() would equally accept the hash or an unrelated string —
+        // the one property that actually matters is that the *emailed* code is the one hashed
+        // into the token, so BCryptPasswordEncoder.matches ties the two together for real.
+        ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
+        verify(emailService).sendActivationEmail(eq(user), codeCaptor.capture());
+        assertThat(passwordEncoder.matches(codeCaptor.getValue(), tokenCaptor.getValue().getCodeHash())).isTrue();
     }
 
     @Test
@@ -221,7 +232,7 @@ class ActivationServiceImplTest {
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
                 eq(user), eq(TokenType.ACCOUNT_ACTIVATION), any())).thenReturn(1L);
-        doThrow(new MailSendException("boom")).when(mailSender).send(any(SimpleMailMessage.class));
+        doThrow(new MailSendException("boom")).when(emailService).sendActivationEmail(any(), anyString());
 
         activationService.resendActivation(user.getEmail());
 
@@ -238,7 +249,7 @@ class ActivationServiceImplTest {
                 .isInstanceOf(RateLimitException.class);
 
         verify(activationTokenRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailService, never()).sendActivationEmail(any(), anyString());
     }
 
     @Test
@@ -248,7 +259,7 @@ class ActivationServiceImplTest {
         activationService.resendActivation("nobody@adac.fr");
 
         verify(activationTokenRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailService, never()).sendActivationEmail(any(), anyString());
     }
 
     @Test
@@ -262,7 +273,7 @@ class ActivationServiceImplTest {
         activationService.resendActivation(user.getEmail());
 
         verify(activationTokenRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailService, never()).sendActivationEmail(any(), anyString());
     }
 
     @Test
@@ -273,7 +284,7 @@ class ActivationServiceImplTest {
         activationService.resendActivation(user.getEmail());
 
         verify(activationTokenRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailService, never()).sendActivationEmail(any(), anyString());
     }
 
     // --- forgotPassword ---------------------------------------------------------------------
@@ -287,7 +298,7 @@ class ActivationServiceImplTest {
         activationService.forgotPassword(user.getEmail());
 
         verify(activationTokenRepository).save(any(ActivationToken.class));
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(emailService).sendPasswordResetEmail(eq(user), anyString());
     }
 
     @Test
@@ -302,7 +313,7 @@ class ActivationServiceImplTest {
         activationService.forgotPassword(user.getEmail());
 
         verify(activationTokenRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailService, never()).sendPasswordResetEmail(any(), anyString());
     }
 
     @Test
@@ -312,7 +323,7 @@ class ActivationServiceImplTest {
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
                 eq(user), eq(TokenType.PASSWORD_RESET), any())).thenReturn(0L);
-        doThrow(new MailSendException("boom")).when(mailSender).send(any(SimpleMailMessage.class));
+        doThrow(new MailSendException("boom")).when(emailService).sendPasswordResetEmail(any(), anyString());
 
         activationService.forgotPassword(user.getEmail());
 
@@ -326,7 +337,7 @@ class ActivationServiceImplTest {
         activationService.forgotPassword("nobody@adac.fr");
 
         verify(activationTokenRepository, never()).save(any());
-        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+        verify(emailService, never()).sendPasswordResetEmail(any(), anyString());
     }
 
     // --- resetPassword ----------------------------------------------------------------------
@@ -365,12 +376,12 @@ class ActivationServiceImplTest {
         verify(activationTokenRepository).save(captor.capture());
         assertThat(captor.getValue().getType()).isEqualTo(TokenType.ACCOUNT_ACTIVATION);
         assertThat(captor.getValue().getUser()).isEqualTo(user);
-        verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(emailService).sendActivationEmail(eq(user), anyString());
     }
 
     @Test
     void sendActivationCodeSwallowsMailExceptionInsteadOfFailingAccountCreation() {
-        doThrow(new MailSendException("boom")).when(mailSender).send(any(SimpleMailMessage.class));
+        doThrow(new MailSendException("boom")).when(emailService).sendActivationEmail(any(), anyString());
 
         activationService.sendActivationCode(user);
 
