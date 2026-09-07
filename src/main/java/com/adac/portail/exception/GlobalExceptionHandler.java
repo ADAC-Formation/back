@@ -286,4 +286,40 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), "Service de stockage indisponible"));
     }
+
+    /**
+     * The wrong HTTP verb on a real route — e.g. {@code DELETE /api/formations/{id}} instead of
+     * the documented {@code PUT} (live-testing finding, branch-wide review). Without this handler
+     * it has no {@code @ExceptionHandler} match here and falls through to Spring Boot's default
+     * error handling, which forwards internally to {@code /error} — a dispatch
+     * {@code JwtAuthorizationFilter} never re-authenticates (see {@code SecurityConfig}'s
+     * {@code /error} entry for the full mechanism), so the client saw a misleading 401 instead of
+     * 405. {@code Allow} is populated from the exception itself so the caller (or a human hitting
+     * this by hand) can see which verbs the route actually accepts.
+     */
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+            org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        java.util.Set<org.springframework.http.HttpMethod> supported = ex.getSupportedHttpMethods();
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .allow(supported == null ? new org.springframework.http.HttpMethod[0]
+                        : supported.toArray(new org.springframework.http.HttpMethod[0]))
+                .body(new ErrorResponse(HttpStatus.METHOD_NOT_ALLOWED.value(), "Méthode non autorisée sur cette ressource"));
+    }
+
+    /**
+     * Last-resort catch-all (live-testing finding, branch-wide review): any exception with no
+     * more specific handler above — Spring picks the most specific match, so this never shadows
+     * them — previously fell through to the same {@code /error} misleading-401 path described on
+     * {@link #handleMethodNotSupported}. Logged with the full stack trace since, by definition,
+     * nothing here was anticipated; the client only gets a generic message, never
+     * {@code ex.getMessage()} — that could leak internals (a SQL fragment, a file path) the same
+     * way a raw stack trace would.
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
+        log.error("Unexpected exception reached the top-level handler", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Erreur interne du serveur"));
+    }
 }

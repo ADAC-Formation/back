@@ -1,5 +1,6 @@
 package com.adac.portail.security;
 
+import com.adac.portail.dto.response.ErrorResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
@@ -18,7 +19,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -53,11 +58,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Runs against the real local dev PostgreSQL, like the rest of this suite (see
  * {@code FlywayMigrationTest}, {@code UserRepositoryTest}) — same convention, same trade-off.</p>
  */
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
 @Import(JwtAuthenticationIntegrationTest.PingController.class)
 class JwtAuthenticationIntegrationTest {
+
+    // RANDOM_PORT + TestRestTemplate is only needed for the two tests exercising the real
+    // container's forward-to-/error behavior (see their Javadoc) — everything else in this class
+    // still uses MockMvc, which is faster and sufficient for exercising the filter chain directly.
+    @LocalServerPort
+    private int port;
+
+    @Autowired
+    private TestRestTemplate restTemplate;
 
     private static final String TEST_EMAIL = "jwt-security-test@adac.fr";
     private static final String TEST_PASSWORD = "S3cure-Pass!";
@@ -217,6 +231,77 @@ class JwtAuthenticationIntegrationTest {
 
         mockMvc.perform(get("/api/test/ping").cookie(jwtCookie))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void wrongHttpMethodOnAuthenticatedEndpointReturnsMethodNotAllowedNotUnauthorized() {
+        // Branch-wide review, live-testing finding: HttpRequestMethodNotSupportedException has no
+        // handler in GlobalExceptionHandler, so it falls through to Spring Boot's default error
+        // handling, which forwards internally to /error. JwtAuthorizationFilter extends
+        // OncePerRequestFilter, whose shouldNotFilterErrorDispatch() is true by default, so it
+        // never re-authenticates that forwarded request — but SecurityConfig's
+        // .anyRequest().authenticated() still applies to the ERROR dispatch (Spring Security 6
+        // default), so the entry point fires and turns a plain wrong-verb mistake into a
+        // misleading 401 "Authentification requise" instead of 405. MockMvc can't reproduce this
+        // — it has no real servlet container to perform the actual forward to /error — so this
+        // needs a real embedded server (see restTemplate/port below), unlike every other test in
+        // this class.
+        String jwtCookie = loginAndGetJwtCookie(TEST_EMAIL, TEST_PASSWORD);
+
+        // PingController only maps GET /api/test/ping.
+        ResponseEntity<ErrorResponse> response = restTemplate.exchange(
+                url("/api/test/ping"), HttpMethod.POST, authenticatedRequest(jwtCookie), ErrorResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.METHOD_NOT_ALLOWED);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(405);
+    }
+
+    @Test
+    void unexpectedExceptionOnAuthenticatedEndpointReturnsInternalServerErrorNotUnauthorized() {
+        // Same root cause as the test above, but for the case that actually matters in
+        // production: an unanticipated RuntimeException with no dedicated @ExceptionHandler also
+        // forwards to /error and comes back as a misleading 401, masking a real server error as
+        // an authentication problem — invisible to any monitoring keyed on status codes, and
+        // confusing to debug.
+        String jwtCookie = loginAndGetJwtCookie(TEST_EMAIL, TEST_PASSWORD);
+
+        ResponseEntity<ErrorResponse> response = restTemplate.exchange(
+                url("/api/test/boom"), HttpMethod.GET, authenticatedRequest(jwtCookie), ErrorResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(500);
+        assertThat(response.getBody().message()).isEqualTo("Erreur interne du serveur");
+    }
+
+    private String url(String path) {
+        return "http://localhost:" + port + path;
+    }
+
+    private String loginAndGetJwtCookie(String email, String password) {
+        ResponseEntity<Void> loginResponse = restTemplate.exchange(
+                url("/api/auth/login"), HttpMethod.POST,
+                new org.springframework.http.HttpEntity<>(Map.of("email", email, "password", password),
+                        jsonHeaders()),
+                Void.class);
+        List<String> setCookieHeaders = loginResponse.getHeaders().get(org.springframework.http.HttpHeaders.SET_COOKIE);
+        assertThat(setCookieHeaders).isNotNull().isNotEmpty();
+        // Only the name=value pair is needed on the way back out — attributes (Path, HttpOnly...)
+        // are for the browser, not for a Cookie request header.
+        return setCookieHeaders.get(0).split(";", 2)[0];
+    }
+
+    private org.springframework.http.HttpEntity<Void> authenticatedRequest(String jwtCookie) {
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.set(org.springframework.http.HttpHeaders.COOKIE, jwtCookie);
+        return new org.springframework.http.HttpEntity<>(headers);
+    }
+
+    private org.springframework.http.HttpHeaders jsonHeaders() {
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return headers;
     }
 
     @Test
@@ -503,6 +588,11 @@ class JwtAuthenticationIntegrationTest {
         @GetMapping("/api/test/ping")
         ResponseEntity<String> ping() {
             return ResponseEntity.ok("pong");
+        }
+
+        @GetMapping("/api/test/boom")
+        ResponseEntity<String> boom() {
+            throw new RuntimeException("boom");
         }
     }
 }

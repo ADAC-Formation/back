@@ -64,7 +64,18 @@ public class SecurityConfig {
         private static final String[] PUBLIC_ROUTES = {
                         "/api/auth/login", "/api/auth/activate", "/api/auth/resend-activation",
                         "/api/auth/forgot-password", "/api/auth/reset-password",
-                        "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health"
+                        "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health",
+                        // Live-testing finding, branch-wide review: never reached by a direct client
+                        // request — only by the container's own internal forward when an exception
+                        // (e.g. HttpRequestMethodNotSupportedException, or any uncaught exception
+                        // GlobalExceptionHandler doesn't have a handler for) has no Spring MVC
+                        // handler to resolve it in-dispatch. JwtAuthorizationFilter (a
+                        // OncePerRequestFilter, shouldNotFilterErrorDispatch() true by default)
+                        // never re-authenticates that forwarded request, so without this,
+                        // .anyRequest().authenticated() rejected it with a misleading 401
+                        // "Authentification requise" instead of the real status — turning, worst
+                        // case, a genuine 500 into what looks like an auth problem.
+                        "/error"
         };
 
         private final AuthenticationManager authenticationManager;
