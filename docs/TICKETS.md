@@ -81,8 +81,8 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-033 | Backend — Notifications (CRUD + logique) | back | TICKET-005, TICKET-029 | 2h | À faire |
-| TICKET-034 | Backend — Service email (JavaMailSender + templates) | back | TICKET-007, TICKET-015 | 3h | À faire |
+| TICKET-033 | Backend — Notifications (CRUD + logique) | back | TICKET-005, TICKET-029 | 2h | Done |
+| TICKET-034 | Backend — Service email (JavaMailSender + templates) | back | TICKET-007, TICKET-015 | 3h | Done |
 | TICKET-035 | Frontend — Cloche + page notifications | front | TICKET-033 | 2h | À faire |
 | TICKET-036 | Frontend — Toggle notification email | front | TICKET-035, TICKET-020 | 1h | À faire |
 

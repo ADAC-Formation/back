@@ -8,12 +8,14 @@ import com.adac.portail.entity.enums.TokenType;
 import com.adac.portail.exception.ActivationTokenInvalidException;
 import com.adac.portail.repository.ActivationTokenRepository;
 import com.adac.portail.repository.UserRepository;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.mail.MailSender;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -22,6 +24,7 @@ import java.time.OffsetDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 /**
  * {@code ActivationServiceImplTest} mocks {@code ActivationTokenRepository}, so it can't see
@@ -52,13 +55,22 @@ class ActivationServiceIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    // TICKET-034: EmailServiceImpl needs JavaMailSender specifically (createMimeMessage()), not
+    // just the MailSender supertype — mocking the wrong one here would leave JavaMailSender
+    // unsatisfied and fail context startup instead of just preventing a real SMTP attempt.
     @MockitoBean
-    private MailSender mailSender;
+    private JavaMailSender mailSender;
 
     private Long tokenId;
 
     @BeforeEach
     void setUp() {
+        // A real MimeMessage, not Mockito's null default (branch-wide review): the first test in
+        // this class that ever triggers a send (none do today, but resendActivation/forgotPassword
+        // easily could) would otherwise hit `new MimeMessageHelper(null, ...)` ->
+        // IllegalArgumentException — not a MailException, so it would escape ActivationServiceImpl's
+        // catch blocks entirely and fail confusingly far from the real cause.
+        when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
         deleteTestData();
         User user = userRepository.save(User.builder()
                 .email(TEST_EMAIL)

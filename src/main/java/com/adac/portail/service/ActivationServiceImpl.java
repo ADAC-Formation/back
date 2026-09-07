@@ -13,10 +13,7 @@ import com.adac.portail.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
-import org.springframework.mail.MailSender;
-import org.springframework.mail.SimpleMailMessage;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,9 +26,13 @@ import java.time.OffsetDateTime;
  * See docs/PRD.md § TokenActivation and docs/DB_MODEL.md § activation_tokens for the numbers
  * used here (30 min TTL, 3 wrong-code guesses per token, 3 new codes per 15 min).
  *
- * <p>Sends plain-text mail directly via {@link MailSender} — there's no {@code EmailService}/
- * template layer yet, that lands in TICKET-034. Keep this the only place in the codebase that
- * builds an activation/reset email body until then.</p>
+ * <p>Sends HTML mail via {@link EmailService} (TICKET-034) — this class used to build a
+ * plain-text {@code SimpleMailMessage} directly via {@code MailSender} before that service
+ * existed; {@link EmailService#sendActivationEmail}/{@link EmailService#sendPasswordResetEmail}
+ * still throw {@link MailException} on an SMTP-level failure exactly as the old direct {@code
+ * mailSender.send(...)} call did, so every {@code catch (MailException e)} block below and its
+ * oracle-avoidance reasoning carries over unchanged — only the body (plain text → ADAC-branded
+ * HTML) and the call site moved.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -46,17 +47,11 @@ public class ActivationServiceImpl implements ActivationService {
     private static final Duration TOKEN_TTL = Duration.ofMinutes(30);
     private static final String INVALID_CODE_MESSAGE = "Code invalide ou expiré";
     private static final String RATE_LIMIT_MESSAGE = "Trop de demandes. Réessayez dans 15 minutes.";
-    private static final String ACTIVATION_SUBJECT = "Votre code d'activation ADAC";
-    private static final String ACTIVATION_BODY =
-            "Bonjour %s,\n\nVotre code d'activation est : %s\nIl expire dans 30 minutes.";
 
     private final UserRepository userRepository;
     private final ActivationTokenRepository activationTokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final MailSender mailSender;
-
-    @Value("${app.mail.from}")
-    private String fromAddress;
+    private final EmailService emailService;
 
     @Override
     // Wrong-code guesses must survive the exception they raise (see verifyAndConsumeToken) or the
@@ -86,14 +81,19 @@ public class ActivationServiceImpl implements ActivationService {
                 .filter(this::isPendingFirstActivation)
                 .ifPresent(user -> {
                     try {
-                        issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION, ACTIVATION_SUBJECT, ACTIVATION_BODY);
+                        issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION);
                     } catch (MailException e) {
                         // Unlike RateLimitException (left to propagate — this endpoint's own AC
                         // wants the 429 visible), an SMTP failure must not turn into a 500 for a
                         // known, pending email while an unknown one keeps getting 200 — same
                         // oracle forgotPassword guards against, through the same shared method
                         // (see TICKET-045 branch-wide review — this endpoint was missing it).
-                        log.warn("Failed to send activation email", e);
+                        // Logs the id, not `e` at WARN (branch-wide review): MailSendException's
+                        // own message embeds the failed recipient address, which would otherwise
+                        // contradict this class's own "log the id, not the email" policy (see
+                        // sendActivationCode's comment) the moment a send actually fails.
+                        log.warn("Failed to send activation email to user id={}", user.getId());
+                        log.debug("Activation email send failure detail", e);
                     }
                 });
     }
@@ -103,9 +103,7 @@ public class ActivationServiceImpl implements ActivationService {
     public void forgotPassword(String email) {
         userRepository.findByEmail(email).ifPresent(user -> {
             try {
-                issueAndEmailCode(user, TokenType.PASSWORD_RESET,
-                        "Réinitialisation de votre mot de passe ADAC",
-                        "Bonjour %s,\n\nVotre code de réinitialisation est : %s\nIl expire dans 30 minutes.");
+                issueAndEmailCode(user, TokenType.PASSWORD_RESET);
             } catch (RateLimitException e) {
                 // Never let this endpoint's response depend on account state — docs/tech.md
                 // requires the exact same 200 whether the email is unknown, known, or currently
@@ -116,8 +114,10 @@ public class ActivationServiceImpl implements ActivationService {
             } catch (MailException e) {
                 // Same reasoning, different failure mode: an SMTP-level rejection must not turn
                 // into a 500 for known emails while unknown ones keep getting 200 — that's the
-                // same oracle through a different door (see TICKET-015 review).
-                log.warn("Failed to send password reset email", e);
+                // same oracle through a different door (see TICKET-015 review). Logs the id, not
+                // `e` at WARN — see resendActivation's equivalent comment.
+                log.warn("Failed to send password reset email to user id={}", user.getId());
+                log.debug("Password reset email send failure detail", e);
             }
         });
     }
@@ -138,14 +138,17 @@ public class ActivationServiceImpl implements ActivationService {
     @Transactional
     public void sendActivationCode(User user) {
         try {
-            issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION, ACTIVATION_SUBJECT, ACTIVATION_BODY);
+            issueAndEmailCode(user, TokenType.ACCOUNT_ACTIVATION);
         } catch (MailException e) {
             // Same reasoning as resendActivation: an SMTP failure must not blow up account
             // creation, which already succeeded (the row is saved) by the time this runs. Logs
-            // the id, not the email (TICKET-019 review) — same choice as the other three catch
-            // blocks in this class, unlike this one before the fix: an application log typically
-            // has wider access and longer retention than the database itself.
-            log.warn("Failed to send activation email to newly created user id={}", user.getId(), e);
+            // the id, not the email (TICKET-019 review) — same choice as the other two catch
+            // blocks in this class. `e` itself goes to DEBUG, not this WARN: MailSendException's
+            // message embeds the failed recipient address, which would leak the email into the
+            // WARN line's rendered output even though the format string above never names it
+            // (branch-wide review, TICKET-034).
+            log.warn("Failed to send activation email to newly created user id={}", user.getId());
+            log.debug("Activation email send failure detail", e);
         }
     }
 
@@ -208,8 +211,8 @@ public class ActivationServiceImpl implements ActivationService {
         activationTokenRepository.save(token);
     }
 
-    /** Shared by {@code resendActivation} and {@code forgotPassword}: rate-limit, then issue + email a new code. */
-    private void issueAndEmailCode(User user, TokenType type, String subject, String bodyTemplate) {
+    /** Shared by {@code resendActivation}, {@code forgotPassword} and {@code sendActivationCode}: rate-limit, then issue + email a new code. */
+    private void issueAndEmailCode(User user, TokenType type) {
         OffsetDateTime windowStart = OffsetDateTime.now().minus(RESEND_WINDOW);
         long recentCount = activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(user, type, windowStart);
         if (recentCount >= MAX_CODES_PER_WINDOW) {
@@ -225,12 +228,14 @@ public class ActivationServiceImpl implements ActivationService {
                 .build();
         activationTokenRepository.save(token);
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromAddress);
-        message.setTo(user.getEmail());
-        message.setSubject(subject);
-        message.setText(String.format(bodyTemplate, user.getPrenom(), code));
-        mailSender.send(message);
+        // Exhaustive switch, not if/else (branch-wide review): an if/else's implicit `else`
+        // would silently route any future third TokenType through sendPasswordResetEmail,
+        // mailing a real credential under the wrong template. A missing case here is a compile
+        // error instead.
+        switch (type) {
+            case ACCOUNT_ACTIVATION -> emailService.sendActivationEmail(user, code);
+            case PASSWORD_RESET -> emailService.sendPasswordResetEmail(user, code);
+        }
     }
 
     /** A uniformly-random 6-digit code, zero-padded (e.g. "004213") — {@link SecureRandom}, not

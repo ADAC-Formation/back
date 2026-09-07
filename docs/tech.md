@@ -564,7 +564,9 @@ Marquer un message comme lu — un seul message, pas tout le fil de conversation
 Toutes les notifications (page plein écran — conservées, non supprimables).
 ```json
 // Query params : ?read=true|false | ?sort=date
-// 200 OK → NotificationResponse[]
+// 200 OK → NotificationResponse[] — capé aux 200 plus récentes (TICKET-033, review sécurité :
+//          la table ne purge jamais, seul deletedFromBell masque de la cloche — pas de pagination
+//          au-delà de ce plafond pour l'instant)
 ```
 
 ### GET /api/notifications/unread
@@ -572,6 +574,7 @@ Notifications non lues (pour la cloche).
 ```json
 // 200 OK
 { "count": 3, "notifications": NotificationResponse[] }
+// "notifications" capé aux 50 plus récentes ; "count" reste le total réel même au-delà (TICKET-033)
 ```
 > Appelé par **polling** côté frontend (toutes les 30-60s) — pas de WebSocket/SSE. Choix volontaire pour
 > rester cohérent avec `INFRASTRUCTURE.md` (pas de connexion persistante à maintenir, pas de complexité

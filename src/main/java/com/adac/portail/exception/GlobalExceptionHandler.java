@@ -246,11 +246,19 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre manquant"));
     }
 
-    /** A query param doesn't match its declared type — e.g. {@code ?filterType=BOGUS} or {@code ?formationId=abc}. */
+    /**
+     * A {@code @RequestParam}/{@code @PathVariable} doesn't match its declared type — e.g.
+     * {@code ?filterType=BOGUS} (TICKET-030) or {@code GET /api/notifications?read=abc}
+     * (TICKET-033, the first boolean/enum query param outside a body in this codebase). Thrown
+     * before the controller method runs, so without this it falls through to Spring Boot's
+     * default {@code /error} body instead of the {@code {status, message, details}} contract the
+     * other handlers here exist to enforce. The parameter name is included since a bare "invalid
+     * parameter" gives the caller nothing to act on once more than one query param is involved.
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre invalide"));
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre " + ex.getName()));
     }
 
     /**

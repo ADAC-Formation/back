@@ -58,10 +58,11 @@ src/
 │   │   │   │   ├── AuthService.java              ← interface
 │   │   │   │   ├── AuthServiceImpl.java
 │   │   │   │   ├── ActivationService.java        ← interface — activation compte + reset MDP (TICKET-015)
-│   │   │   │   ├── ActivationServiceImpl.java    ← envoie le mail directement via MailSender (SimpleMailMessage,
-│   │   │   │   │                                    texte brut) — EmailService/EmailTemplateBuilder plus bas
-│   │   │   │   │                                    n'existent pas encore (TICKET-034, qui dépend de ce ticket) ;
-│   │   │   │   │                                    à migrer dessus quand ce ticket-là atterrira
+│   │   │   │   ├── ActivationServiceImpl.java    ← envoie le mail via EmailService (HTML, TICKET-034) — envoyait
+│   │   │   │   │                                    directement via MailSender (SimpleMailMessage, texte brut)
+│   │   │   │   │                                    avant que ce ticket n'atterrisse ; EmailService lève toujours
+│   │   │   │   │                                    MailException sur échec SMTP, donc les catch (MailException)
+│   │   │   │   │                                    ci-dessous et leur logique anti-oracle n'ont pas changé
 │   │   │   │   ├── UserService.java
 │   │   │   │   ├── UserServiceImpl.java
 │   │   │   │   ├── CategoryService.java
@@ -131,6 +132,7 @@ src/
 │   │   │   │       ├── MessageResponse.java
 │   │   │   │       ├── ConversationResponse.java          ← assemblé en service, pas mappé d'une entité
 │   │   │   │       ├── NotificationResponse.java
+│   │   │   │       ├── UnreadNotificationsResponse.java   ← {count, notifications} — GET /notifications/unread (TICKET-033)
 │   │   │   │       ├── StatusMessageResponse.java         ← record {message} — le corps {"message": "..."} que
 │   │   │   │       │                                          renvoient activate/resend-activation/
 │   │   │   │       │                                          forgot-password/reset-password (TICKET-015)
@@ -498,8 +500,9 @@ HTTP Request
 - **`NotificationService`** existe déjà, en avance sur TICKET-033, avec la seule méthode dont
   `MessageServiceImpl` a besoin (`notify(recipientId, type, content, entityType, entityId)`) — même
   pattern qu'`ActivationServiceImpl` envoyant des emails directement avant qu'`EmailService`
-  n'existe (TICKET-034). Le CRUD complet (cloche, historique, marquer lu, supprimer de la cloche)
-  reste TICKET-033, qui étendra cette interface plutôt que la remplacer. `content` est tronqué à
+  n'existe (TICKET-034, désormais fait — voir plus haut). Le CRUD complet (cloche, historique,
+  marquer lu, supprimer de la cloche) reste TICKET-033, qui étendra cette interface plutôt que la
+  remplacer. `content` est tronqué à
   255 caractères avant écriture (`notifications.content VARCHAR(255)`) — **trouvé en review
   croisée** : la chaîne générée par `MessageServiceImpl` (prénom + nom, chacun jusqu'à 255
   caractères) pouvait dépasser la colonne et faire échouer silencieusement l'envoi du message
