@@ -462,9 +462,14 @@ Télécharger un fichier.
 ```
 
 ### DELETE /api/documents/{id}
-Supprimer un document (SUPER_ADMIN, ADMIN sur ses formations).
+Supprimer un document (SUPER_ADMIN : tous ; ADMIN : uniquement ses propres uploads, quelle que soit
+la formation ; STAGIAIRE : jamais). TICKET-026 review : la formulation précédente ("ADMIN sur ses
+formations") ne correspondait ni à la fiche du ticket ni à l'implémentation — corrigée pour refléter
+la règle réellement voulue (propriété de l'upload, pas de la formation).
 ```json
 // 204 No Content
+// 403 — STAGIAIRE, ou ADMIN sur un document qu'il n'a pas lui-même uploadé
+// 404 — document inconnu
 ```
 
 ---

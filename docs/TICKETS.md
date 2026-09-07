@@ -64,7 +64,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 | ID | Titre | Repo | Dépend de | Temps | Statut |
 |---|---|---|---|---|---|
-| TICKET-026 | Backend — Upload Supabase + download | back | TICKET-022, TICKET-023 | 3h | À faire |
+| TICKET-026 | Backend — Upload Supabase + download | back | TICKET-022, TICKET-023 | 3h | Done |
 | TICKET-027 | Frontend — Upload + téléchargement docs formation | front | TICKET-026 | 2h | À faire |
 | TICKET-028 | Frontend — Upload docs stagiaire (profil) | front | TICKET-027 | 1h | À faire |
 
