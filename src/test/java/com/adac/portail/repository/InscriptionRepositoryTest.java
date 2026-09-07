@@ -209,6 +209,7 @@ class InscriptionRepositoryTest {
                 .mimeType("application/pdf")
                 .uploadedBy(superAdmin)
                 .inscription(inscriptionWithDoc)
+                .storagePath("documents/test-fixture.pdf")
                 .build());
 
         List<User> found = inscriptionRepository.findStagiairesWithNoDocuments();
@@ -232,6 +233,7 @@ class InscriptionRepositoryTest {
                 .mimeType("application/pdf")
                 .uploadedBy(superAdmin)
                 .formation(formation)
+                .storagePath("documents/test-fixture.pdf")
                 .build());
 
         assertThat(inscriptionRepository.findStagiairesWithNoDocuments())
@@ -258,6 +260,7 @@ class InscriptionRepositoryTest {
                 .mimeType("application/pdf")
                 .uploadedBy(superAdmin)
                 .inscription(inscriptionA)
+                .storagePath("documents/test-fixture.pdf")
                 .build());
 
         assertThat(inscriptionRepository.findStagiairesWithNoDocuments())

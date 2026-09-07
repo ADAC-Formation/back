@@ -233,6 +233,7 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : fichier manquant"));
     }
 
+    /**
      * A required {@code @RequestParam} is missing — e.g. {@code GET /api/messages/group/preview}
      * without {@code filterType} (TICKET-030, branch-wide review: the first required query param
      * in this codebase). Thrown before the controller method runs, so without this it escapes
