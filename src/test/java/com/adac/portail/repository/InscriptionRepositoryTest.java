@@ -1,5 +1,6 @@
 package com.adac.portail.repository;
 
+import com.adac.portail.entity.Document;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
@@ -52,6 +53,9 @@ class InscriptionRepositoryTest {
 
     @Autowired
     private InscriptionRepository inscriptionRepository;
+
+    @Autowired
+    private DocumentRepository documentRepository;
 
     private User saveUser(String email, Role role) {
         return userRepository.save(User.builder()
@@ -186,5 +190,90 @@ class InscriptionRepositoryTest {
 
         assertThat(inscriptionRepository.existsByStagiaireAndFormation(enrolledStagiaire, formation)).isTrue();
         assertThat(inscriptionRepository.existsByStagiaireAndFormation(otherStagiaire, formation)).isFalse();
+    }
+
+    // TICKET-030 — MISSING_DOCS group-message filter.
+    @Test
+    void findStagiairesWithNoDocumentsExcludesThoseWithAnInscriptionTargetedDocument() {
+        User superAdmin = saveUser("inscr-repo-admin8@adac.fr", Role.SUPER_ADMIN);
+        Formation formation = saveFormation(superAdmin, null);
+        User withDoc = saveUser("inscr-repo-with-doc@adac.fr", Role.STAGIAIRE);
+        User withoutDoc = saveUser("inscr-repo-without-doc@adac.fr", Role.STAGIAIRE);
+        Inscription inscriptionWithDoc =
+                inscriptionRepository.save(Inscription.builder().stagiaire(withDoc).formation(formation).build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(withoutDoc).formation(formation).build());
+        documentRepository.save(Document.builder()
+                .fileName("attestation.pdf")
+                .fileUrl("https://supabase.example/attestation.pdf")
+                .fileSize(100L)
+                .mimeType("application/pdf")
+                .uploadedBy(superAdmin)
+                .inscription(inscriptionWithDoc)
+                .storagePath("documents/test-fixture.pdf")
+                .build());
+
+        List<User> found = inscriptionRepository.findStagiairesWithNoDocuments();
+
+        assertThat(found).extracting(User::getEmail)
+                .contains("inscr-repo-without-doc@adac.fr")
+                .doesNotContain("inscr-repo-with-doc@adac.fr");
+    }
+
+    // A formation-wide (non-targeted) document doesn't count as "received" by any one stagiaire.
+    @Test
+    void findStagiairesWithNoDocumentsIgnoresFormationWideDocuments() {
+        User superAdmin = saveUser("inscr-repo-admin9@adac.fr", Role.SUPER_ADMIN);
+        Formation formation = saveFormation(superAdmin, null);
+        User stagiaire = saveUser("inscr-repo-formation-doc-only@adac.fr", Role.STAGIAIRE);
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire).formation(formation).build());
+        documentRepository.save(Document.builder()
+                .fileName("programme.pdf")
+                .fileUrl("https://supabase.example/programme.pdf")
+                .fileSize(100L)
+                .mimeType("application/pdf")
+                .uploadedBy(superAdmin)
+                .formation(formation)
+                .storagePath("documents/test-fixture.pdf")
+                .build());
+
+        assertThat(inscriptionRepository.findStagiairesWithNoDocuments())
+                .extracting(User::getEmail)
+                .contains("inscr-repo-formation-doc-only@adac.fr");
+    }
+
+    // Branch-wide review: pins the "global, not per-formation" rule decided with Charlotte — a
+    // document on ANY of a stagiaire's inscriptions excludes them, even if another of their
+    // inscriptions (a different formation) has none.
+    @Test
+    void findStagiairesWithNoDocumentsIsGlobalAcrossAllOfAStagiairesFormationsNotPerFormation() {
+        User superAdmin = saveUser("inscr-repo-admin10@adac.fr", Role.SUPER_ADMIN);
+        Formation formationA = saveFormation(superAdmin, null);
+        Formation formationB = saveFormation(superAdmin, null);
+        User stagiaire = saveUser("inscr-repo-multi-formation@adac.fr", Role.STAGIAIRE);
+        Inscription inscriptionA =
+                inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire).formation(formationA).build());
+        inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire).formation(formationB).build());
+        documentRepository.save(Document.builder()
+                .fileName("attestation.pdf")
+                .fileUrl("https://supabase.example/attestation.pdf")
+                .fileSize(100L)
+                .mimeType("application/pdf")
+                .uploadedBy(superAdmin)
+                .inscription(inscriptionA)
+                .storagePath("documents/test-fixture.pdf")
+                .build());
+
+        assertThat(inscriptionRepository.findStagiairesWithNoDocuments())
+                .extracting(User::getEmail)
+                .doesNotContain("inscr-repo-multi-formation@adac.fr");
+    }
+
+    @Test
+    void findStagiairesWithNoDocumentsExcludesStagiairesWithNoInscriptionAtAll() {
+        saveUser("inscr-repo-not-enrolled-at-all@adac.fr", Role.STAGIAIRE);
+
+        assertThat(inscriptionRepository.findStagiairesWithNoDocuments())
+                .extracting(User::getEmail)
+                .doesNotContain("inscr-repo-not-enrolled-at-all@adac.fr");
     }
 }

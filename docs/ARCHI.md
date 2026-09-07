@@ -222,10 +222,12 @@ src/
 │   │   │   │   │                                            ex. règles de destinataire de messagerie ;
 │   │   │   │   │                                            distinct d'AccessDeniedException, qui vient
 │   │   │   │   │                                            de @PreAuthorize, une règle statique par route)
-│   │   │   │   └── BadRequestException.java              ← 400 (TICKET-029 — SendMessageRequest doit avoir
-│   │   │   │                                                exactement un des deux formats mutuellement
-│   │   │   │                                                exclusifs, règle qu'une simple @Valid ne peut
-│   │   │   │                                                pas exprimer)
+│   │   │   │   ├── BadRequestException.java              ← 400 (TICKET-029 — SendMessageRequest doit avoir
+│   │   │   │   │                                            exactement un des deux formats mutuellement
+│   │   │   │   │                                            exclusifs, règle qu'une simple @Valid ne peut
+│   │   │   │   │                                            pas exprimer)
+│   │   │   │   └── StorageException.java                 ← 502 (TICKET-026 — échec Supabase Storage :
+│   │   │   │                                                réseau, réponse non-2xx, fichier illisible)
 │   │   │   │
 │   │   │   ├── utils/
 │   │   │   │   ├── EmailTemplateBuilder.java         ← construit le HTML des emails

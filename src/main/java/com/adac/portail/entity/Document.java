@@ -48,6 +48,16 @@ public class Document {
     @Column(name = "mime_type", nullable = false)
     private String mimeType;
 
+    /**
+     * Raw Supabase Storage object path (e.g. {@code "formations/1/<uuid>-programme.pdf"}) — not
+     * exposed via {@code DocumentResponse}. {@link #fileUrl} is the full, percent-encoded
+     * authenticated URL built from it (see {@code SupabaseConfig.buildObjectUrl}); this field is
+     * what {@code StorageServiceImpl.download} needs to re-issue a request without undoing that
+     * encoding (TICKET-026, V5__add_document_storage_path.sql).
+     */
+    @Column(name = "storage_path", nullable = false, columnDefinition = "text")
+    private String storagePath;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uploaded_by", nullable = false)
     private User uploadedBy;

@@ -462,9 +462,14 @@ Télécharger un fichier.
 ```
 
 ### DELETE /api/documents/{id}
-Supprimer un document (SUPER_ADMIN, ADMIN sur ses formations).
+Supprimer un document (SUPER_ADMIN : tous ; ADMIN : uniquement ses propres uploads, quelle que soit
+la formation ; STAGIAIRE : jamais). TICKET-026 review : la formulation précédente ("ADMIN sur ses
+formations") ne correspondait ni à la fiche du ticket ni à l'implémentation — corrigée pour refléter
+la règle réellement voulue (propriété de l'upload, pas de la formation).
 ```json
 // 204 No Content
+// 403 — STAGIAIRE, ou ADMIN sur un document qu'il n'a pas lui-même uploadé
+// 404 — document inconnu
 ```
 
 ---
@@ -498,20 +503,46 @@ Envoyer un message individuel ou groupé.
   "content": "string"
 }
 
-// Body — message groupé avec filtre
+// Body — message groupé avec filtre (TICKET-030)
 {
   "content": "string",
   "filter": {
     "type": "FORMATION",         // FORMATION | MISSING_DOCS | MANUAL
-    "formationId": 1             // requis si type=FORMATION
+    "formationId": 1,            // requis si type=FORMATION
+    "userIds": [4, 7]            // requis (non vide) si type=MANUAL — "sélection libre"
   }
 }
 
-// 201 Created → MessageResponse
-// 400 — recipientIds sans exactement un élément (TICKET-029 : l'envoi individuel n'accepte
-//       qu'un seul destinataire ; l'envoi groupé (filter, plusieurs destinataires) arrive avec
-//       TICKET-030)
-// 403 — le rôle de l'appelant ne peut pas écrire à ce destinataire (voir règles § Messagerie)
+// 201 Created → MessageResponse (recipients = tous les destinataires résolus, isGroup: true)
+// Exactement un des deux : recipientIds (individuel) ou filter (groupé).
+//
+// Rôles par filter.type :
+//   FORMATION     → SUPER_ADMIN (n'importe quelle formation) ou ADMIN (ses formations uniquement)
+//   MISSING_DOCS  → SUPER_ADMIN uniquement. "Documents manquants" = stagiaire dont AUCUNE
+//                    inscription n'a de document ciblé (aucune notion de "document requis" par
+//                    type dans ce schéma — voir docs/DB_MODEL.md) ; toutes formations confondues,
+//                    pas de formationId.
+//   MANUAL        → SUPER_ADMIN uniquement
+//
+// 400 — recipientIds/filter : ni l'un ni l'autre, ou les deux ; recipientIds sans exactement un
+//       élément ; formationId manquant pour FORMATION ; userIds manquant/vide pour MANUAL ; ou le
+//       filtre ne résout aucun destinataire
+// 403 — le rôle de l'appelant ne peut pas écrire à ce destinataire (individuel) ; STAGIAIRE sur
+//       FORMATION ; ADMIN/STAGIAIRE sur MISSING_DOCS/MANUAL
+// 404 — destinataire (individuel) ou un des userIds (MANUAL) introuvable ; formation introuvable
+//       OU ADMIN sur la formation d'un autre formateur pour FORMATION (même 404 dans les deux cas
+//       — voir GET /api/formations/{id} : un 403 confirmerait l'existence de la formation à
+//       quelqu'un qui n'a pas le droit de la voir)
+```
+
+### GET /api/messages/group/preview
+Prévisualiser les destinataires d'un envoi groupé, sans envoyer (US-014 AC-03). Mêmes règles de
+rôle/filtre que la branche groupée de `POST /api/messages/send` ci-dessus.
+```json
+// Query params : ?filterType=FORMATION&formationId=1 | ?filterType=MISSING_DOCS
+//              | ?filterType=MANUAL&userIds=4&userIds=7
+// 200 OK → UserResponse[]
+// 400/403/404 — mêmes règles que POST /api/messages/send (branche groupée)
 ```
 
 ### PATCH /api/messages/{id}/read

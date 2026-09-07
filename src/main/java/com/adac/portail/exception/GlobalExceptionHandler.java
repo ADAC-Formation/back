@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -233,16 +234,56 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * A required {@code @RequestParam} is missing — e.g. {@code GET /api/messages/group/preview}
+     * without {@code filterType} (TICKET-030, branch-wide review: the first required query param
+     * in this codebase). Thrown before the controller method runs, so without this it escapes
+     * {@code @RestControllerAdvice}'s usual coverage the same way {@link
+     * #handleMaxUploadSizeExceeded} exists to catch a pre-dispatch multipart failure.
+     */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre manquant"));
+    }
+
+    /**
      * A {@code @RequestParam}/{@code @PathVariable} doesn't match its declared type — e.g.
-     * {@code GET /api/notifications?read=abc} (TICKET-033, branch-wide review: the first
-     * boolean/enum query param outside a body in this codebase). Thrown before the controller
-     * method runs, so without this it falls through to Spring Boot's default {@code /error} body
-     * instead of the {@code {status, message, details}} contract the other handlers here exist to
-     * enforce.
+     * {@code ?filterType=BOGUS} (TICKET-030) or {@code GET /api/notifications?read=abc}
+     * (TICKET-033, the first boolean/enum query param outside a body in this codebase). Thrown
+     * before the controller method runs, so without this it falls through to Spring Boot's
+     * default {@code /error} body instead of the {@code {status, message, details}} contract the
+     * other handlers here exist to enforce. The parameter name is included since a bare "invalid
+     * parameter" gives the caller nothing to act on once more than one query param is involved.
      */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre " + ex.getName()));
+    }
+
+    /**
+     * {@code @Validated} on a controller (TICKET-030: {@code MessageController}, for the
+     * container-element guard on {@code @RequestParam List<@NotNull Long> userIds}) throws this
+     * — distinct from {@link jakarta.validation.ConstraintViolationException}'s namesake in {@code
+     * org.hibernate.exception} already handled by {@link #handleDataIntegrityViolation}'s cause,
+     * hence the fully-qualified reference here rather than a second import of the same simple name.
+     */
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolation(jakarta.validation.ConstraintViolationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide"));
+    }
+
+    /**
+     * A Supabase Storage failure (TICKET-026, branch-wide review) — network error, non-2xx
+     * response, or an unreadable multipart body. 502, not 500: the API itself is fine, its
+     * upstream storage provider isn't. Logged with the cause since a real outage should be
+     * visible, unlike a plain client error.
+     */
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorageException(StorageException ex) {
+        log.error("Supabase Storage failure", ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), "Service de stockage indisponible"));
     }
 }
