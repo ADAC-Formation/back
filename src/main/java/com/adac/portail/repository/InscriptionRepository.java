@@ -88,4 +88,20 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
      * idempotent either way — see docs/tech.md, "204 No Content").
      */
     void deleteByStagiaire_IdAndFormation_Id(Long stagiaireId, Long formationId);
+
+    /**
+     * Stagiaires enrolled somewhere who have zero documents targeted at any of their inscriptions
+     * — the {@code MISSING_DOCS} group-message filter (TICKET-030). Decided with Charlotte: no
+     * "required document" checklist exists in this schema (see docs/DB_MODEL.md), so this is the
+     * only rule expressible today — global across all their enrollments, not scoped to one
+     * formation, and blind to formation-wide (non-targeted) documents, which aren't "received" by
+     * any one stagiaire specifically.
+     */
+    @Query("""
+            select distinct i.stagiaire from Inscription i
+            where i.stagiaire not in (
+                select d.inscription.stagiaire from Document d where d.inscription is not null
+            )
+            """)
+    List<User> findStagiairesWithNoDocuments();
 }

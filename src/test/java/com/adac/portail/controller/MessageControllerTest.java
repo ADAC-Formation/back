@@ -2,6 +2,7 @@ package com.adac.portail.controller;
 
 import com.adac.portail.dto.response.ConversationResponse;
 import com.adac.portail.dto.response.MessageResponse;
+import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -140,17 +141,35 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.status").value(403));
     }
 
+    // Both recipientIds (individual) and filter (group) set at once -> 400 (TICKET-030 made group
+    // send valid, obsoleting this test's original "not yet supported" premise — repurposed rather
+    // than deleted, since "both set" is a real 400 case worth a controller-wiring test).
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
-    void sendMessageWithGroupSendNotYetSupportedReturnsBadRequest() throws Exception {
-        doThrow(new BadRequestException("recipientIds doit contenir exactement un destinataire"))
+    void sendMessageWithBothRecipientIdsAndFilterReturnsBadRequest() throws Exception {
+        doThrow(new BadRequestException("Fournir exactement un des deux : recipientIds ou filter"))
                 .when(messageService).sendMessage(any(), any());
 
         mockMvc.perform(post("/api/messages/send")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("content", "Salut", "filter", Map.of("type", "FORMATION", "formationId", 1)))))
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Salut", "recipientIds", List.of(2),
+                                "filter", Map.of("type", "FORMATION", "formationId", 1)))))
                 .andExpect(status().isBadRequest());
+    }
+
+    // The recipientIds sibling of this test lives above (sendMessageWithNullRecipientIdReturnsBadRequest)
+    // — same guard on filter.userIds, added alongside it in TICKET-030 for the same reason (an
+    // unvalidated [null] would otherwise reach the repository lookup as an unhandled 500).
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void sendGroupMessageWithNullUserIdInFilterReturnsBadRequest() throws Exception {
+        mockMvc.perform(post("/api/messages/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"Salut\",\"filter\":{\"type\":\"MANUAL\",\"userIds\":[null]}}"))
+                .andExpect(status().isBadRequest());
+
+        verify(messageService, never()).sendMessage(any(), any());
     }
 
     @Test
@@ -173,6 +192,84 @@ class MessageControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(messageService, never()).sendMessage(any(), any());
+    }
+
+    // --- POST /api/messages/send (group, TICKET-030) --------------------------------------------
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void sendGroupMessageWithFormationFilterReturnsCreated() throws Exception {
+        when(messageService.sendMessage(any(), any())).thenReturn(MessageResponse.builder().id(1L).group(true).build());
+
+        mockMvc.perform(post("/api/messages/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Rappel",
+                                "filter", Map.of("type", "FORMATION", "formationId", 1)))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isGroup").value(true));
+    }
+
+    // ADMIN + MISSING_DOCS mapped from the service's UnauthorizedException — role-matrix coverage
+    // lives in MessageServiceImplTest, this only proves the controller/handler wiring.
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void sendGroupMessageWithMissingDocsFilterByAdminReturnsForbidden() throws Exception {
+        doThrow(new UnauthorizedException("Réservé au Super Admin"))
+                .when(messageService).sendMessage(any(), any());
+
+        mockMvc.perform(post("/api/messages/send")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Pensez à vos documents",
+                                "filter", Map.of("type", "MISSING_DOCS")))))
+                .andExpect(status().isForbidden());
+    }
+
+    // --- GET /api/messages/group/preview (TICKET-030) -------------------------------------------
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void previewGroupRecipientsReturnsListFromService() throws Exception {
+        when(messageService.previewGroupRecipients(any(), any()))
+                .thenReturn(List.of(UserResponse.builder().id(10L).build()));
+
+        mockMvc.perform(get("/api/messages/group/preview")
+                        .param("filterType", "FORMATION")
+                        .param("formationId", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(10));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void previewGroupRecipientsWithMissingDocsFilterByAdminReturnsForbidden() throws Exception {
+        doThrow(new UnauthorizedException("Réservé au Super Admin"))
+                .when(messageService).previewGroupRecipients(any(), any());
+
+        mockMvc.perform(get("/api/messages/group/preview").param("filterType", "MISSING_DOCS"))
+                .andExpect(status().isForbidden());
+    }
+
+    // filterType is the first required query param in this codebase (branch-wide review) — proves
+    // GlobalExceptionHandler.handleMissingParameter, not left to Spring Boot's default /error body.
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void previewGroupRecipientsWithoutFilterTypeReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/messages/group/preview"))
+                .andExpect(status().isBadRequest());
+
+        verify(messageService, never()).previewGroupRecipients(any(), any());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void previewGroupRecipientsWithInvalidFilterTypeReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/messages/group/preview").param("filterType", "BOGUS"))
+                .andExpect(status().isBadRequest());
+
+        verify(messageService, never()).previewGroupRecipients(any(), any());
     }
 
     // --- PATCH /api/messages/{id}/read --------------------------------------------------------

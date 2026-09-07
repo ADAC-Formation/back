@@ -41,9 +41,10 @@ public class SendMessageRequest {
     private Filter filter;
 
     /**
-     * {@code formationId} is required only when {@code type == FORMATION} — that cross-field
-     * rule isn't expressible with plain Bean Validation, so the service layer (TICKET-030)
-     * validates it and returns 400 rather than a constraint annotation here.
+     * {@code formationId} is required only when {@code type == FORMATION}, {@code userIds} only
+     * when {@code type == MANUAL} — cross-field rules that aren't expressible with plain Bean
+     * Validation, so the service layer (TICKET-030) validates them and returns 400 rather than a
+     * constraint annotation here.
      */
     @Getter
     @Setter
@@ -55,5 +56,8 @@ public class SendMessageRequest {
         private MessageFilterType type;
 
         private Long formationId;
+
+        /** Set only for {@code type == MANUAL} — the explicit recipient list ("sélection libre"). */
+        private List<@NotNull Long> userIds;
     }
 }
