@@ -17,6 +17,8 @@ back/ (ce repo — le code Spring Boot est à la racine, pas dans un sous-dossie
 ├── docker-compose.override.yml  ← overrides locaux (ignoré par Git)
 ├── .env.example                 ← variables d'environnement à copier
 ├── .gitignore
+├── infra/
+│   └── backup.sh                ← dump quotidien Postgres → Supabase Storage + purge >14j (TICKET-040)
 ├── docs/
 │   ├── PRD.md
 │   ├── STACK.md
@@ -27,6 +29,7 @@ back/ (ce repo — le code Spring Boot est à la racine, pas dans un sous-dossie
 │   ├── TICKETS.md
 │   ├── INFRA_REQUIREMENTS.md
 │   ├── INFRASTRUCTURE.md
+│   ├── RESTORE.md               ← procédure de restauration DB (TICKET-040)
 │   └── tickets/
 └── CLAUDE.md
 

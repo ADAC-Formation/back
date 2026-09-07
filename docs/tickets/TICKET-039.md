@@ -13,25 +13,34 @@ Nginx (80/443) doit être un point d'entrée public.
 ## Files to create or modify
 - `docker-compose.yml` — retirer les mappings `ports:` publics de `db` et `backend`
 
+> **Constat avant codage** : `docker-compose.yml` (créé par TICKET-011) n'a jamais exposé de
+> `ports:` public sur `db` ni `backend` — le commentaire `# No ports: — not reachable from outside
+> the app_network (see INFRASTRUCTURE.md §7)` y figure déjà. Rien à corriger côté fichier ; ce
+> ticket documente/vérifie un état déjà correct plutôt que de corriger une régression.
+
 ## Acceptance criteria
-- [ ] Depuis l'extérieur du VPS, une tentative de connexion sur le port 5432 échoue (timeout/refused)
-- [ ] Depuis l'extérieur du VPS, une tentative de connexion sur le port 8080 échoue (timeout/refused)
-- [ ] `backend` peut toujours atteindre `db` via le réseau Docker interne (`app_network`)
-- [ ] `frontend`/Nginx peut toujours atteindre `backend` via le réseau interne
-- [ ] L'application reste pleinement fonctionnelle via `https://portail.adac.asso.fr`
+- [x] `docker-compose.yml` : ni `db` ni `backend` ne publient de `ports:` vers l'hôte (seul
+      `frontend` publie 80/443) — vérifié par lecture du fichier
+- [x] `backend` peut toujours atteindre `db` via le réseau Docker interne (`app_network`) — les
+      deux services sont sur `app_network`, `DB_URL` pointe sur `db:5432` (nom de service, pas
+      `localhost`)
+- [x] `frontend`/Nginx peut toujours atteindre `backend` via le réseau interne — même réseau
+- [ ] **Non vérifiable aujourd'hui** : `nc -zv <ip_vps> 5432/8080` depuis une machine externe, et
+      `curl https://portail.adac.asso.fr/...` — nécessitent le VPS réel (TICKET-002, toujours à
+      faire) ; à exécuter une fois le VPS provisionné
 
 ## Branch
 `feature/devops-production`
-- [ ] Create: `git checkout -b feature/devops-production`
+- [x] Create: `git checkout -b feature/devops-production`
 - [ ] Switch to existing: `git checkout feature/devops-production`
 
 ## Write tests first (TDD)
 > Pour cette tâche, les "tests" sont des vérifications réseau reproductibles.
 
 Before finishing:
-- [ ] Depuis une machine externe : `nc -zv <ip_vps> 5432` → refused/timeout
-- [ ] Depuis une machine externe : `nc -zv <ip_vps> 8080` → refused/timeout
-- [ ] `curl https://portail.adac.asso.fr/api/actuator/health` → 200 (l'app fonctionne toujours)
+- [ ] Depuis une machine externe : `nc -zv <ip_vps> 5432` → refused/timeout — **déféré, nécessite le VPS (TICKET-002)**
+- [ ] Depuis une machine externe : `nc -zv <ip_vps> 8080` → refused/timeout — **déféré, nécessite le VPS**
+- [ ] `curl https://portail.adac.asso.fr/api/actuator/health` → 200 (l'app fonctionne toujours) — **déféré, nécessite le VPS**
 
 ## Pre-commit review
 Once verified, run `/review-code` on `docker-compose.yml`.
@@ -56,4 +65,6 @@ Conventional commits format (always in English):
 0.5h
 
 ## Status
-[ ] To do   [ ] In progress   [ ] Done
+[ ] To do   [x] In progress   [ ] Done
+> Code-level objective already met (see note above) — kept "In progress" rather than "Done"
+> because the ticket's own acceptance criteria require a live VPS (TICKET-002) to actually verify.

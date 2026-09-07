@@ -76,3 +76,63 @@ Conserver la branche et les changements existants. Préserver les changements é
     révision du fichier ticket.
   - Les fichiers de coordination Codex listés ci-dessus restent non commités dans ce dépôt local ;
     aucune décision prise sur leur sort par cette intervention.
+
+## Ticket 039/040 — Fermeture des ports publics + sauvegarde automatique/restauration
+
+- Outil ayant préparé le rapport : Claude Code
+- Branche et HEAD observés : feature/devops-production, créée depuis dev à jour
+- Statut de la fiche et de docs/TICKETS.md : In progress (les deux, cohérents) — pas Done, les
+  deux tickets ont des critères d'acceptation nécessitant un VPS réel (TICKET-002, toujours à
+  faire) ; voir la note "Status" de chaque fiche pour le détail
+- Dépendances vérifiées : TICKET-011 (Done, docker-compose de production)
+- Travail réalisé :
+  - TICKET-039 : constat que `docker-compose.yml` (TICKET-011) n'exposait déjà aucun `ports:`
+    public sur `db`/`backend` — rien à corriger côté fichier, ticket documenté comme vérification
+    plutôt que correctif
+  - TICKET-040 : `infra/backup.sh` (nouveau — pg_dump via `docker compose exec`, upload Supabase
+    Storage, purge > 14 jours) et `docs/RESTORE.md` (nouveau — procédures de restauration test et
+    production) ; `.env.example` complété (`SUPABASE_BACKUP_BUCKET`)
+- Tests exécutés : `bash -n infra/backup.sh` (syntaxe OK) ; logique de purge (filtre par date +
+  pattern de nom) testée isolément avec une fixture `jq` (dumps anciens/récents, noms
+  correspondant/ne correspondant pas au format — seul le dump attendu est retenu). Pas de
+  `mvn test` — aucun fichier Java modifié par ces deux tickets. Exécution réelle du script et
+  restauration réelle **non faites** — nécessitent de vraies credentials Supabase et un VPS
+  (voir critères non vérifiables dans les deux fiches).
+- Revue : review-code single-agent (script petit, hors périmètre Java) sur `infra/backup.sh` +
+  `docs/RESTORE.md` + `.env.example`. 4 BLOCKING corrigés : (1) purge sans allowlist de nom
+  pouvant supprimer le bucket documents en cas de mauvaise config — ajout d'un filtre par pattern
+  de nom + garde-fou comparant les deux noms de bucket ; (2) clé Supabase passée en argv `curl -H`
+  (fuite via `/proc/<pid>/cmdline`) — déplacée dans un fichier de config curl `mktemp`/0600 nettoyé
+  par le `trap` ; (3) restauration prod sans `ON_ERROR_STOP`/reset de schéma pouvant laisser une
+  base à moitié restaurée en sortant en code 0 — ajout de `DROP SCHEMA`/`CREATE SCHEMA` et
+  `-v ON_ERROR_STOP=1` sur les deux procédures (test et prod) ; (4) container de restauration-test
+  bindé sur `-p 5433:5432` (toutes interfaces) avec un mot de passe en dur dans le repo — passé à
+  `127.0.0.1` uniquement + mot de passe généré via `openssl rand -hex 16`. 7 CRITICAL également
+  corrigés : statut HTTP de chaque appel curl vérifié explicitement (list/upload/delete) ; fichiers
+  temporaires prévisibles remplacés par `mktemp` + nettoyage étendu à INT/TERM ; timeouts curl
+  (`--connect-timeout`/`--max-time`) + `flock` documenté dans la ligne cron ; ligne cron corrigée
+  pour ne plus rediriger stderr (laisse passer le mail d'échec cron/MAILTO) ; `source .env`
+  remplacé par une extraction `sed` ciblée (pas d'exécution shell du fichier) ; exigence de bucket
+  privé documentée en tête de RESTORE.md, limite de chiffrement client disclosed en TODO dans
+  backup.sh (hors périmètre — nécessite une gestion de clé). 5 SUGGESTIONS : intégrité `gzip -t`
+  ajoutée, jq réécrit en un seul passage vers un tableau JSON (évite `jq -R` et l'injection de
+  guillemets), exit code distinct (2) pour un échec de purge isolé du succès du dump. Non
+  appliquées (disclosed, effort disproportionné pour ce ticket) : upload en streaming
+  (`-T`/PUT) plutôt que `--data-binary`, pagination au-delà de 1000 objets listés.
+- Documentation mise à jour : docs/ARCHI.md (arborescence : `infra/backup.sh`, `docs/RESTORE.md`),
+  docs/tickets/TICKET-039.md, docs/tickets/TICKET-040.md (constats, critères cochés/non
+  vérifiables, statut), docs/TICKETS.md (statuts In progress), docs/AGENT_HANDOFF.md (ce rapport)
+- État Git observé : à commiter sur feature/devops-production (aucun changement étranger observé)
+- Étape suivante : commit TICKET-039+040 sur feature/devops-production (pas de PR — les deux
+  fiches indiquent "This is NOT the last ticket... see TICKET-041"), puis, à la demande explicite
+  de Charlotte : vérifier que feature/documents, feature/messagerie et feature/notifications sont
+  bien mergées dans dev (elles ne le sont pas encore à ce stade), les merger, lancer `mvn test`
+  complet sur dev, puis ouvrir une PR dev → main pour vérifier le passage de la CI GitHub Actions.
+- Risques, divergences ou décisions attendues :
+  - Les critères d'acceptation les plus significatifs de ces deux tickets (exécution réelle du
+    script, vraie restauration testée, vérification réseau externe des ports fermés) restent non
+    vérifiables sans VPS (TICKET-002) — statut "In progress" assumé, pas "Done", jusqu'à ce que
+    TICKET-002 soit fait.
+  - Chiffrement applicatif des dumps (au-delà du chiffrement au repos Supabase) volontairement
+    hors périmètre — nécessiterait une décision de gestion de clé avec Charlotte, signalée en TODO
+    dans `infra/backup.sh`.

@@ -92,8 +92,8 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 |---|---|---|---|---|---|
 | TICKET-037 | Reverse proxy Nginx (routes + SPA fallback) | both | TICKET-010, TICKET-011 | 1h | Done |
 | TICKET-038 | Configurer TLS (Let's Encrypt / Certbot) | both | TICKET-002, TICKET-037 | 1.5h | À faire |
-| TICKET-039 | Retirer l'exposition publique des ports db/backend | both | TICKET-011 | 0.5h | À faire |
-| TICKET-040 | Script de sauvegarde automatique + runbook de restauration | both | TICKET-011 | 2h | À faire |
+| TICKET-039 | Retirer l'exposition publique des ports db/backend | both | TICKET-011 | 0.5h | In progress |
+| TICKET-040 | Script de sauvegarde automatique + runbook de restauration | both | TICKET-011 | 2h | In progress |
 | TICKET-041 | Pipeline CD (déploiement manuel déclenché) | both | TICKET-012, TICKET-002, TICKET-038 | 2h | À faire |
 | TICKET-042 | Configurer uptime monitoring | — | TICKET-041 | 0.5h | À faire |
 
