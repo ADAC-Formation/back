@@ -54,6 +54,9 @@ Fichiers uploadés sur Supabase Storage — métadonnées stockées en base.
 - FK `inscription_id` nullable : document ciblé pour un stagiaire spécifique
 - **Contrainte CHECK : exactement un des deux FK est non-null**
 - `uploaded_by` : l'auteur de l'upload (admin, formateur, ou stagiaire pour ses propres docs)
+- `storage_path` (V5, TICKET-026) : chemin objet Supabase Storage brut (ex: `formations/1/<uuid>-programme.pdf`),
+  distinct de `file_url` (l'URL complète, encodée) — nécessaire pour ré-émettre une requête de
+  téléchargement sans décoder l'URL. Non exposé dans `DocumentResponse`.
 
 ### messages
 Un message envoyé par un expéditeur à un ou plusieurs destinataires.

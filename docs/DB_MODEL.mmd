@@ -53,6 +53,7 @@ erDiagram
         text file_url "NOT NULL — URL Supabase"
         bigint file_size "NOT NULL — en octets"
         varchar mime_type "NOT NULL"
+        text storage_path "NOT NULL — chemin objet Supabase, ex: formations/1/<uuid>-x.pdf (V5, TICKET-026)"
         bigint uploaded_by FK "NOT NULL"
         bigint formation_id FK "nullable"
         bigint inscription_id FK "nullable"

@@ -76,3 +76,47 @@ Conserver la branche et les changements existants. Préserver les changements é
     révision du fichier ticket.
   - Les fichiers de coordination Codex listés ci-dessus restent non commités dans ce dépôt local ;
     aucune décision prise sur leur sort par cette intervention.
+
+## Ticket 026 — Backend, Upload Supabase + download
+
+- Outil ayant préparé le rapport : Claude Code
+- Branche et HEAD observés : feature/documents / créée depuis dev à jour (post-merge PR #6,
+  feature/messagerie — workflow partagé + TICKET-029)
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-022 (Done), TICKET-023 (Done)
+- Travail réalisé : endpoints `POST/GET/DELETE /api/documents`, `GET /api/documents/{id}/download` ;
+  `DocumentController`, `DocumentService`/`Impl`, `StorageService`/`Impl` (HTTP Supabase — écart
+  assumé vs la fiche, voir sa note de révision), `FileValidator` (extension + signature magic-bytes
+  + taille), `StorageException` (502). Migration V5 (`documents.storage_path`, nullable puis
+  backfill puis NOT NULL — DB dev persistante, pas recréée par run). Revue branch-wide (3 agents
+  Opus : sécurité, backend, clean-code) ayant trouvé et corrigé : injection de paramètre
+  `Content-Disposition` via le nom de fichier brut (BLOCKING), `mimeType` client non validé,
+  absence de vérification de contenu (extension seule), `DELETE` ne supprimait jamais l'objet
+  Supabase (fuite RGPD), absence de timeout sur le `RestTemplate` + appel externe dans la
+  transaction DB, upload non atomique (objet orphelin si l'écriture DB échoue après un upload
+  réussi), double encodage d'URL (`exchange(String,...)` ré-encodait une URL déjà encodée —
+  `fileUrl` pouvait pointer sur un objet inexistant), N+1 sur `uploadedBy` en liste, incohérence
+  entre la règle DELETE codée et `docs/tech.md` (corrigé côté doc, la fiche du ticket faisait déjà
+  foi), couverture de test manquante sur le chemin d'autorisation par inscription, auto-notification
+  d'un stagiaire déposant sur sa propre inscription, oracle 403 vs 404 pour un ADMIN non-propriétaire
+  en lecture (aligné sur la convention `FormationServiceImpl`).
+- Tests exécutés : `mvn test` — 425/425 GREEN (68 nouveaux tests pour ce ticket)
+- Revue : review-code branch-wide (sécurité, backend, clean-code — 3 agents Opus) ; tous les
+  BLOCKING/CRITICAL listés ci-dessus corrigés et re-testés (GREEN confirmé après correctifs).
+  Deux points explicitement différés (documentés dans la fiche § "Ajouté en revue") : (1)
+  `downloadDocument` garde l'appel Supabase dans sa transaction en lecture seule — le séparer
+  proprement demanderait soit un fetch-graph plus profond, soit un second bean pour contourner
+  l'auto-invocation Spring, jugé hors budget de ce ticket ; le timeout ajouté borne le risque au
+  lieu de l'éliminer ; (2) pas de rate-limiting/quota sur l'upload ni de streaming sur le download
+  (mêmes raisons que la pagination différée en TICKET-029 — nécessitent une décision produit).
+- Documentation mise à jour : docs/tech.md (§6, règle DELETE), docs/ARCHI.md (StorageException,
+  liste des exceptions fusionnée avec dev), docs/DB_MODEL.md/.mmd (storage_path), docs/TICKETS.md,
+  docs/tickets/TICKET-026.md (écart SupabaseConfig/StorageService, critères cochés, section revue).
+- État Git observé : tous les fichiers du ticket indexés avant commit ; aucun fichier étranger.
+- Étape suivante : aucun nouveau ticket entamé. Prochain ticket backend admissible dans
+  docs/TICKETS.md : TICKET-030 (Messagerie groupée + filtres, dépendances TICKET-029/022 toutes
+  Done) — à confirmer avec Charlotte avant de démarrer.
+- Risques, divergences ou décisions attendues :
+  - `downloadDocument` et l'absence de rate-limiting/streaming restent des dettes techniques
+    disclosées (voir ci-dessus) — pas d'action requise immédiate, à garder en tête si le volume de
+    documents ou le trafic de téléchargement grossit.
