@@ -131,6 +131,7 @@ src/
 │   │   │   │       ├── MessageResponse.java
 │   │   │   │       ├── ConversationResponse.java          ← assemblé en service, pas mappé d'une entité
 │   │   │   │       ├── NotificationResponse.java
+│   │   │   │       ├── UnreadNotificationsResponse.java   ← {count, notifications} — GET /notifications/unread (TICKET-033)
 │   │   │   │       ├── StatusMessageResponse.java         ← record {message} — le corps {"message": "..."} que
 │   │   │   │       │                                          renvoient activate/resend-activation/
 │   │   │   │       │                                          forgot-password/reset-password (TICKET-015)

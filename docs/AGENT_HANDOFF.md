@@ -76,3 +76,54 @@ Conserver la branche et les changements existants. Préserver les changements é
     révision du fichier ticket.
   - Les fichiers de coordination Codex listés ci-dessus restent non commités dans ce dépôt local ;
     aucune décision prise sur leur sort par cette intervention.
+
+## Ticket 033 — Backend, Notifications (CRUD + logique)
+
+- Outil ayant préparé le rapport : Claude Code
+- Branche et HEAD observés : feature/notifications, créée depuis dev à jour (dev ne contient à ce
+  stade ni TICKET-026 (feature/documents) ni TICKET-030 (feature/messagerie), toutes deux encore
+  sur leur propre branche non mergée)
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-005 (Done), TICKET-029 (Done)
+- Écarts assumés (tech.md prime, même règle que TICKET-029/030) : endpoint cloche `/unread` (pas
+  `/bell`), réponse `{count, notifications}` ; `DELETE /api/notifications/{id}` sans suffixe
+  `/bell` ; `PATCH /api/notifications/read-all` ajouté (absent de la fiche, déjà dans tech.md) ;
+  `notify(...)` garde sa signature réelle (TICKET-029) ; enum `NotificationType` réel. Un vrai
+  choix métier tranché avec Charlotte avant codage : 404 (pas 403 comme écrit dans la fiche) pour
+  l'accès à la notification d'un autre utilisateur, cohérent avec l'oracle déjà fermé ailleurs.
+- Travail réalisé : `NotificationController` (nouveau), `NotificationService`/`Impl` étendus
+  (`getNotifications`, `getUnread`, `markAsRead`, `markAllAsRead`, `deleteFromBell`),
+  `NotificationRepository` (requêtes cloche/historique/filtre + bulk update `read-all`),
+  `UnreadNotificationsResponse` (nouveau DTO). Revue branch-wide (2 agents Opus : sécurité,
+  backend+clean-code) — relancée une fois après un échec initial pour rate-limit de session
+  (reset atteint le lendemain). 0 BLOCKING, mais plusieurs CRITICAL corrigés : historique et
+  cloche non bornés (jamais de purge réelle, `DELETE` n'est qu'un flag) → cappés à 200/50 lignes ;
+  aucun log sur l'unique frontière d'autorisation de la fonctionnalité (vérification
+  d'appartenance) → WARN ajouté ; tests contrôleur matchaient le principal avec `any()` au lieu de
+  `eq(currentPrincipal())` (convention `WithMockAdacUser`) → corrigé, critique ici puisqu'il n'y a
+  aucune autre couche d'autorisation sur ces endpoints. Vérification d'appartenance poussée dans
+  la requête (`findByIdAndRecipient`) plutôt qu'un fetch + comparaison Java. `@Modifying` du bulk
+  `read-all` complété avec `flushAutomatically = true`. `MethodArgumentTypeMismatchException`
+  géré dans `GlobalExceptionHandler` (`?read=abc` → 400 propre).
+- Tests exécutés : `mvn test` — 389/389 GREEN (33 nouveaux tests pour ce ticket, dont ceux ajoutés
+  en revue)
+- Revue : review-code branch-wide (sécurité, backend+clean-code — 2 agents Opus, relancés après un
+  rate-limit) ; tous les CRITICAL corrigés et re-testés (GREEN confirmé). Déféré, disclosé dans la
+  fiche : le `content` d'une notification vient de `nom`/`prenom` utilisateur sans restriction de
+  caractères (TICKET-019) et est maintenant exposé au frontend — risque XSS stocké si le frontend
+  rend ce champ en HTML brut plutôt qu'en texte ; à coordonner avec Manon, hors périmètre ici.
+- Documentation mise à jour : docs/tech.md (§8 — endpoints `/unread`, `/read-all`, `DELETE` sans
+  suffixe, plafonds 200/50), docs/ARCHI.md (`UnreadNotificationsResponse`), docs/TICKETS.md,
+  docs/tickets/TICKET-033.md (écarts, critères cochés, section revue).
+- État Git observé : tous les fichiers du ticket indexés avant commit ; aucun fichier étranger.
+- Étape suivante : aucun nouveau ticket entamé. Plus de ticket backend admissible restant dans
+  docs/TICKETS.md hors branches déjà ouvertes non mergées (feature/documents — TICKET-026,
+  feature/messagerie — TICKET-030) et tickets infra/frontend hors périmètre de cet agent —
+  TICKET-034 (Service email) dépend de TICKET-007 (Done) et TICKET-015 (Done), donc admissible ;
+  à confirmer avec Charlotte.
+- Risques, divergences ou décisions attendues :
+  - Risque XSS stocké via `nom`/`prenom` non restreints, disclosé ci-dessus — décision produit à
+    prendre avec Charlotte/Manon, pas tranchée par cette intervention.
+  - Trois branches backend actives en parallèle non mergées (feature/documents, feature/messagerie,
+    feature/notifications) — aucune PR ouverte sur aucune des trois à ce stade, sur décision de
+    Charlotte (attend explicitement avant de pousser).

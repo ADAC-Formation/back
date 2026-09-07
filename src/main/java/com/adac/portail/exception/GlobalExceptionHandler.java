@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
@@ -229,5 +230,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : fichier manquant"));
+    }
+
+    /**
+     * A {@code @RequestParam}/{@code @PathVariable} doesn't match its declared type — e.g.
+     * {@code GET /api/notifications?read=abc} (TICKET-033, branch-wide review: the first
+     * boolean/enum query param outside a body in this codebase). Thrown before the controller
+     * method runs, so without this it falls through to Spring Boot's default {@code /error} body
+     * instead of the {@code {status, message, details}} contract the other handlers here exist to
+     * enforce.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre " + ex.getName()));
     }
 }
