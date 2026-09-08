@@ -2,6 +2,7 @@ package com.adac.portail.controller;
 
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
+import com.adac.portail.dto.request.UpdateUserRequest;
 import com.adac.portail.dto.response.ErrorResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.security.AdacUserDetails;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -132,6 +134,21 @@ public class UserController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<UserResponse> reactivate(@PathVariable Long id) {
         return ResponseEntity.ok(userService.reactivate(id));
+    }
+
+    @Operation(summary = "Edit any user's data", description = "SUPER_ADMIN only. Partial update of nom/prenom/email — a correction path (typo fix), never role/isActive. If email changes on a never-activated account, a fresh activation code is sent to the new address.")
+    @ApiResponse(responseCode = "200", description = "OK",
+            content = @Content(schema = @Schema(implementation = UserResponse.class)))
+    @ApiResponse(responseCode = "404", description = "No such user",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Email already used by another user",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<UserResponse> updateUser(
+            @PathVariable Long id, @Valid @RequestBody UpdateUserRequest request,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        return ResponseEntity.ok(userService.updateUser(id, request, principal));
     }
 
     @Operation(summary = "Update own profile", description = "Any authenticated role. Partial update — only emailNotificationsEnabled for now (docs/tech.md). No GET /api/users/me: GET /api/auth/me already returns the caller's full profile.")

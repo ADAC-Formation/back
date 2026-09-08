@@ -211,6 +211,28 @@ Modifier son propre profil (tous les rôles).
 // 200 OK → UserResponse
 ```
 
+### PUT /api/users/{id}
+Modifier les infos d'un utilisateur (SUPER_ADMIN uniquement) — corriger un nom ou un email erroné.
+N'importe quel rôle cible (stagiaire, formateur, ou un autre SUPER_ADMIN). Ne modifie jamais
+`role` ni `isActive` (voir `deactivate`/`reactivate` pour ça).
+```json
+// Body (tous les champs optionnels)
+{ "nom": "string", "prenom": "string", "email": "string" }
+
+// 200 OK → UserResponse
+// 409 — email déjà utilisé par un autre compte
+{ "status": 409, "message": "Cet email est déjà utilisé" }
+// 404
+```
+Si `email` est modifié et que le compte n'a jamais été activé, un nouveau code d'activation est
+automatiquement renvoyé à la nouvelle adresse (aucun mail si le compte est déjà activé).
+
+> **Effet de bord** : le JWT authentifie par email (voir § Configuration). Modifier l'email d'un
+> compte déjà activé invalide silencieusement toutes ses sessions en cours — l'utilisateur doit se
+> reconnecter. Comparaison insensible à la casse (`Jane@adac.fr` = `jane@adac.fr`) pour la
+> détection de doublon, afin d'éviter deux comptes ne différant que par la casse. Voir
+> `docs/ARCHI.md` — Authentification pour le risque résiduel accepté et sa justification.
+
 ### PATCH /api/users/{id}/deactivate
 Désactiver / suspendre un compte (SUPER_ADMIN uniquement).
 ```json

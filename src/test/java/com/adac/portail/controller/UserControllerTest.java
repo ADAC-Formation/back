@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -461,6 +462,118 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
+
+    // --- PUT /{id} --------------------------------------------------------------------------
+    // TICKET-050. Unlike PATCH /me (self-service, any role), this edits an arbitrary account's
+    // data and is SUPER_ADMIN only — see docs/tech.md.
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void updateUserBySuperAdminReturnsOk() throws Exception {
+        when(userService.updateUser(eq(3L), any(), any())).thenReturn(
+                UserResponse.builder().id(3L).nom("Corrigé").build());
+
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nom", "Corrigé"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(3))
+                .andExpect(jsonPath("$.nom").value("Corrigé"));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void updateUserByAdminReturnsForbidden() throws Exception {
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nom", "Corrigé"))))
+                .andExpect(status().isForbidden());
+
+        verify(userService, never()).updateUser(any(), any(), any());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void updateUserByStagiaireReturnsForbidden() throws Exception {
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nom", "Corrigé"))))
+                .andExpect(status().isForbidden());
+
+        verify(userService, never()).updateUser(any(), any(), any());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void updateUserNotFoundReturns404() throws Exception {
+        when(userService.updateUser(eq(404L), any(), any())).thenThrow(new ResourceNotFoundException("Utilisateur introuvable"));
+
+        mockMvc.perform(put("/api/users/404")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nom", "Corrigé"))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void updateUserWithDuplicateEmailReturnsConflict() throws Exception {
+        doThrow(new DuplicateEmailException("Cet email est déjà utilisé"))
+                .when(userService).updateUser(eq(3L), any(), any());
+
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "taken@adac.fr"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.message").value("Cet email est déjà utilisé"));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void updateUserWithMalformedEmailReturnsBadRequest() throws Exception {
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", "not-an-email"))))
+                .andExpect(status().isBadRequest());
+
+        verify(userService, never()).updateUser(any(), any(), any());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void updateUserWithBlankEmailReturnsBadRequest() throws Exception {
+        // Branch-wide review, BLOCKING: @Email alone returns valid for "" (Hibernate Validator
+        // short-circuits on an empty string), and @Size(max=...) has no lower bound — without
+        // @Size(min=1) on UpdateUserRequest.email, this used to be a 200 that wiped the NOT NULL
+        // UNIQUE column and permanently locked the target out.
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("email", ""))))
+                .andExpect(status().isBadRequest());
+
+        verify(userService, never()).updateUser(any(), any(), any());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void updateUserWithBlankNomReturnsBadRequest() throws Exception {
+        mockMvc.perform(put("/api/users/3")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("nom", ""))))
+                .andExpect(status().isBadRequest());
+
+        verify(userService, never()).updateUser(any(), any(), any());
+    }
+
+    // No "without authentication" case here, unlike PATCH /me: every other @PreAuthorize route
+    // in this class (create/deactivate/reactivate) is only tested for the wrong-role case in
+    // this slice (addFilters = false has no anonymous-authentication token to evaluate
+    // hasRole(...) against, so it's not a faithful stand-in for the real chain here) — the real
+    // "no cookie at all" protection for this route is .anyRequest().authenticated() in
+    // SecurityConfig, covered end-to-end by JwtAuthenticationIntegrationTest instead (same
+    // convention as updateMeWithoutCookieReturnsUnauthorized/messagesEndpointsWithoutCookieReturnUnauthorized
+    // there).
 
     /** The {@link AdacUserDetails} that {@link WithMockAdacUser} put in the SecurityContext for the current test. */
     private static AdacUserDetails currentPrincipal() {

@@ -2,6 +2,7 @@ package com.adac.portail.service;
 
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
+import com.adac.portail.dto.request.UpdateUserRequest;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
@@ -9,6 +10,7 @@ import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
+import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.mapper.UserMapper;
 import com.adac.portail.repository.FormationRepository;
@@ -474,5 +476,180 @@ class UserServiceImplTest {
         userService.updateMe(principal, request);
 
         assertThat(managedUser.isEmailNotificationsEnabled()).isTrue();
+    }
+
+    // --- updateUser ---------------------------------------------------------------------------
+    // TICKET-050.
+
+    @Test
+    void updateUserWithOnlyNomProvidedLeavesPrenomAndEmailUnchanged() {
+        User target = User.builder().id(3L).nom("Ancien").prenom("Jane").email("jane@adac.fr")
+                .isActive(true).build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest("Corrigé", null, null);
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+
+        userService.updateUser(3L, request, admin);
+
+        assertThat(target.getNom()).isEqualTo("Corrigé");
+        assertThat(target.getPrenom()).isEqualTo("Jane");
+        assertThat(target.getEmail()).isEqualTo("jane@adac.fr");
+    }
+
+    @Test
+    void updateUserWithEmailTakenByAnotherUserThrowsDuplicateEmailException() {
+        User target = User.builder().id(3L).email("jane@adac.fr").isActive(true).build();
+        User someoneElse = User.builder().id(99L).email("taken@adac.fr").build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "taken@adac.fr");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.findByEmailIgnoreCase("taken@adac.fr")).thenReturn(Optional.of(someoneElse));
+
+        assertThatThrownBy(() -> userService.updateUser(3L, request, admin))
+                .isInstanceOf(DuplicateEmailException.class);
+
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void updateUserWithEmailDifferingOnlyByCaseFromAnotherUsersThrowsDuplicateEmailException() {
+        // Branch-wide review: a case-sensitive check would let "Jane@adac.fr" through while
+        // "jane@adac.fr" already exists on another account — two rows differing only by case,
+        // ambiguous for login/reset and fatal to ExcelImportUtil.resolveFormateur (which looks up
+        // case-insensitively and would get IncorrectResultSizeDataAccessException).
+        User target = User.builder().id(3L).email("mine@adac.fr").isActive(true).build();
+        User someoneElse = User.builder().id(99L).email("jane@adac.fr").build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "Jane@Adac.fr");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.findByEmailIgnoreCase("Jane@Adac.fr")).thenReturn(Optional.of(someoneElse));
+
+        assertThatThrownBy(() -> userService.updateUser(3L, request, admin))
+                .isInstanceOf(DuplicateEmailException.class);
+    }
+
+    @Test
+    void updateUserWithEmailUnchangedFromCurrentDoesNotThrow() {
+        // Resubmitting the exact same address as the target's own current one must not even
+        // trigger a findByEmailIgnoreCase lookup (nothing changed to check for conflict), let
+        // alone throw.
+        User target = User.builder().id(3L).email("jane@adac.fr").isActive(true).build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "jane@adac.fr");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+
+        userService.updateUser(3L, request, admin);
+
+        assertThat(target.getEmail()).isEqualTo("jane@adac.fr");
+        verify(userRepository, never()).findByEmailIgnoreCase(any());
+        verify(activationService, never()).sendActivationCode(any());
+    }
+
+    @Test
+    void updateUserWithEmailUnchangedButDifferentCaseDoesNotThrow() {
+        User target = User.builder().id(3L).email("jane@adac.fr").isActive(true).build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "JANE@ADAC.FR");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+
+        userService.updateUser(3L, request, admin);
+
+        verify(userRepository, never()).findByEmailIgnoreCase(any());
+    }
+
+    @Test
+    void updateUserOnNeverActivatedAccountWithEmailChangeResendsActivationCodeToNewEmail() {
+        User target = User.builder().id(3L).email("old@adac.fr").isActive(false).build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "new@adac.fr");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.findByEmailIgnoreCase("new@adac.fr")).thenReturn(Optional.empty());
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+        when(activationService.hasEverActivated(target)).thenReturn(false);
+
+        userService.updateUser(3L, request, admin);
+
+        assertThat(target.getEmail()).isEqualTo("new@adac.fr");
+        // No active transaction synchronization in this plain unit test — sendActivationCodeAfterCommit
+        // falls back to sending immediately (see its Javadoc), so this is still observable here.
+        verify(activationService).sendActivationCode(target);
+    }
+
+    @Test
+    void updateUserOnAlreadyActivatedAccountWithEmailChangeDoesNotSendAnyMail() {
+        User target = User.builder().id(3L).email("old@adac.fr").isActive(true).build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "new@adac.fr");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.findByEmailIgnoreCase("new@adac.fr")).thenReturn(Optional.empty());
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+        when(activationService.hasEverActivated(target)).thenReturn(true);
+
+        userService.updateUser(3L, request, admin);
+
+        verify(activationService, never()).sendActivationCode(any());
+    }
+
+    @Test
+    void updateUserWhenActivationResendIsRateLimitedStillPersistsTheDataChange() {
+        // Branch-wide review, BLOCKING: RateLimitException used to propagate straight out of
+        // sendActivationCode and up through updateUser — since this test has no active
+        // transaction synchronization, that used to mean the whole call threw despite
+        // userRepository.save already having happened, misrepresenting a successful correction
+        // as a failure. Not anymore: the data change is the primary outcome, the mail is
+        // best-effort.
+        User target = User.builder().id(3L).email("old@adac.fr").isActive(false).build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest(null, null, "new@adac.fr");
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.findByEmailIgnoreCase("new@adac.fr")).thenReturn(Optional.empty());
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+        when(activationService.hasEverActivated(target)).thenReturn(false);
+        org.mockito.Mockito.doThrow(new RateLimitException("Trop de demandes. Réessayez dans 15 minutes."))
+                .when(activationService).sendActivationCode(target);
+
+        UserResponse response = userService.updateUser(3L, request, admin);
+
+        assertThat(response).isNotNull();
+        assertThat(target.getEmail()).isEqualTo("new@adac.fr");
+        verify(userRepository).save(target);
+    }
+
+    @Test
+    void updateUserWithUnknownIdThrowsResourceNotFoundException() {
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest("Corrigé", null, null);
+        when(userRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateUser(404L, request, admin))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void updateUserNeverChangesRoleOrIsActiveEvenIfSomehowPresentOnTheEntity() {
+        // Privilege-escalation canary (branch-wide review, SUGGESTION): UpdateUserRequest has no
+        // role/isActive fields by construction, so there's nothing to "smuggle in" — this pins
+        // that guarantee at the service level too, so a future field addition to the DTO doesn't
+        // silently start flowing into user.setRole()/setActive() here without a test catching it.
+        User target = User.builder().id(3L).role(Role.STAGIAIRE).isActive(true).email("s@adac.fr").build();
+        AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
+        UpdateUserRequest request = new UpdateUserRequest("Nouveau", null, null);
+        when(userRepository.findById(3L)).thenReturn(Optional.of(target));
+        when(userRepository.save(target)).thenReturn(target);
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+
+        userService.updateUser(3L, request, admin);
+
+        assertThat(target.getRole()).isEqualTo(Role.STAGIAIRE);
+        assertThat(target.isActive()).isTrue();
     }
 }

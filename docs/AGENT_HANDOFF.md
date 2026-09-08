@@ -269,3 +269,58 @@ Conserver la branche et les changements existants. Préserver les changements é
   - `downloadDocument` et l'absence de rate-limiting/streaming restent des dettes techniques
     disclosées (voir ci-dessus) — pas d'action requise immédiate, à garder en tête si le volume de
     documents ou le trafic de téléchargement grossit.
+
+## Ticket 050 — Backend, PUT /users/{id} (édition par SUPER_ADMIN)
+
+- Outil ayant préparé le rapport : Claude Code
+- Branche et HEAD observés : feature/users, recréée depuis dev à jour (l'ancienne feature/users,
+  TICKET-019/020, était déjà mergée dans dev)
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-019 (Done, UserController/UserService existants), TICKET-015
+  (Done, ActivationService.sendActivationCode/hasEverActivated existants)
+- Origine : besoin exprimé par Charlotte pendant un test manuel réel de l'application (lancement
+  local + curl) — aucun endpoint ne permettait de corriger le nom/prénom/email d'un compte après
+  création. Décision produit validée avant codage : renvoi automatique du code d'activation à la
+  nouvelle adresse si le compte n'a jamais été activé.
+- Travail réalisé : `UpdateUserRequest` (nouveau DTO), `PUT /api/users/{id}` (SUPER_ADMIN
+  uniquement) sur `UserController`, `UserServiceImpl.updateUser` (partial update nom/prénom/email,
+  jamais role/isActive). Revue branch-wide (2 agents Opus : sécurité, backend+clean-code) ayant
+  trouvé et corrigé 3 BLOCKING : (1) `{"email":""}`/`{"nom":""}` passaient la validation et
+  auraient vidé une colonne NOT NULL/UNIQUE (verrouillage permanent du compte) — `@Size(min=1)`
+  ajouté sur les trois champs ; (2) le mail d'activation était envoyé dans la transaction au lieu
+  de passer par `sendActivationCodeAfterCommit` déjà existant, réintroduisant le bug "code mailé
+  pour une ligne qui rollback" déjà corrigé sur create* — corrigé en réutilisant le helper ; (3)
+  `RateLimitException` du renvoi d'activation faisait échouer et rollback toute la correction —
+  capturée dans un nouveau helper partagé `sendActivationCodeIgnoringRateLimit`. 2 CRITICAL
+  corrigés dans le périmètre du ticket : vérification de doublon d'email passée en
+  `findByEmailIgnoreCase` (était case-sensitive, laissait passer des doublons ne différant que par
+  la casse) ; ajout d'un log d'audit (ids uniquement) sur chaque édition, absent jusque-là pour un
+  changement d'identité privilégié. 1 CRITICAL disclosed et **non corrigé** (décision de
+  Charlotte) : le JWT est indexé sur l'email (désormais modifiable par ce ticket), cassant
+  l'hypothèse de sujet stable — risque accepté et documenté dans docs/ARCHI.md (même traitement
+  que le risque logout/reset déjà accepté), recommandation d'ouvrir un ticket dédié pour basculer
+  le JWT sur `User.id`.
+- Tests exécutés : `mvn test` — 523/523 GREEN (28 nouveaux tests pour ce ticket, répartis
+  UserControllerTest/UserServiceImplTest/JwtAuthenticationIntegrationTest)
+- Revue : review-code branch-wide (sécurité, backend+clean-code — 2 agents Opus, relancée une fois
+  après un échec initial pour rate-limit de session) ; les 3 BLOCKING et 2 des 3 CRITICAL corrigés
+  et re-testés (GREEN confirmé). SUGGESTIONS appliquées : canari role/isActive non modifiables,
+  imports statiques au lieu de noms qualifiés. Non appliqué, disclosed : notifier l'ancienne
+  adresse d'un changement d'email sur un compte activé (nécessiterait un nouveau template
+  EmailService + décision produit) ; contrainte DB (index fonctionnel `lower(email)`) et fix
+  symétrique sur `createPendingUser` pour le gap case-sensitivity (pré-existant, pas introduit par
+  ce ticket, hors périmètre).
+- Documentation mise à jour : docs/tech.md (§2, PUT /api/users/{id} + note effet de bord session),
+  docs/ARCHI.md (risque résiduel accepté JWT/email), docs/TICKETS.md (statut Done, totaux,
+  note de révision), docs/tickets/TICKET-050.md (critères cochés, section revue complète).
+- État Git observé : tous les fichiers du ticket indexés avant commit ; aucun fichier étranger
+  (le fichier non suivi docs/ponytail-review-dev-vs-main.md, apparu par ailleurs en session, a été
+  laissé de côté — sans rapport avec ce ticket).
+- Étape suivante : PR feature/users → dev (fiche indique "last ticket currently planned on this
+  branch") — à ouvrir sur validation de Charlotte, pas encore fait à ce stade. Aucun nouveau ticket
+  entamé après.
+- Risques, divergences ou décisions attendues :
+  - Risque JWT/email (voir ci-dessus) accepté pour ce ticket par Charlotte — un ticket dédié pour
+    basculer le sujet du JWT sur l'id utilisateur reste recommandé, non priorisé pour l'instant.
+  - Gap de case-sensitivity sur `createPendingUser` (création) — même faille que celle corrigée
+    dans `updateUser`, pré-existante, non traitée ici (hors périmètre TICKET-050).

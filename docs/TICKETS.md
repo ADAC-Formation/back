@@ -41,6 +41,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-019 | Backend — CRUD Formateurs + Stagiaires | back | TICKET-005, TICKET-015 | 3h | Done |
 | TICKET-020 | Backend — PATCH /users/me | back | TICKET-019 | 1h | Done |
 | TICKET-021 | Frontend — Gestion des comptes | front | TICKET-019 | 3h | À faire |
+| TICKET-050 | Backend — PUT /users/{id} (édition par SUPER_ADMIN) | back | TICKET-019, TICKET-015 | 1.5h | Done |
 
 ## Phase 2 — Catégories
 
@@ -108,10 +109,10 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 ## Récapitulatif
 
-- **Total tickets** : 49
-- **Backend** : 18 | **Frontend (dans ce repo)** : 16 | **Les deux (both)** : 11 | **Aucun / coordination
+- **Total tickets** : 50
+- **Backend** : 19 | **Frontend (dans ce repo)** : 16 | **Les deux (both)** : 11 | **Aucun / coordination
   (tâche opérationnelle ou cross-repo)** : 4
-- **Temps estimé total** : ~83.5h
+- **Temps estimé total** : ~85h
 - **Branches Git** : feature/setup · feature/devops-setup · feature/auth · feature/users · feature/categories
   · feature/formations · feature/documents · feature/messagerie · feature/notifications ·
   feature/devops-production · feature/dashboard
@@ -119,6 +120,14 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
   TICKET-013, TICKET-042
 - **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
   ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
+
+## Note sur cette révision (2026-09-08)
+
+`TICKET-050` ajouté suite à un besoin exprimé par Charlotte pendant un test manuel de
+l'application : aucun endpoint ne permettait à un SUPER_ADMIN de corriger le nom/prénom/email d'un
+formateur ou stagiaire après création (typo, faute de frappe). `PUT /api/users/{id}` ajouté sur
+`feature/users`. Voir `docs/tickets/TICKET-050.md` pour le détail et sa section revue — un risque
+résiduel accepté (JWT indexé sur l'email, désormais modifiable) est documenté dans `docs/ARCHI.md`.
 
 ## Note sur cette révision (2026-08-31)
 

@@ -40,6 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -469,6 +470,19 @@ class JwtAuthenticationIntegrationTest {
         // independent of the controller's own null-principal check (which only the @WebMvcTest
         // slice, filters disabled, actually exercises).
         mockMvc.perform(patch("/api/users/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateUserEndpointWithoutCookieReturnsUnauthorized() throws Exception {
+        // TICKET-050. UserController.updateUser has @PreAuthorize("hasRole('SUPER_ADMIN')"), not
+        // an absent-authentication case — same reasoning as updateMeWithoutCookieReturnsUnauthorized
+        // above: only the real chain (SecurityConfig's .anyRequest().authenticated()) can prove
+        // this, a @WebMvcTest slice with addFilters = false has no anonymous-authentication token
+        // to evaluate hasRole(...) against.
+        mockMvc.perform(put("/api/users/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isUnauthorized());

@@ -327,6 +327,25 @@ HTTP Request
     À revoir (claim `token_version`/`passwordChangedAt` sur `User`, comparé dans
     `JwtAuthorizationFilter`, bumpé aux trois endroits ; ou denylist par `jti`) si ce risque devient
     inacceptable — pas de ticket ouvert pour l'instant, décision à prendre par Charlotte.
+  - **Risque résiduel accepté (TICKET-050, décision validée avec Charlotte)** : le JWT authentifie
+    par email (`sub` du token = `User.email`, résolu à chaque requête par
+    `CustomUserDetailsService.findByEmail`), qui était immuable après création jusqu'à
+    `PUT /api/users/{id}` (TICKET-050) — un SUPER_ADMIN peut désormais corriger l'email de
+    n'importe quel compte. Corriger l'email d'un compte déjà activé invalide silencieusement toutes
+    ses sessions en cours (401 à la prochaine requête, sans message explicite). Plus grave :
+    l'ancienne adresse devient libre — si elle est ensuite réutilisée par un autre compte (le
+    scénario même que ce ticket permet : corriger un typo puis recréer avec la bonne adresse), un
+    cookie JWT encore valide de l'ancien titulaire (jusqu'à `JWT_EXPIRATION`, 24h par défaut)
+    authentifierait alors comme le **nouveau** compte portant cette adresse, avec son propre rôle.
+    Cause racine : le sujet du JWT devrait être l'id utilisateur (immuable), pas l'email. Accepté
+    pour ce ticket avec le même raisonnement que le risque logout/reset ci-dessus (cookie
+    HttpOnly + SameSite=Strict, fenêtre bornée à `JWT_EXPIRATION`, pas de contenu sensible côté
+    paiement) — mais combiné à un changement d'email désormais possible en production, pas
+    seulement théorique. **Recommandation** : ouvrir un ticket dédié pour basculer le sujet du JWT
+    sur `User.id` (`JwtTokenService`, `CustomUserDetailsService.loadUserByUsername` → `loadById`,
+    `JwtAuthorizationFilter`) avant d'exposer cet endpoint à un usage fréquent — refactor plus
+    large qui dépassait le périmètre de TICKET-050, décision de priorisation à prendre par
+    Charlotte.
   - `JwtCookieFactory` (package `security/`) est la seule source de vérité pour la forme du cookie
     `jwt` — login (`JwtAuthenticationFilter`) et logout (`AuthController`) l'utilisent tous les
     deux, pour que le cookie de logout ait exactement les mêmes attributs (path, secure, sameSite)
