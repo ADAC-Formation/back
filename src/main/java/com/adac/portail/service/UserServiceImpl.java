@@ -2,6 +2,7 @@ package com.adac.portail.service;
 
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
+import com.adac.portail.dto.request.UpdateUserRequest;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
@@ -9,6 +10,7 @@ import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
+import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.mapper.UserMapper;
 import com.adac.portail.repository.FormationRepository;
@@ -16,6 +18,8 @@ import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +34,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
 
     private final UserRepository userRepository;
     private final FormationRepository formationRepository;
@@ -184,6 +190,57 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(userRepository.save(user));
     }
 
+    @Override
+    @Transactional
+    public UserResponse updateUser(Long id, UpdateUserRequest request, AdacUserDetails principal) {
+        User user = findUserOrThrow(id);
+
+        if (request.getNom() != null) {
+            user.setNom(request.getNom());
+        }
+        if (request.getPrenom() != null) {
+            user.setPrenom(request.getPrenom());
+        }
+
+        boolean emailChanged = false;
+        // equalsIgnoreCase, not equals (branch-wide review): resubmitting the same address with
+        // different casing is a no-op, not a "change" that should hit the duplicate check below.
+        if (request.getEmail() != null && !request.getEmail().equalsIgnoreCase(user.getEmail())) {
+            // findByEmailIgnoreCase, not findByEmail (branch-wide review): a case-sensitive check
+            // would let "Jane@adac.fr" through while "jane@adac.fr" already exists — two accounts
+            // differing only by case, ambiguous for login/reset and fatal to
+            // ExcelImportUtil.resolveFormateur (which does look up case-insensitively). Compare by
+            // id, not just "does another row have this email": resolving back to this same user
+            // must not be a 409.
+            userRepository.findByEmailIgnoreCase(request.getEmail())
+                    .filter(existing -> !existing.getId().equals(user.getId()))
+                    .ifPresent(existing -> {
+                        throw new DuplicateEmailException("Cet email est déjà utilisé");
+                    });
+            user.setEmail(request.getEmail());
+            emailChanged = true;
+        }
+
+        User saved = userRepository.save(user);
+
+        log.info("User id={} edited by admin id={} (nomChanged={}, prenomChanged={}, emailChanged={})",
+                saved.getId(), principal.getUser().getId(),
+                request.getNom() != null, request.getPrenom() != null, emailChanged);
+
+        // Product decision (validated with Charlotte, TICKET-050): a pending account's original
+        // activation code was mailed to the now-corrected (wrong) address, so it's unreachable —
+        // reissue one to the new address, after commit (not sendActivationCode(saved) directly,
+        // branch-wide review: inline would mail a real code before the @Version/UNIQUE(email)
+        // checks that only run at commit have actually passed — the exact race
+        // sendActivationCodeAfterCommit exists to close for createFormateur/createStagiaire).
+        // An already-activated account just had a data fix, no mail warranted.
+        if (emailChanged && !activationService.hasEverActivated(saved)) {
+            sendActivationCodeAfterCommit(saved);
+        }
+
+        return userMapper.toResponse(saved);
+    }
+
     private User createPendingUser(CreateUserRequest request, Role role) {
         userRepository.findByEmail(request.getEmail()).ifPresent(existing -> {
             throw new DuplicateEmailException("Cet email est déjà utilisé");
@@ -245,15 +302,33 @@ public class UserServiceImpl implements UserService {
      */
     private void sendActivationCodeAfterCommit(User user) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            activationService.sendActivationCode(user);
+            sendActivationCodeIgnoringRateLimit(user);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                activationService.sendActivationCode(user);
+                sendActivationCodeIgnoringRateLimit(user);
             }
         });
+    }
+
+    /**
+     * {@code createFormateur}/{@code createStagiaire} can never hit the 3-per-15-min limit here
+     * (a brand-new user has issued zero codes — see {@code ActivationService.sendActivationCode}'s
+     * Javadoc), but {@code updateUser} (TICKET-050) can: a pending account that already used
+     * {@code /resend-activation} a couple of times has its typo-fix land right on top of that same
+     * window. Since this already runs after commit, the data correction itself has already
+     * succeeded — letting {@link RateLimitException} propagate here would only turn a successful
+     * edit into a client-visible 500 for a mail that was never the primary outcome of the request
+     * (branch-wide review).
+     */
+    private void sendActivationCodeIgnoringRateLimit(User user) {
+        try {
+            activationService.sendActivationCode(user);
+        } catch (RateLimitException e) {
+            log.info("Activation code resend rate-limited for user id={}, data change already applied", user.getId());
+        }
     }
 
     private User findUserOrThrow(Long id) {
