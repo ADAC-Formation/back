@@ -30,16 +30,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link NotificationController} — TICKET-033. Same {@code addFilters = false} +
- * {@link WithMockAdacUser} pattern as the other controllers here — every notification is scoped
- * to the caller, no {@code @PreAuthorize} needed (there's no cross-user access at all to gate).
- *
- * <p>Branch-wide review: every stub/verify below matches the principal with {@code
- * eq(currentPrincipal())}, not {@code any()} — see {@code WithMockAdacUser}'s Javadoc for why
- * {@code any()} would let a broken {@code @AuthenticationPrincipal} binding (e.g. {@code null})
- * pass silently on endpoints that have no other authorization layer at all.</p>
- */
 @WebMvcTest(NotificationController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class NotificationControllerTest {
@@ -59,8 +49,6 @@ class NotificationControllerTest {
     private static AdacUserDetails currentPrincipal() {
         return (AdacUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
-
-    // --- GET /api/notifications --------------------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
@@ -93,8 +81,6 @@ class NotificationControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // --- GET /api/notifications/unread ---------------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
     void getUnreadReturnsCountAndNotificationsFromService() throws Exception {
@@ -109,8 +95,6 @@ class NotificationControllerTest {
                 .andExpect(jsonPath("$.count").value(1))
                 .andExpect(jsonPath("$.notifications[0].id").value(3));
     }
-
-    // --- PATCH /api/notifications/{id}/read ----------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
@@ -136,8 +120,6 @@ class NotificationControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // --- PATCH /api/notifications/read-all -----------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
     void markAllAsReadCallsServiceWithTheRealPrincipal() throws Exception {
@@ -148,8 +130,6 @@ class NotificationControllerTest {
 
         verify(notificationService).markAllAsRead(eq(principal));
     }
-
-    // --- DELETE /api/notifications/{id} (docs/tech.md — no /bell suffix) -----------------------
 
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)

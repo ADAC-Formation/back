@@ -43,11 +43,9 @@ public class Notification {
     @Column(nullable = false)
     private NotificationType type;
 
-    /** Human-readable text, e.g. "Nouveau message de Marie". */
     @Column(nullable = false)
     private String content;
 
-    /** Polymorphic reference for navigation — e.g. FORMATION + entityId. */
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_type")
     private EntityType entityType;
@@ -59,7 +57,6 @@ public class Notification {
     @Builder.Default
     private boolean isRead = false;
 
-    /** True = hidden from the bell dropdown; the notification stays in the full history. */
     @Column(name = "deleted_from_bell", nullable = false)
     @Builder.Default
     private boolean deletedFromBell = false;

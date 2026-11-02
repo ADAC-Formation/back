@@ -8,7 +8,6 @@ import lombok.Setter;
 
 import java.util.List;
 
-/** {@code GET /api/notifications/unread} (docs/tech.md § 8) — the bell dropdown's payload. */
 @Getter
 @Setter
 @NoArgsConstructor

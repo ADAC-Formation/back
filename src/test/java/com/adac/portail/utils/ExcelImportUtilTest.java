@@ -34,20 +34,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-/**
- * TICKET-023 — see docs/tickets/TICKET-023.md § Write tests first (Test 3).
- *
- * <p>Column schema (header row 0, one data row per formation) is a <b>placeholder</b> pending the
- * client's real sample file — see project memory {@code ticket-023-excel-import-blocked}:
- * intitulé, description, dateDebut, dateFin, modalité, catégorie (nom), formateur (email,
- * optionnel).</p>
- *
- * <p>{@code excelImportUtil} is built with a <b>real</b> {@link Validator}, not a Mockito mock
- * (review) — {@code parseWithInvertedDateRangeThrows} exercises the actual Bean Validation reuse
- * ({@code CreateFormationRequest}'s {@code @AssertTrue isDateRangeValid}), which a mocked
- * {@code Validator} would silently no-op (Mockito's default answer for an unstubbed
- * {@code Set}-returning call is an empty set).</p>
- */
 @ExtendWith(MockitoExtension.class)
 class ExcelImportUtilTest {
 
@@ -101,7 +87,6 @@ class ExcelImportUtilTest {
                 "PRESENTIEL", "Formation SST", ""};
     }
 
-    // Test 3 (ticket): parse correctement un fichier de test.
     @Test
     void parseValidFileReturnsMatchingCreateFormationRequest() throws Exception {
         Category category = Category.builder().id(1L).nom("Formation SST").build();
@@ -135,7 +120,6 @@ class ExcelImportUtilTest {
         assertThat(result.get(0).getFormateurId()).isEqualTo(7L);
     }
 
-    // Test 2 (ticket, applies to the util itself too): fichier non-xlsx -> 400.
     @Test
     void parseNonXlsxFileThrows() {
         MultipartFile file = new MockMultipartFile("file", "formations.pdf", "application/pdf", new byte[] {1, 2, 3});
@@ -145,8 +129,6 @@ class ExcelImportUtilTest {
                 .hasMessageContaining(".xlsx");
     }
 
-    // Review: a corrupt file whose name still ends in ".xlsx" must be rejected the same way, not
-    // surfaced as an unlogged 500 or a misleading error (WorkbookFactory throws on unreadable content).
     @Test
     void parseCorruptFileNamedXlsxThrows() {
         MultipartFile file = new MockMultipartFile("file", "formations.xlsx",
@@ -157,7 +139,6 @@ class ExcelImportUtilTest {
                 .hasMessageContaining(".xlsx");
     }
 
-    // AC: erreur de colonne -> message avec la ligne/colonne problématique.
     @Test
     void parseWithBlankIntituleThrowsWithLineNumber() throws Exception {
         String[] row = validRow();
@@ -190,8 +171,6 @@ class ExcelImportUtilTest {
                 .hasMessageContaining("dateDebut");
     }
 
-    // docs/tech.md: dateDebut/dateFin accept "AAAA-MM-JJ ou cellule date Excel" — the native-cell
-    // path was previously untested (review).
     @Test
     void parseAcceptsNativeExcelDateCell() throws Exception {
         Category category = Category.builder().id(1L).nom("Formation SST").build();
@@ -214,8 +193,6 @@ class ExcelImportUtilTest {
         }
     }
 
-    // Review: a wholly empty row between two data rows (e.g. a formatting artifact from Excel)
-    // must be skipped silently, not reported as a missing-value error.
     @Test
     void parseSkipsBlankRows() throws Exception {
         Category category = Category.builder().id(1L).nom("Formation SST").build();
@@ -225,7 +202,7 @@ class ExcelImportUtilTest {
             Sheet sheet = workbook.createSheet("Formations");
             writeRow(sheet, 0, HEADER);
             writeRow(sheet, 1, validRow());
-            sheet.createRow(2); // blank row, no cells set
+            sheet.createRow(2);
             writeRow(sheet, 3, validRow());
 
             List<CreateFormationRequest> result = excelImportUtil.parse(toMultipartFile(workbook));
@@ -249,9 +226,6 @@ class ExcelImportUtilTest {
                 .hasMessageContaining("formateur");
     }
 
-    // Review: inverted date range must be caught by the real CreateFormationRequest.isDateRangeValid
-    // (Bean Validation), the exact rule that used to be skipped entirely on the import path,
-    // reaching the DB's chk_formations_date_order CHECK and surfacing as a 500 instead of this 400.
     @Test
     void parseWithInvertedDateRangeThrows() throws Exception {
         Category category = Category.builder().id(1L).nom("Formation SST").build();
@@ -266,7 +240,6 @@ class ExcelImportUtilTest {
                 .hasMessageContaining("ligne 2");
     }
 
-    // All-or-nothing: both invalid rows must be reported, not just the first.
     @Test
     void parseCollectsErrorsAcrossMultipleRows() throws Exception {
         Category category = Category.builder().id(1L).nom("Formation SST").build();
@@ -283,8 +256,6 @@ class ExcelImportUtilTest {
                 .hasMessageContaining("ligne 3");
     }
 
-    // 3 MB content > ExcelImportUtil's own 2 MB cap (tighter than the global 20 MB multipart
-    // config, sized for document uploads — review).
     @Test
     void parseRejectsFileLargerThanLimit() {
         MultipartFile file = new MockMultipartFile("file", "formations.xlsx",

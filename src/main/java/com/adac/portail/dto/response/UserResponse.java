@@ -23,11 +23,6 @@ public class UserResponse {
     private String prenom;
     private Role role;
 
-    // Field named "active", not "isActive": Jackson serializes a boolean getter isXxx() by
-    // stripping "is", so a field actually named "isActive" would serialize as "active" on the
-    // wire — silently breaking the docs/tech.md "isActive" contract. @JsonProperty pins the key;
-    // this also makes MapStruct's property-name matching line up with User.isActive() (see
-    // UserMapper) without an explicit @Mapping.
     @JsonProperty("isActive")
     private boolean active;
 

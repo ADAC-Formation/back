@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/** See {@link InscriptionService} for the contract; docs/tech.md § 5 for the wire shapes. */
 @Service
 @RequiredArgsConstructor
 public class InscriptionServiceImpl implements InscriptionService {
@@ -35,14 +34,10 @@ public class InscriptionServiceImpl implements InscriptionService {
     @Override
     @Transactional(readOnly = true)
     public List<InscriptionResponse> getInscriptions(Long formationId, AdacUserDetails principal) {
-        // One lookup, one rule (review): findVisibleFormationOrThrow both authorizes (throws
-        // ResourceNotFoundException/AccessDeniedException, same as GET /api/formations/{id}) and
-        // returns the entity this method actually needs — no second findById, no discarded DTO.
+
         Formation formation = formationService.findVisibleFormationOrThrow(formationId, principal);
         List<Inscription> inscriptions = inscriptionRepository.findAllByFormation(formation);
-        // Every row shares this formation, so its enrollment count is just the list size — no
-        // extra query needed (review: this used to leave formation.inscriptionsCount at a
-        // hardcoded 0 on every response, contradicting docs/tech.md's "calculé").
+
         int inscriptionsCount = inscriptions.size();
         return inscriptions.stream()
                 .map(inscription -> inscriptionMapper.toResponse(inscription, inscriptionsCount))
@@ -66,8 +61,7 @@ public class InscriptionServiceImpl implements InscriptionService {
                 .formation(formation)
                 .build();
         Inscription saved = inscriptionRepository.save(inscription);
-        // +1 query, but only on the write path (unlike the list above, there's no free count to
-        // reuse here) — review: same "don't hardcode 0" fix as getInscriptions.
+
         int inscriptionsCount = (int) inscriptionRepository.countByFormation(formation);
         return inscriptionMapper.toResponse(saved, inscriptionsCount);
     }
@@ -75,10 +69,7 @@ public class InscriptionServiceImpl implements InscriptionService {
     @Override
     @Transactional
     public void deleteInscription(Long formationId, Long stagiaireId) {
-        // Only the formation needs to exist for a 404 — deleteByStagiaire_IdAndFormation_Id is a
-        // no-op derived delete (0 rows) when stagiaireId was never enrolled, which is exactly the
-        // idempotent behaviour docs/tech.md's "204 No Content" implies (see InscriptionService's
-        // Javadoc) — no separate existence check needed before calling it.
+
         findFormationOrThrow(formationId);
         inscriptionRepository.deleteByStagiaire_IdAndFormation_Id(stagiaireId, formationId);
     }
@@ -88,14 +79,6 @@ public class InscriptionServiceImpl implements InscriptionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Formation introuvable"));
     }
 
-    /**
-     * "Stagiaire" means an active {@code Role.STAGIAIRE} account — same reasoning as
-     * {@code FormationServiceImpl.findFormateurOrThrow} rejecting a stagiaire id or a deactivated
-     * account for {@code formateurId} (review: this used to check the role but not
-     * {@code isActive}, inconsistent with that sibling check). A wrong-role or deactivated id is
-     * reported the same as an unknown one (404, not a separate 400) — it doesn't exist as an
-     * enrollable stagiaire, which is all the caller asked about.
-     */
     private User findStagiaireOrThrow(Long stagiaireId) {
         User user = userRepository.findById(stagiaireId)
                 .orElseThrow(() -> new ResourceNotFoundException("Stagiaire introuvable"));

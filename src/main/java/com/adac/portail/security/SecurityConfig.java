@@ -27,54 +27,18 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Spring Security config: stateless JWT-in-HttpOnly-cookie auth (see CLAUDE.md
- * — Auth section).
- *
- * <p>
- * CSRF stays disabled — {@code SameSite=Strict} on the {@code jwt} cookie
- * already stops it
- * being sent on cross-site requests, which neutralizes the classic CSRF vector
- * (see ARCHI.md —
- * Authentification for the full reasoning and its accepted residual risk).
- *
- * <p>{@code @EnableMethodSecurity} (branch-wide review, TICKET-047): without it, Spring never
- * builds the AOP advisor behind {@code @PreAuthorize}, so every such annotation is silently
- * ignored — the URL rules below (just {@code .anyRequest().authenticated()} for anything not in
- * {@code PUBLIC_ROUTES}) are all that would actually run. {@code CategoryController} is the first
- * {@code @PreAuthorize} consumer on this branch, which is what surfaced the gap: any authenticated
- * role, not just SUPER_ADMIN, could otherwise create/rename/activate/deactivate categories. The
- * equivalent annotation already exists on {@code dev} (added alongside {@code UserController} in
- * TICKET-019) — this branch simply predates that commit.</p>
- */
 @Configuration
 @EnableWebSecurity
-// TICKET-019: UserController uses @PreAuthorize (per-route role + role-dependent response body,
-// see its Javadoc) instead of one more block of requestMatchers here — this turns that on.
+
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-        // TICKET-045: explicit list, NOT "/api/auth/**" — that wildcard made every future
-        // endpoint under /api/auth/ public by default with zero code signal (exactly what bit
-        // GET /api/auth/me before this ticket — see AuthController's Javadoc). Deliberately
-        // excludes /api/auth/me (must stay authenticated) and /api/auth/logout (must too — a
-        // public logout is a cheap forced-logout vector for any cross-site page, see TICKET-014
-        // review).
         private static final String[] PUBLIC_ROUTES = {
                         "/api/auth/login", "/api/auth/activate", "/api/auth/resend-activation",
                         "/api/auth/forgot-password", "/api/auth/reset-password",
                         "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/actuator/health",
-                        // Live-testing finding, branch-wide review: never reached by a direct client
-                        // request — only by the container's own internal forward when an exception
-                        // (e.g. HttpRequestMethodNotSupportedException, or any uncaught exception
-                        // GlobalExceptionHandler doesn't have a handler for) has no Spring MVC
-                        // handler to resolve it in-dispatch. JwtAuthorizationFilter (a
-                        // OncePerRequestFilter, shouldNotFilterErrorDispatch() true by default)
-                        // never re-authenticates that forwarded request, so without this,
-                        // .anyRequest().authenticated() rejected it with a misleading 401
-                        // "Authentification requise" instead of the real status — turning, worst
-                        // case, a genuine 500 into what looks like an auth problem.
+
                         "/error"
         };
 
@@ -127,12 +91,6 @@ public class SecurityConfig {
                 objectMapper.writeValue(response.getWriter(), new ErrorResponse(status, message));
         }
 
-        // JwtAuthorizationFilter is also a @Component so Spring Boot would otherwise
-        // auto-register
-        // it a second time as a plain servlet filter (outside the security chain) via
-        // ServletContextInitializerBeans — harmless today since it's idempotent, but
-        // disabled
-        // explicitly so its only execution is the addFilterBefore position above.
         @Bean
         public FilterRegistrationBean<JwtAuthorizationFilter> disableAutoRegistration(JwtAuthorizationFilter filter) {
                 FilterRegistrationBean<JwtAuthorizationFilter> registration = new FilterRegistrationBean<>(filter);

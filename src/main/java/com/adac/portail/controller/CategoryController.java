@@ -28,13 +28,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Formation category management (US-017) — see docs/tech.md § 3. Writes are SUPER_ADMIN only
- * ({@code @PreAuthorize}, method security, same pattern as the equivalent controller on
- * {@code feature/users}); {@code GET} has none — every authenticated role may list categories
- * (e.g. to populate the formation-creation category picker), same convention as
- * {@code UserController.updateMe} for "any authenticated role, no specific check needed".
- */
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor

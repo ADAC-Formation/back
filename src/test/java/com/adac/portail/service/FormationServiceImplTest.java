@@ -42,7 +42,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** TICKET-022/023 — see docs/tickets/TICKET-022.md and TICKET-023.md § Write tests first. */
 @ExtendWith(MockitoExtension.class)
 class FormationServiceImplTest {
 
@@ -87,9 +86,6 @@ class FormationServiceImplTest {
         return request;
     }
 
-    // --- createFormation ------------------------------------------------------------------
-
-    // Test 1 (ticket): SUPER_ADMIN, sans formateurId -> formateur = l'appelant.
     @Test
     void createFormationWithoutFormateurAutoAssignsCallerAsFormateur() {
         User superAdmin = user(9L, Role.SUPER_ADMIN);
@@ -133,7 +129,6 @@ class FormationServiceImplTest {
         assertThat(captor.getValue().getFormateur()).isEqualTo(formateur);
     }
 
-    // AC: categoryId introuvable -> 400 (InvalidFormationDataException).
     @Test
     void createFormationWithUnknownCategoryIdThrows() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -145,9 +140,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).save(any());
     }
 
-    // Review (branch-wide pass): an unknown formateurId used to be a separate 404
-    // (ResourceNotFoundException), inconsistent with the STAGIAIRE-id/deactivated cases just below
-    // (400) and with docs/tech.md § 4, which documents every formateurId problem as 400.
     @Test
     void createFormationWithUnknownFormateurIdThrowsBadRequest() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -160,8 +152,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).save(any());
     }
 
-    // Review: "formateur" means an active ADMIN/SUPER_ADMIN everywhere else in this codebase
-    // (UserServiceImpl.createFormateur) — a STAGIAIRE id must not silently become one.
     @Test
     void createFormationWithStagiaireAsFormateurIdThrows() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -186,8 +176,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).save(any());
     }
 
-    // --- getFormations ----------------------------------------------------------------------
-
     @Test
     void getFormationsForSuperAdminReturnsEveryFormation() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -205,7 +193,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).findAllByFormateur(any());
     }
 
-    // AC: ?status=ACTIVE ne retourne que les actives.
     @Test
     void getFormationsFiltersByStatus() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -222,7 +209,6 @@ class FormationServiceImplTest {
         verify(formationMapper, never()).toResponse(eq(archived), any(Integer.class));
     }
 
-    // AC: ?categoryId=1 ne retourne que les formations de cette catégorie.
     @Test
     void getFormationsFiltersByCategoryId() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -239,7 +225,6 @@ class FormationServiceImplTest {
         assertThat(result).hasSize(1);
     }
 
-    // AC: ADMIN voit ses formations (formateur par défaut).
     @Test
     void getFormationsForAdminReturnsOnlyOwnFormations() {
         User admin = user(3L, Role.ADMIN);
@@ -255,7 +240,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).findAll();
     }
 
-    // AC: STAGIAIRE voit ses inscriptions.
     @Test
     void getFormationsForStagiaireReturnsOnlyEnrolledFormations() {
         User stagiaire = user(5L, Role.STAGIAIRE);
@@ -271,8 +255,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).findAll();
         verify(formationRepository, never()).findAllByFormateur(any());
     }
-
-    // --- getFormationById -------------------------------------------------------------------
 
     @Test
     void getFormationByIdForSuperAdminReturnsFormation() {
@@ -295,9 +277,6 @@ class FormationServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // Review: an ADMIN who doesn't teach this formation must not be able to read it by id — the
-    // same scoping GET /api/formations already applies. 404, not 403, so the response doesn't
-    // confirm the formation exists (same reasoning as UserServiceImpl.getById/getStagiaires).
     @Test
     void getFormationByIdForForeignAdminThrowsResourceNotFound() {
         User admin = user(3L, Role.ADMIN);
@@ -325,7 +304,6 @@ class FormationServiceImplTest {
         assertThat(formationService.getFormationById(1L, principal)).isSameAs(expected);
     }
 
-    // docs/tech.md: "403 — STAGIAIRE non inscrit".
     @Test
     void getFormationByIdForNonEnrolledStagiaireThrowsAccessDenied() {
         User stagiaire = user(5L, Role.STAGIAIRE);
@@ -352,9 +330,6 @@ class FormationServiceImplTest {
         assertThat(formationService.getFormationById(1L, principal)).isSameAs(expected);
     }
 
-    // --- updateFormation ----------------------------------------------------------------------
-
-    // Test 4 (ticket): update sur une formation ARCHIVED -> FormationArchivedException.
     @Test
     void updateArchivedFormationThrows() {
         Formation archived = Formation.builder().id(1L).status(FormationStatus.ARCHIVED).build();
@@ -446,9 +421,6 @@ class FormationServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // --- archiveFormation ---------------------------------------------------------------------
-
-    // Test 3 (ticket): archiveFormation -> status = ARCHIVED.
     @Test
     void archiveFormationSetsStatusToArchived() {
         Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
@@ -484,11 +456,6 @@ class FormationServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // --- importFormations (TICKET-023) --------------------------------------------------------
-
-    // Test 1 (ticket): fichier xlsx valide -> formations créées, liste retournée. ExcelImportUtil's
-    // own parsing/validation is ExcelImportUtilTest's job — here it's mocked to isolate
-    // "each parsed row becomes a formation, exactly like createFormation".
     @Test
     void importFormationsCreatesOneFormationPerParsedRow() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -519,8 +486,6 @@ class FormationServiceImplTest {
         verify(formationRepository, never()).save(any());
     }
 
-    // Test 2 (ticket): ExcelImportUtil's own rejection (wrong format, bad row) must propagate
-    // unchanged — no formation created before the whole file is known to be valid.
     @Test
     void importFormationsPropagatesExcelImportUtilRejection() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));

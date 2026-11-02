@@ -42,8 +42,7 @@ class FormationRepositoryTest {
                 .prenom("Super")
                 .role(Role.SUPER_ADMIN)
                 .build());
-        // TICKET-046: category_id is NOT NULL since V2 — any of the 6 seeded categories works,
-        // this test isn't about which one.
+
         Category category = categoryRepository.findAll().get(0);
 
         Formation formation = Formation.builder()
@@ -62,7 +61,6 @@ class FormationRepositoryTest {
         assertThat(found).extracting(Formation::getIntitule).contains("Formation SST");
     }
 
-    // Test 5 (ticket): findAllByStatus(ACTIVE) ne retourne pas les archivées.
     @Test
     void findByStatusActiveDoesNotReturnArchivedFormations() {
         User creator = userRepository.save(User.builder()
@@ -95,8 +93,6 @@ class FormationRepositoryTest {
         formationRepository.save(active);
         formationRepository.save(archived);
 
-        // Both saved, not just the archived one — otherwise "returns nothing" would pass this
-        // assertion just as well as "filters correctly" (review).
         List<Formation> found = formationRepository.findByStatus(FormationStatus.ACTIVE);
 
         assertThat(found).extracting(Formation::getIntitule)
@@ -106,8 +102,7 @@ class FormationRepositoryTest {
 
     @Test
     void savingFormationWithoutCategoryThrowsDataIntegrityViolationException() {
-        // TICKET-046 acceptance criterion: category_id NOT NULL + FK, enforced at the DB level —
-        // no @NotNull/Bean Validation involved, so this must reach the actual INSERT.
+
         User creator = userRepository.save(User.builder()
                 .email("formation-no-category-test@adac.fr")
                 .passwordHash("hashed")
@@ -125,10 +120,6 @@ class FormationRepositoryTest {
                 .createdBy(creator)
                 .build();
 
-        // saveAndFlush, not save: this only reaches the DB constraint today because
-        // GenerationType.IDENTITY forces an immediate INSERT — an incidental detail (review,
-        // TICKET-046). saveAndFlush makes the round trip explicit, matching
-        // DocumentRepositoryTest's equivalent constraint tests.
         assertThatThrownBy(() -> formationRepository.saveAndFlush(formation))
                 .isInstanceOf(DataIntegrityViolationException.class);
     }

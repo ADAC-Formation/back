@@ -37,12 +37,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link InscriptionController} — TICKET-023. Same pattern as
- * {@code FormationControllerTest}: security filters disabled, {@code @PreAuthorize} turned on by
- * {@link MethodSecurityTestConfig}, {@link WithMockAdacUser} for a real
- * {@code @AuthenticationPrincipal}.
- */
 @WebMvcTest(InscriptionController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import(InscriptionControllerTest.MethodSecurityTestConfig.class)
@@ -72,8 +66,6 @@ class InscriptionControllerTest {
         SecurityContextHolder.clearContext();
     }
 
-    // --- GET /api/formations/{id}/inscriptions --------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getInscriptionsReturnsListFromService() throws Exception {
@@ -95,8 +87,6 @@ class InscriptionControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // Review: STAGIAIRE is blocked by @PreAuthorize before reaching the service at all — even an
-    // enrolled STAGIAIRE, since InscriptionResponse.stagiaire exposes every co-trainee's email.
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
     void getInscriptionsByStagiaireReturnsForbidden() throws Exception {
@@ -105,8 +95,6 @@ class InscriptionControllerTest {
 
         verify(inscriptionService, never()).getInscriptions(any(), any());
     }
-
-    // --- POST /api/formations/{id}/inscriptions -------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -132,7 +120,6 @@ class InscriptionControllerTest {
         verify(inscriptionService, never()).createInscription(any(), any());
     }
 
-    // Test 4 (ticket): doublon -> DuplicateInscriptionException -> 409.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void createInscriptionDuplicateReturnsConflict() throws Exception {
@@ -146,7 +133,6 @@ class InscriptionControllerTest {
                 .andExpect(jsonPath("$.message").value("Stagiaire déjà inscrit à cette formation"));
     }
 
-    // Test 5 (ticket): formation archivée -> 400.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void createInscriptionOnArchivedFormationReturnsBadRequest() throws Exception {
@@ -169,8 +155,6 @@ class InscriptionControllerTest {
 
         verify(inscriptionService, never()).createInscription(any(), any());
     }
-
-    // --- DELETE /api/formations/{id}/inscriptions/{stagiaireId} ---------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)

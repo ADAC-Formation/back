@@ -11,10 +11,6 @@ import org.springframework.stereotype.Component;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-/**
- * Purges expired or already-used activation tokens (see docs/DB_MODEL.md — activation_tokens).
- * Cron requires {@code @EnableScheduling} on {@code PortailAdacApplication} (already present).
- */
 @Component
 @RequiredArgsConstructor
 public class TokenCleanupScheduler {

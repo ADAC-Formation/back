@@ -31,16 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Formateur/stagiaire account management (US-007, US-008) — see docs/tech.md § 2.
- *
- * <p>Role checks are {@code @PreAuthorize} (method security, {@code SecurityConfig
- * .@EnableMethodSecurity}) rather than URL rules in {@code SecurityConfig}, unlike
- * {@code AuthController}'s auth endpoints — every route here needs at least one authenticated
- * role and several need a role-dependent response body (see {@code UserServiceImpl}), so the
- * per-route granularity of method security fits better than one more block of
- * {@code requestMatchers}.</p>
- */
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -160,15 +150,7 @@ public class UserController {
     public ResponseEntity<?> updateMe(
             @Valid @RequestBody UpdateProfileRequest request,
             @AuthenticationPrincipal AdacUserDetails principal) {
-        // No @PreAuthorize here (unlike every other route above), same reasoning as
-        // AuthController.me() (TICKET-014): every authenticated role may call this, so there's no
-        // role to check — and @PreAuthorize("isAuthenticated()") was tried and reverted (review):
-        // with no Authentication at all in the SecurityContext (this @WebMvcTest slice's
-        // no-@WithMockUser case, addFilters = false) it throws
-        // AuthenticationCredentialsNotFoundException instead of yielding a clean 401. In
-        // production JwtAuthorizationFilter already rejects an unauthenticated request before it
-        // reaches here (see SecurityConfig.PUBLIC_ROUTES, .anyRequest().authenticated()); this
-        // check is defense in depth, and is what actually runs in the test slice below.
+
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Authentification requise"));

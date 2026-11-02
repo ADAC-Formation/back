@@ -33,15 +33,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
-/**
- * Formation CRUD + archiving (US-004) — see docs/tech.md § 4.
- *
- * <p>Write routes ({@code POST}, {@code PUT}, {@code .../archive}) are SUPER_ADMIN only
- * ({@code @PreAuthorize}, same convention as {@code CategoryController}); {@code GET} has none —
- * every authenticated role may call it, with the actual visibility scoped in
- * {@code FormationServiceImpl} (SUPER_ADMIN sees everything, ADMIN their own formations, STAGIAIRE
- * their enrollments).</p>
- */
 @RestController
 @RequestMapping("/api/formations")
 @RequiredArgsConstructor

@@ -30,16 +30,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * TICKET-026 — HTTP plumbing to Supabase Storage. Mocks {@link RestTemplate}: this ticket isn't
- * about exercising real Supabase (no such integration harness exists in this repo), just proving
- * {@link StorageServiceImpl} builds the right request against the URLs {@link SupabaseConfig}
- * already produces (see its own {@code StorageServiceImpl (TICKET-026)} Javadoc reference).
- *
- * <p>Branch-wide review: {@code exchange(URI, ...)} — not {@code exchange(String, ...)}, which
- * would double-encode {@code buildObjectUrl}'s already-percent-encoded path — so every assertion
- * below matches against a {@link URI}, not a {@link String}.</p>
- */
 @ExtendWith(MockitoExtension.class)
 class StorageServiceImplTest {
 
@@ -86,7 +76,7 @@ class StorageServiceImplTest {
     @Test
     void uploadUsesTheServerSuppliedContentTypeNotTheClientsHeader() {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "programme.pdf", "text/html", "contenu".getBytes()); // client lies about the type
+                "file", "programme.pdf", "text/html", "contenu".getBytes());
         when(restTemplate.exchange(eq(OBJECT_URI), eq(HttpMethod.POST), any(HttpEntity.class), eq(Void.class)))
                 .thenReturn(ResponseEntity.ok().build());
 

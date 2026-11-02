@@ -19,14 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/** See {@link NotificationService} for scope. */
 @Service
 @RequiredArgsConstructor
 public class NotificationServiceImpl implements NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationServiceImpl.class);
 
-    /** Matches {@code notifications.content VARCHAR(255)} (V1__init_schema.sql). */
     private static final int CONTENT_MAX_LENGTH = 255;
     private static final String NOT_FOUND_MESSAGE = "Notification introuvable";
 
@@ -66,8 +64,7 @@ public class NotificationServiceImpl implements NotificationService {
                 .findTop50ByRecipientAndIsReadFalseAndDeletedFromBellFalseOrderByCreatedAtDesc(caller).stream()
                 .map(notificationMapper::toResponse)
                 .toList();
-        // Separate count, not notifications.size() (branch-wide review): the badge must reflect
-        // the true unread total even when it exceeds the 50-item cap above.
+
         long count = notificationRepository.countByRecipientAndIsReadFalseAndDeletedFromBellFalse(caller);
         return UnreadNotificationsResponse.builder()
                 .count((int) count)
@@ -79,7 +76,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public NotificationResponse markAsRead(AdacUserDetails principal, Long notificationId) {
         Notification notification = findOwnedOrThrow(principal, notificationId);
-        // Idempotent: re-marking an already-read notification is a no-op, not an error.
+
         notification.setRead(true);
         return notificationMapper.toResponse(notification);
     }
@@ -97,15 +94,6 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setDeletedFromBell(true);
     }
 
-    /**
-     * Same not-found-for-both reasoning as {@code MessageServiceImpl.markAsRead}: a notification
-     * that exists but belongs to someone else is indistinguishable from an unknown id — a 403
-     * would itself confirm the id refers to a real notification. The ownership check is the
-     * predicate itself ({@code findByIdAndRecipient}, branch-wide review), not a fetch followed by
-     * a manual comparison — logged at WARN before throwing, since this is the feature's only
-     * authorization boundary and a foreign-id probe must leave a trace even though the response
-     * body/status stay identical to a genuine miss.
-     */
     private Notification findOwnedOrThrow(AdacUserDetails principal, Long notificationId) {
         return notificationRepository.findByIdAndRecipient(notificationId, principal.getUser())
                 .orElseThrow(() -> {
@@ -115,12 +103,6 @@ public class NotificationServiceImpl implements NotificationService {
                 });
     }
 
-    /**
-     * A caller-built {@code content} string (e.g. {@code MessageServiceImpl}'s "Nouveau message de
-     * {prenom} {nom}", each up to 255 chars per {@code CreateUserRequest}) can exceed the column
-     * width — without this, that insert throws a {@code DataIntegrityViolationException} the
-     * caller has no reason to expect from a plain notification write (branch-wide review).
-     */
     private String truncate(String content) {
         return content.length() > CONTENT_MAX_LENGTH ? content.substring(0, CONTENT_MAX_LENGTH) : content;
     }

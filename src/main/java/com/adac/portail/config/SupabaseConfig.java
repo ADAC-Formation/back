@@ -6,15 +6,6 @@ import org.springframework.web.util.UriUtils;
 
 import java.nio.charset.StandardCharsets;
 
-/**
- * Supabase Storage settings ({@code SUPABASE_*} env vars — see CLAUDE.md) plus the two URL
- * shapes {@code StorageServiceImpl} (TICKET-026) will need: the authenticated object endpoint
- * for upload/download, and the public endpoint for a directly shareable link.
- *
- * <p>{@code path} is untrusted (built from a user-supplied file name) — {@link #encodePath}
- * rejects traversal segments and percent-encodes each segment so it can't escape the bucket
- * prefix or produce a malformed URL (see TICKET-007 review).</p>
- */
 @Component
 public class SupabaseConfig {
 
@@ -42,12 +33,10 @@ public class SupabaseConfig {
         return bucket;
     }
 
-    /** Authenticated object endpoint — used for upload and for download requiring the service key. */
     public String buildObjectUrl(String path) {
         return "%s/storage/v1/object/%s/%s".formatted(url, bucket, encodePath(path));
     }
 
-    /** Public endpoint — only works if the bucket/object is public. */
     public String buildPublicUrl(String path) {
         return "%s/storage/v1/object/public/%s/%s".formatted(url, bucket, encodePath(path));
     }

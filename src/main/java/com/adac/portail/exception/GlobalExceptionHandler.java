@@ -20,11 +20,6 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 
 import java.util.List;
 
-/**
- * First entries — grows as later tickets add more domain exceptions (see ARCHI.md). Predates
- * TICKET-014's login/me errors, which stay handled where they're raised (the security filters run
- * before any {@code @ControllerAdvice} could apply — see {@link ErrorResponse}'s Javadoc).
- */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -72,64 +67,24 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
-    /**
-     * Method-security ({@code @PreAuthorize}, TICKET-047) denial — {@code CategoryController}'s
-     * write endpoints are the first in this branch to use it. A {@code @PreAuthorize} check runs
-     * as an AOP proxy around the controller method, inside {@code DispatcherServlet}, so this
-     * {@code @RestControllerAdvice} resolves it before {@code ExceptionTranslationFilter} (in the
-     * security filter chain, upstream of the dispatcher) would ever see it — in production that
-     * means {@code SecurityConfig}'s {@code accessDeniedHandler} never actually fires for a
-     * method-security denial, only for a URL-rule one, even though both produce the identical body
-     * here. Also what makes a {@code @WebMvcTest} slice with the filter chain disabled (see
-     * {@code CategoryControllerTest}) see a proper 403 at all, since there's no
-     * {@code ExceptionTranslationFilter} running in that slice to fall back on. Spring Security 6's
-     * {@code AuthorizationDeniedException} (what {@code @PreAuthorize} actually throws) extends
-     * this class, so it's caught here too without a separate handler.
-     */
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage()));
     }
 
-    /**
-     * A business-rule 403 raised directly by a service (TICKET-029: role-based messaging
-     * restrictions) — distinct from {@link AccessDeniedException} below, which is Spring
-     * Security's own, thrown by {@code @PreAuthorize}'s static per-route check. See
-     * {@link UnauthorizedException}'s Javadoc for why the two need separate types.
-     */
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), ex.getMessage()));
     }
 
-    /**
-     * A well-formed body {@code @Valid} can't reject on its own — a cross-field/business rule
-     * (TICKET-029: {@code SendMessageRequest} needs exactly one of two mutually-exclusive shapes).
-     */
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), ex.getMessage()));
     }
 
-    /**
-     * Last-resort fallback for a UNIQUE constraint the service layer's own pre-check didn't catch
-     * — e.g. two concurrent {@code POST /api/users/formateurs} for the same email both pass
-     * {@code UserServiceImpl}'s {@code findByEmail} check before either commits (TICKET-019
-     * review: {@link DuplicateEmailException}'s own pre-check is TOCTOU, not race-proof). Kept
-     * generic (not tied to the email message specifically) since this handler is global and any
-     * future unique constraint could trigger it the same way; the specific, friendlier message
-     * from the pre-check is still what callers see in the overwhelmingly common case.
-     *
-     * <p>Narrowed to an actual unique-constraint violation (SQLState {@code 23505}) — this
-     * exception also covers NOT NULL, foreign-key and check-constraint violations, which are
-     * server-side bugs, not a client-side conflict. Reporting those as 409 hid them from the
-     * client-facing status code *and* from the logs (TICKET-019 branch-wide review: {@code ex} was
-     * never logged, so a real data bug would leave zero trace). Anything else falls through to a
-     * logged 500.</p>
-     */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
         if (isUniqueConstraintViolation(ex)) {
@@ -141,15 +96,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Erreur interne"));
     }
 
-    /**
-     * The {@code @Version} optimistic lock (branch-wide review) — {@code User.version}
-     * (TICKET-019) and {@code Formation.version} (TICKET-022) both exist specifically to make a
-     * lost-update race throw this instead of silently overwriting, but neither ticket added a
-     * handler for it: {@link ObjectOptimisticLockingFailureException} extends
-     * {@code ConcurrencyFailureException}, not {@link DataIntegrityViolationException}, so
-     * {@link #handleDataIntegrityViolation} never saw it — it fell through to Spring Boot's
-     * default {@code /error} body (an unlogged 500) instead of the documented contract.
-     */
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(ObjectOptimisticLockingFailureException ex) {
         log.warn("Optimistic locking conflict", ex);
@@ -159,37 +105,16 @@ public class GlobalExceptionHandler {
     }
 
     private boolean isUniqueConstraintViolation(DataIntegrityViolationException ex) {
-        // The immediate cause, not getMostSpecificCause(): ConstraintViolationException itself
-        // wraps the driver's SQLException as its own cause, so walking to the deepest cause would
-        // skip straight past it to the SQLException instead.
+
         return ex.getCause() instanceof ConstraintViolationException cve && "23505".equals(cve.getSQLState());
     }
 
-    /**
-     * Method-security ({@code @PreAuthorize}, TICKET-019) denial. A {@code @PreAuthorize} check
-     * runs as an AOP proxy around the controller method invocation, inside
-     * {@code DispatcherServlet} — so this {@code @RestControllerAdvice} resolves it *before*
-     * {@code ExceptionTranslationFilter} (in the security filter chain, upstream of the
-     * dispatcher) ever sees it. In production that means {@code SecurityConfig}'s
-     * {@code accessDeniedHandler} never actually fires for a method-security denial — only for a
-     * URL-rule denial — even though both currently produce the identical JSON body here. Any
-     * future denial-side logging/metrics belongs in *this* handler, not in
-     * {@code SecurityConfig}. Also what makes a {@code @WebMvcTest} slice with the filter chain
-     * disabled (see {@code UserControllerTest}) see a proper 403 at all, since there's no
-     * {@code ExceptionTranslationFilter} running in that slice to fall back on.
-     */
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new ErrorResponse(HttpStatus.FORBIDDEN.value(), "Droits insuffisants"));
     }
 
-    /**
-     * A {@code @Valid @RequestBody} failure — without this, Spring Boot's default {@code /error}
-     * body ({@code {timestamp, status, error, path}}) leaks through instead of docs/tech.md's
-     * {@code {status, message, details}} shape, the one error format the rest of the API commits
-     * to (see TICKET-015 review).
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex) {
         List<String> details = ex.getBindingResult().getFieldErrors().stream()
@@ -199,87 +124,42 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide", details));
     }
 
-    /**
-     * Syntactically-invalid JSON (not a validation failure — the body never parsed at all, so
-     * {@code @Valid} never ran). Without this, it falls through to Spring's default handling,
-     * which returns 400 with an empty body instead of docs/tech.md's {@code {status, message,
-     * details}} shape (found via manual probing during the TICKET-045 branch-wide review — the
-     * theorized cause, an unauthenticated {@code /error} dispatch, turned out to be wrong; the
-     * real gap was simply no handler for this specific exception).
-     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide"));
     }
 
-    /**
-     * {@code POST /api/formations/import} exceeding {@code spring.servlet.multipart.max-file-size}
-     * (TICKET-023 review) — without this it escapes {@code @RestControllerAdvice} entirely (thrown
-     * by the multipart resolver before the request reaches the dispatcher) and falls back to
-     * Spring Boot's default {@code /error} body, the same {@code {status, message, details}}
-     * contract gap {@link #handleMalformedBody} exists to close for bad JSON.
-     */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(new ErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE.value(), "Fichier trop volumineux"));
     }
 
-    /** The {@code file} multipart part is missing from a {@code POST /api/formations/import} request. */
     @ExceptionHandler(MissingServletRequestPartException.class)
     public ResponseEntity<ErrorResponse> handleMissingPart(MissingServletRequestPartException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : fichier manquant"));
     }
 
-    /**
-     * A required {@code @RequestParam} is missing — e.g. {@code GET /api/messages/group/preview}
-     * without {@code filterType} (TICKET-030, branch-wide review: the first required query param
-     * in this codebase). Thrown before the controller method runs, so without this it escapes
-     * {@code @RestControllerAdvice}'s usual coverage the same way {@link
-     * #handleMaxUploadSizeExceeded} exists to catch a pre-dispatch multipart failure.
-     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre manquant"));
     }
 
-    /**
-     * A {@code @RequestParam}/{@code @PathVariable} doesn't match its declared type — e.g.
-     * {@code ?filterType=BOGUS} (TICKET-030) or {@code GET /api/notifications?read=abc}
-     * (TICKET-033, the first boolean/enum query param outside a body in this codebase). Thrown
-     * before the controller method runs, so without this it falls through to Spring Boot's
-     * default {@code /error} body instead of the {@code {status, message, details}} contract the
-     * other handlers here exist to enforce. The parameter name is included since a bare "invalid
-     * parameter" gives the caller nothing to act on once more than one query param is involved.
-     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide : paramètre " + ex.getName()));
     }
 
-    /**
-     * {@code @Validated} on a controller (TICKET-030: {@code MessageController}, for the
-     * container-element guard on {@code @RequestParam List<@NotNull Long> userIds}) throws this
-     * — distinct from {@link jakarta.validation.ConstraintViolationException}'s namesake in {@code
-     * org.hibernate.exception} already handled by {@link #handleDataIntegrityViolation}'s cause,
-     * hence the fully-qualified reference here rather than a second import of the same simple name.
-     */
     @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolation(jakarta.validation.ConstraintViolationException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(HttpStatus.BAD_REQUEST.value(), "Requête invalide"));
     }
 
-    /**
-     * A Supabase Storage failure (TICKET-026, branch-wide review) — network error, non-2xx
-     * response, or an unreadable multipart body. 502, not 500: the API itself is fine, its
-     * upstream storage provider isn't. Logged with the cause since a real outage should be
-     * visible, unlike a plain client error.
-     */
     @ExceptionHandler(StorageException.class)
     public ResponseEntity<ErrorResponse> handleStorageException(StorageException ex) {
         log.error("Supabase Storage failure", ex);
@@ -287,16 +167,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.BAD_GATEWAY.value(), "Service de stockage indisponible"));
     }
 
-    /**
-     * The wrong HTTP verb on a real route — e.g. {@code DELETE /api/formations/{id}} instead of
-     * the documented {@code PUT} (live-testing finding, branch-wide review). Without this handler
-     * it has no {@code @ExceptionHandler} match here and falls through to Spring Boot's default
-     * error handling, which forwards internally to {@code /error} — a dispatch
-     * {@code JwtAuthorizationFilter} never re-authenticates (see {@code SecurityConfig}'s
-     * {@code /error} entry for the full mechanism), so the client saw a misleading 401 instead of
-     * 405. {@code Allow} is populated from the exception itself so the caller (or a human hitting
-     * this by hand) can see which verbs the route actually accepts.
-     */
     @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMethodNotSupported(
             org.springframework.web.HttpRequestMethodNotSupportedException ex) {
@@ -307,15 +177,6 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.METHOD_NOT_ALLOWED.value(), "Méthode non autorisée sur cette ressource"));
     }
 
-    /**
-     * Last-resort catch-all (live-testing finding, branch-wide review): any exception with no
-     * more specific handler above — Spring picks the most specific match, so this never shadows
-     * them — previously fell through to the same {@code /error} misleading-401 path described on
-     * {@link #handleMethodNotSupported}. Logged with the full stack trace since, by definition,
-     * nothing here was anticipated; the client only gets a generic message, never
-     * {@code ex.getMessage()} — that could leak internals (a SQL fragment, a file path) the same
-     * way a raw stack trace would.
-     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected exception reached the top-level handler", ex);

@@ -29,10 +29,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * TICKET-029 introduced {@code notify(...)}, the one method {@code MessageServiceImpl} needed;
- * TICKET-033 (below) is the full CRUD — see docs/tickets/TICKET-033.md § Write tests first.
- */
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceImplTest {
 
@@ -83,8 +79,6 @@ class NotificationServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // --- getNotifications (TICKET-033) --------------------------------------------------------
-
     @Test
     void getNotificationsWithNoReadFilterReturnsFullHistory() {
         User caller = user(1L);
@@ -111,8 +105,6 @@ class NotificationServiceImplTest {
         verify(notificationRepository, never()).findTop200ByRecipientOrderByCreatedAtDesc(any());
     }
 
-    // --- getUnread (TICKET-033) ----------------------------------------------------------------
-
     @Test
     void getUnreadReturnsCountAndBellNotifications() {
         User caller = user(1L);
@@ -128,8 +120,6 @@ class NotificationServiceImplTest {
         assertThat(result.getNotifications()).extracting(NotificationResponse::getId).containsExactly(20L);
     }
 
-    // Branch-wide review: the badge count must reflect the true total, not just how many of them
-    // fit in the capped bell list — proven here with a count that exceeds the list size.
     @Test
     void getUnreadCountCanExceedTheCappedNotificationsList() {
         User caller = user(1L);
@@ -144,8 +134,6 @@ class NotificationServiceImplTest {
         assertThat(result.getCount()).isEqualTo(73);
         assertThat(result.getNotifications()).hasSize(1);
     }
-
-    // --- markAsRead (TICKET-033) ---------------------------------------------------------------
 
     @Test
     void markAsReadSetsIsReadTrue() {
@@ -180,9 +168,6 @@ class NotificationServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // Same oracle-avoidance as MessageService.markAsRead: a notification belonging to someone
-    // else is indistinguishable from an unknown id (404, not 403) — findByIdAndRecipient makes
-    // this structural: the query itself can't return a foreign row.
     @Test
     void markAsReadOnAnotherUsersNotificationThrowsResourceNotFound() {
         User caller = user(1L);
@@ -192,8 +177,6 @@ class NotificationServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // --- markAllAsRead (TICKET-033, docs/tech.md § 8) ------------------------------------------
-
     @Test
     void markAllAsReadDelegatesToTheBulkRepositoryUpdateForTheCaller() {
         User caller = user(1L);
@@ -202,8 +185,6 @@ class NotificationServiceImplTest {
 
         verify(notificationRepository).markAllAsReadForRecipient(caller);
     }
-
-    // --- deleteFromBell (TICKET-033) ------------------------------------------------------------
 
     @Test
     void deleteFromBellSetsDeletedFromBellTrueWithoutTouchingHistory() {

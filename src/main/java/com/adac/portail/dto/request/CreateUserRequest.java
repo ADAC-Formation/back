@@ -10,7 +10,6 @@ import lombok.Setter;
 
 import java.util.List;
 
-/** POST /api/users/formateurs, POST /api/users/stagiaires — see docs/tech.md. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,9 +29,5 @@ public class CreateUserRequest {
     @Size(max = 255)
     private String email;
 
-    /**
-     * Only used for POST /api/users/stagiaires (formations to enroll in immediately); ignored
-     * for POST /api/users/formateurs, which has no such field in docs/tech.md.
-     */
     private List<Long> formationIds;
 }

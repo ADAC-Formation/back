@@ -18,7 +18,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 
-/** See {@link StorageService} for scope. */
 @Service
 public class StorageServiceImpl implements StorageService {
 
@@ -27,8 +26,7 @@ public class StorageServiceImpl implements StorageService {
 
     public StorageServiceImpl(SupabaseConfig supabaseConfig, RestTemplateBuilder restTemplateBuilder) {
         this.supabaseConfig = supabaseConfig;
-        // Branch-wide review (backend + security): the default RestTemplateBuilder has no
-        // timeout, so a hung Supabase connection would pin a Tomcat thread indefinitely.
+
         this.restTemplate = restTemplateBuilder
                 .connectTimeout(Duration.ofSeconds(5))
                 .readTimeout(Duration.ofSeconds(30))
@@ -37,11 +35,7 @@ public class StorageServiceImpl implements StorageService {
 
     @Override
     public String upload(MultipartFile file, String path, String contentType) {
-        // exchange(URI, ...) rather than exchange(String, ...): buildObjectUrl already
-        // percent-encodes the path (SupabaseConfig.encodePath) — the String overload runs it
-        // through UriComponentsBuilder's own template expansion again, double-encoding any "%xx"
-        // (branch-wide review: this made the persisted fileUrl point at a different object than
-        // the one actually uploaded for any filename with a space or accent).
+
         URI uri = URI.create(supabaseConfig.buildObjectUrl(path));
         HttpHeaders headers = authHeaders();
         headers.setContentType(MediaType.parseMediaType(contentType));
@@ -81,7 +75,7 @@ public class StorageServiceImpl implements StorageService {
             restTemplate.exchange(uri, HttpMethod.DELETE, entity, Void.class);
         } catch (RestClientException e) {
             if (isNotFound(e)) {
-                return; // Already gone — deleting is idempotent from the caller's perspective.
+                return;
             }
             throw new StorageException("Échec de la suppression sur Supabase Storage", e);
         }

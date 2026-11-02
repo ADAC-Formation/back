@@ -11,18 +11,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * TICKET-046 — V3__add_categories.sql seeds 6 categories; this exercises them via the real
- * migrated schema (AutoConfigureTestDatabase.Replace.NONE, like FormationRepositoryTest), not an
- * in-memory DB, so Flyway actually runs V3 for this test too.
- *
- * <p>Assertions below are deliberately state-relative (never "the DB has exactly N rows" /
- * "every row is active"): this runs against the real shared dev Postgres, not an isolated
- * database, and @DataJpaTest's per-test rollback doesn't undo rows another tool (Swagger,
- * TICKET-047's own CRUD once it lands) committed outside a test — asserting on the full table's
- * global state would make this class flaky for reasons unrelated to the code under test
- * (review, TICKET-046).</p>
- */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("dev")
@@ -73,9 +61,6 @@ class CategoryRepositoryTest {
         assertThat(exists).isFalse();
     }
 
-    // TICKET-047: existsByNomIgnoreCaseAndIdNot backs the PUT /{id} uniqueness check — it must
-    // exclude the category being edited itself, or a no-op rename (same name, same id) would
-    // spuriously 409.
     @Test
     void existsByNomIgnoreCaseAndIdNotIsFalseWhenTheOnlyMatchIsTheCategoryItself() {
         Category category = categoryRepository.findAll().stream()
@@ -104,9 +89,7 @@ class CategoryRepositoryTest {
     void findAllByIsActiveTrueExcludesADeactivatedCategory() {
         List<Category> activeCategories = categoryRepository.findAllByIsActiveTrue();
         int activeBefore = activeCategories.size();
-        // Must pick a category that's actually active right now (not just findAll().get(0)) —
-        // this runs against the shared dev DB, so an unrelated already-deactivated row would make
-        // this a no-op and the size assertion below flaky.
+
         Category toDeactivate = activeCategories.get(0);
         toDeactivate.setActive(false);
         categoryRepository.save(toDeactivate);

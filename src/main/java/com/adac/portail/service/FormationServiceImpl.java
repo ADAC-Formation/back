@@ -28,7 +28,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
-/** See {@link FormationService} for the contract; docs/tech.md § 4 for the wire shapes. */
 @Service
 @RequiredArgsConstructor
 public class FormationServiceImpl implements FormationService {
@@ -47,7 +46,7 @@ public class FormationServiceImpl implements FormationService {
     public FormationResponse createFormation(CreateFormationRequest request, AdacUserDetails principal) {
         Category category = findCategoryOrThrow(request.getCategoryId());
         User caller = principal.getUser();
-        // request.getFormateurId() null -> auto-assign the calling Super Admin (docs/tech.md).
+
         User formateur = request.getFormateurId() != null
                 ? findFormateurOrThrow(request.getFormateurId())
                 : caller;
@@ -61,7 +60,7 @@ public class FormationServiceImpl implements FormationService {
                 .category(category)
                 .formateur(formateur)
                 .createdBy(caller)
-                // status defaults to ACTIVE via Formation.status's @Builder.Default.
+
                 .build();
 
         return toResponse(formationRepository.save(formation));
@@ -73,8 +72,7 @@ public class FormationServiceImpl implements FormationService {
         User caller = principal.getUser();
         List<Formation> base = switch (caller.getRole()) {
             case SUPER_ADMIN -> formationRepository.findAll();
-            // docs/tech.md, "filtre par défaut : ses formations" — same convention as
-            // UserServiceImpl.getStagiaires for an ADMIN caller.
+
             case ADMIN -> formationRepository.findAllByFormateur(caller);
             case STAGIAIRE -> inscriptionRepository.findFormationsByStagiaire(caller);
         };
@@ -97,12 +95,7 @@ public class FormationServiceImpl implements FormationService {
     public Formation findVisibleFormationOrThrow(Long id, AdacUserDetails principal) {
         Formation formation = findFormationOrThrow(id);
         User caller = principal.getUser();
-        // Scoped like GET /api/formations, not left wide open (review: this endpoint used to be
-        // the one door UserServiceImpl.getById/getStagiaires' ADMIN scoping didn't cover, letting
-        // any ADMIN enumerate every formation — including the Super Admin's and other formateurs'
-        // — by id). 404, not 403, for the ADMIN case: same reasoning as UserServiceImpl.getById,
-        // a status that doesn't confirm the formation exists to someone who isn't allowed to see
-        // it. STAGIAIRE keeps the 403 docs/tech.md documents ("STAGIAIRE non inscrit").
+
         if (caller.getRole() == Role.ADMIN && !isOwnFormation(formation, caller)) {
             throw new ResourceNotFoundException(NOT_FOUND_MESSAGE);
         }
@@ -120,10 +113,6 @@ public class FormationServiceImpl implements FormationService {
             throw new FormationArchivedException("Formation archivée, modification impossible");
         }
 
-        // Resolve every referenced/merged value *before* mutating the managed entity (review):
-        // findCategoryOrThrow/findFormateurOrThrow can throw, and the date-order check needs the
-        // merged dateDebut/dateFin either way — validating first means a rejected request never
-        // leaves the entity partially mutated.
         Category category = request.getCategoryId() != null ? findCategoryOrThrow(request.getCategoryId()) : null;
         User formateur = request.getFormateurId() != null ? findFormateurOrThrow(request.getFormateurId()) : null;
         LocalDate dateDebut = request.getDateDebut() != null ? request.getDateDebut() : formation.getDateDebut();
@@ -132,8 +121,6 @@ public class FormationServiceImpl implements FormationService {
             throw new InvalidFormationDataException("dateFin must be on or after dateDebut");
         }
 
-        // Only the fields present (non-null) on request are applied — see
-        // UpdateFormationRequest's Javadoc.
         if (request.getIntitule() != null) {
             formation.setIntitule(request.getIntitule());
         }
@@ -159,7 +146,7 @@ public class FormationServiceImpl implements FormationService {
     @Transactional
     public FormationResponse archiveFormation(Long id) {
         Formation formation = findFormationOrThrow(id);
-        // Idempotent — same convention as CategoryServiceImpl.activateCategory/deactivateCategory.
+
         formation.setStatus(FormationStatus.ARCHIVED);
         return toResponse(formationRepository.save(formation));
     }
@@ -167,11 +154,7 @@ public class FormationServiceImpl implements FormationService {
     @Override
     @Transactional
     public List<FormationResponse> importFormations(MultipartFile file, AdacUserDetails principal) {
-        // ExcelImportUtil validates every row before returning anything (see its Javadoc) — by
-        // the time execution reaches here the whole file is known-good, so looping createFormation
-        // per row reuses its exact validation/auto-assignment logic instead of duplicating it.
-        // The @Transactional above still makes this atomic against a rarer failure (e.g. a
-        // category deleted between parse and save).
+
         return excelImportUtil.parse(file).stream()
                 .map(request -> createFormation(request, principal))
                 .toList();
@@ -187,16 +170,6 @@ public class FormationServiceImpl implements FormationService {
                 .orElseThrow(() -> new InvalidFormationDataException("categoryId introuvable"));
     }
 
-    /**
-     * Rejects an unknown id, a {@code STAGIAIRE} id and a deactivated account — all as the same
-     * 400 (review, branch-wide pass: the unknown-id case used to be a separate
-     * {@code ResourceNotFoundException} (404), contradicting docs/tech.md § 4, which documents
-     * every {@code formateurId} problem as 400, and mixing two status codes inside one field's
-     * validation). "Formateur" means an active {@code ADMIN} or {@code SUPER_ADMIN} everywhere
-     * else in this codebase (see {@code UserServiceImpl.createFormateur}), and every
-     * formateur-scoped query ({@code FormationRepository.findAllByFormateur}, {@code getFormations}
-     * above) trusts the FK without re-checking the role.
-     */
     private User findFormateurOrThrow(Long userId) {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null || user.getRole() == Role.STAGIAIRE || !user.isActive()) {
@@ -210,12 +183,6 @@ public class FormationServiceImpl implements FormationService {
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
     }
 
-    /**
-     * {@code formation.getFormateur()} is a LAZY proxy, but its id is set at proxy-creation time
-     * and reading it never triggers initialization — safe to compare without a database round
-     * trip (same reasoning as {@code UserServiceImpl.isOwnFormation}). {@code null} means the
-     * Super Admin auto-assigned themselves, which never matches an ADMIN caller.
-     */
     private boolean isOwnFormation(Formation formation, User formateur) {
         return formation.getFormateur() != null && formation.getFormateur().getId().equals(formateur.getId());
     }

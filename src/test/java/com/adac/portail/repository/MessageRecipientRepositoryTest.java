@@ -14,7 +14,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** TICKET-029 branch-wide review — behavioural coverage for the two batched queries {@code MessageServiceImpl} needs. */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("dev")
@@ -50,14 +49,11 @@ class MessageRecipientRepositoryTest {
         Message toC = messageRepository.save(Message.builder().sender(a).content("hi c").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(toC).recipient(c).build());
 
-        // Only b is in the candidate list — the row for c must not come back even though toC is
-        // in the messages list.
         List<MessageRecipient> result = messageRecipientRepository
                 .findAllByMessageInAndRecipientIdIn(List.of(toB, toC), List.of(a.getId(), b.getId()));
 
         assertThat(result).extracting(MessageRecipient::getId).containsExactly(rowB.getId());
-        // JOIN FETCH mr.recipient — touching it outside a transaction elsewhere would otherwise
-        // throw LazyInitializationException.
+
         assertThat(result.get(0).getRecipient().getEmail()).isEqualTo(b.getEmail());
     }
 

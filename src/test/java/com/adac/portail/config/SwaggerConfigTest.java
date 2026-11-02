@@ -11,12 +11,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * TICKET-007 — verifies the OpenAPI doc is branded, not springdoc's generic default title.
- * (Swagger UI itself being reachable is already covered by {@code SwaggerUiTest}, and the
- * context starting is covered by {@code PortailAdacApplicationTests} — see that ticket's note
- * not to test simple config beans beyond "does the app start".)
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
