@@ -33,18 +33,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Individual messaging (US-013) — see docs/tech.md § 7. No {@code @PreAuthorize} on any route
- * here: every authenticated role may list/read/send/mark-read (docs/ARCHI.md endpoint table —
- * "Tous"), and the actual per-role recipient restrictions are data-dependent (who the target user
- * is), not expressible as a static route rule — {@link MessageService} enforces those and throws
- * {@link com.adac.portail.exception.UnauthorizedException} (403) when they're violated.
- *
- * <p>{@code @Validated} (TICKET-030, branch-wide review): {@code previewGroupRecipients} builds a
- * {@code SendMessageRequest.Filter} by hand from query params instead of binding a {@code @Valid}
- * request body, so the container-element guard on {@code Filter.userIds} (see its Javadoc) only
- * runs here if the class itself opts into validating {@code @RequestParam}s.</p>
- */
 @RestController
 @RequestMapping("/api/messages")
 @RequiredArgsConstructor

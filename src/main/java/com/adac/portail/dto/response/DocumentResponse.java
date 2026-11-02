@@ -17,13 +17,10 @@ public class DocumentResponse {
 
     private Long id;
 
-    /** Original file name. */
     private String fileName;
 
-    /** Supabase Storage URL. */
     private String fileUrl;
 
-    /** In bytes. */
     private Long fileSize;
 
     private String mimeType;

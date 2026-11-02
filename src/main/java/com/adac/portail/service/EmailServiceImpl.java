@@ -11,7 +11,6 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
-/** See {@link EmailService} for scope. */
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
@@ -53,9 +52,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setSubject(subject);
             helper.setText(html, true);
         } catch (MessagingException e) {
-            // MimeMessageHelper's checked exception, wrapped as Spring's own unchecked MailException
-            // subtype — callers (ActivationServiceImpl) only ever need to catch MailException, the
-            // same as they already do for a send()-time SMTP failure (see this class's Javadoc).
+
             throw new MailPreparationException("Échec de préparation de l'email", e);
         }
         mailSender.send(message);

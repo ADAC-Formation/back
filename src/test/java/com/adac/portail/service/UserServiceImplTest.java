@@ -36,14 +36,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * TICKET-019 — endpoints below follow docs/tech.md (POST/GET /api/users/formateurs and
- * /stagiaires, split PATCH .../deactivate + .../reactivate), not the older generic
- * {@code POST/PATCH /api/users} sketched in docs/tickets/TICKET-019.md — see that file's
- * revision note. Several cases below (formationId ownership scoping, self-suspension, last
- * SUPER_ADMIN, reactivating a never-activated account) were added during the ticket's
- * pre-commit `/review-code` pass, not the ticket's original 5 listed tests.
- */
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
 
@@ -67,8 +59,6 @@ class UserServiceImplTest {
 
     @InjectMocks
     private UserServiceImpl userService;
-
-    // --- createFormateur --------------------------------------------------------------------
 
     @Test
     void createFormateurSavesInactiveAdminAndTriggersActivationEmail() {
@@ -104,8 +94,6 @@ class UserServiceImplTest {
         verify(userRepository, never()).save(any());
         verify(activationService, never()).sendActivationCode(any());
     }
-
-    // --- createStagiaire --------------------------------------------------------------------
 
     @Test
     void createStagiaireEnrollsInGivenFormationsAndTriggersActivationEmail() {
@@ -174,8 +162,6 @@ class UserServiceImplTest {
         verify(inscriptionRepository, never()).save(any());
     }
 
-    // --- getFormateurs ----------------------------------------------------------------------
-
     @Test
     void getFormateursForSuperAdminWithoutActiveFilterReturnsAll() {
         User superAdmin = User.builder().role(Role.SUPER_ADMIN).build();
@@ -211,14 +197,11 @@ class UserServiceImplTest {
         when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(activeFormateur, suspendedFormateur));
         when(userMapper.toResponse(activeFormateur)).thenReturn(UserResponse.builder().build());
 
-        // active=false requested, but ADMIN's view is hard-restricted to active-only (docs/tech.md).
         List<UserResponse> result = userService.getFormateurs(false, new AdacUserDetails(admin));
 
         assertThat(result).hasSize(1);
         verify(userMapper, never()).toResponse(suspendedFormateur);
     }
-
-    // --- getStagiaires ----------------------------------------------------------------------
 
     @Test
     void getStagiairesForSuperAdminWithoutFiltersReturnsAllStagiaires() {
@@ -300,8 +283,6 @@ class UserServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // --- getById ------------------------------------------------------------------------------
-
     @Test
     void getByIdBySuperAdminReturnsMappedUser() {
         User superAdmin = User.builder().role(Role.SUPER_ADMIN).build();
@@ -356,8 +337,6 @@ class UserServiceImplTest {
         assertThat(userService.getById(2L, new AdacUserDetails(formateur))).isSameAs(expected);
         verify(inscriptionRepository, never()).existsByStagiaireAndFormation_Formateur(any(), any());
     }
-
-    // --- deactivate / reactivate --------------------------------------------------------------
 
     @Test
     void deactivateSetsIsActiveFalseAndSaves() {
@@ -437,16 +416,9 @@ class UserServiceImplTest {
         verify(userRepository, never()).save(any());
     }
 
-    // --- updateMe ---------------------------------------------------------------------------
-    // TICKET-020.
-
     @Test
     void updateMeWithEmailNotificationsEnabledFalsePersistsField() {
-        // Two distinct instances on purpose: principal.getUser() stands in for the detached
-        // snapshot loaded by CustomUserDetailsService in the filter's own transaction (see
-        // updateMe's Javadoc/comment — review found the field was mutated on this stale instance
-        // and merge()d instead of on a freshly-fetched managed one). Only the managed instance
-        // below should end up mutated and saved.
+
         User detachedSnapshot = User.builder().id(9L).emailNotificationsEnabled(true).build();
         User managedUser = User.builder().id(9L).emailNotificationsEnabled(true).build();
         AdacUserDetails principal = new AdacUserDetails(detachedSnapshot);
@@ -477,9 +449,6 @@ class UserServiceImplTest {
 
         assertThat(managedUser.isEmailNotificationsEnabled()).isTrue();
     }
-
-    // --- updateUser ---------------------------------------------------------------------------
-    // TICKET-050.
 
     @Test
     void updateUserWithOnlyNomProvidedLeavesPrenomAndEmailUnchanged() {
@@ -515,10 +484,7 @@ class UserServiceImplTest {
 
     @Test
     void updateUserWithEmailDifferingOnlyByCaseFromAnotherUsersThrowsDuplicateEmailException() {
-        // Branch-wide review: a case-sensitive check would let "Jane@adac.fr" through while
-        // "jane@adac.fr" already exists on another account — two rows differing only by case,
-        // ambiguous for login/reset and fatal to ExcelImportUtil.resolveFormateur (which looks up
-        // case-insensitively and would get IncorrectResultSizeDataAccessException).
+
         User target = User.builder().id(3L).email("mine@adac.fr").isActive(true).build();
         User someoneElse = User.builder().id(99L).email("jane@adac.fr").build();
         AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
@@ -532,9 +498,7 @@ class UserServiceImplTest {
 
     @Test
     void updateUserWithEmailUnchangedFromCurrentDoesNotThrow() {
-        // Resubmitting the exact same address as the target's own current one must not even
-        // trigger a findByEmailIgnoreCase lookup (nothing changed to check for conflict), let
-        // alone throw.
+
         User target = User.builder().id(3L).email("jane@adac.fr").isActive(true).build();
         AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
         UpdateUserRequest request = new UpdateUserRequest(null, null, "jane@adac.fr");
@@ -577,8 +541,7 @@ class UserServiceImplTest {
         userService.updateUser(3L, request, admin);
 
         assertThat(target.getEmail()).isEqualTo("new@adac.fr");
-        // No active transaction synchronization in this plain unit test — sendActivationCodeAfterCommit
-        // falls back to sending immediately (see its Javadoc), so this is still observable here.
+
         verify(activationService).sendActivationCode(target);
     }
 
@@ -600,12 +563,7 @@ class UserServiceImplTest {
 
     @Test
     void updateUserWhenActivationResendIsRateLimitedStillPersistsTheDataChange() {
-        // Branch-wide review, BLOCKING: RateLimitException used to propagate straight out of
-        // sendActivationCode and up through updateUser — since this test has no active
-        // transaction synchronization, that used to mean the whole call threw despite
-        // userRepository.save already having happened, misrepresenting a successful correction
-        // as a failure. Not anymore: the data change is the primary outcome, the mail is
-        // best-effort.
+
         User target = User.builder().id(3L).email("old@adac.fr").isActive(false).build();
         AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
         UpdateUserRequest request = new UpdateUserRequest(null, null, "new@adac.fr");
@@ -636,10 +594,7 @@ class UserServiceImplTest {
 
     @Test
     void updateUserNeverChangesRoleOrIsActiveEvenIfSomehowPresentOnTheEntity() {
-        // Privilege-escalation canary (branch-wide review, SUGGESTION): UpdateUserRequest has no
-        // role/isActive fields by construction, so there's nothing to "smuggle in" — this pins
-        // that guarantee at the service level too, so a future field addition to the DTO doesn't
-        // silently start flowing into user.setRole()/setActive() here without a test catching it.
+
         User target = User.builder().id(3L).role(Role.STAGIAIRE).isActive(true).email("s@adac.fr").build();
         AdacUserDetails admin = new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build());
         UpdateUserRequest request = new UpdateUserRequest("Nouveau", null, null);

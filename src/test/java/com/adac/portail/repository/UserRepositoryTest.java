@@ -60,7 +60,6 @@ class UserRepositoryTest {
         assertThat(found).isEmpty();
     }
 
-    // TICKET-023 — used by ExcelImportUtil to resolve the "formateur" column.
     @Test
     void findByEmailIgnoreCaseMatchesRegardlessOfCase() {
         userRepository.save(User.builder()

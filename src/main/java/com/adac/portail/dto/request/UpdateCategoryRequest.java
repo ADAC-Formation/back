@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** PUT /api/categories/{id} — same fields as {@link CreateCategoryRequest}, see docs/tech.md. */
 @Getter
 @Setter
 @NoArgsConstructor

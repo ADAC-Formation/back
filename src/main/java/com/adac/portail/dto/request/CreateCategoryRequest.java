@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** POST /api/categories — see docs/tech.md. */
 @Getter
 @Setter
 @NoArgsConstructor

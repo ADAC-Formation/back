@@ -31,16 +31,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
-/**
- * Parses a {@code .xlsx} formation-import file into {@link CreateFormationRequest}s — see
- * docs/tech.md § 4, {@code POST /api/formations/import}.
- *
- * <p><b>Column schema is a placeholder</b> (see project memory
- * {@code ticket-023-excel-import-blocked}): Charlotte doesn't have the client's real file yet.
- * The column-index constants below are where to update it once she does — everything else
- * (multipart handling, all-or-nothing validation, wiring into {@code FormationServiceImpl})
- * doesn't depend on the exact column names.</p>
- */
 @Component
 @RequiredArgsConstructor
 public class ExcelImportUtil {
@@ -57,39 +47,18 @@ public class ExcelImportUtil {
 
     private static final int HEADER_ROW_INDEX = 0;
 
-    // Review (security): a formation-import spreadsheet has no business being anywhere near the
-    // 20 MB spring.servlet.multipart.max-file-size cap (application.yml — sized for document
-    // uploads, TICKET-026); a tighter cap here bounds how much a single request can inflate into
-    // heap regardless of what POI/the OOXML zip format itself allows.
     private static final long MAX_FILE_SIZE_BYTES = 2L * 1024 * 1024;
-    // Bounds worst-case query count (~4 queries/row — see ExcelImportUtil's review) and the size
-    // of the persistence context a single @Transactional import can build up.
+
     private static final int MAX_ROWS = 1000;
-    // An error list this long has stopped being useful feedback and started being a resource-
-    // exhaustion vector (a file with thousands of bad rows building a huge String) — review.
+
     private static final int MAX_ERRORS = 50;
-    // Caps how much of an untrusted cell's content is echoed back in a 400 body.
+
     private static final int MAX_ECHOED_VALUE_LENGTH = 80;
 
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
     private final Validator validator;
 
-    /**
-     * Parses every data row (row 0 is the header, skipped) into a {@link CreateFormationRequest}.
-     * All-or-nothing: collects every row's errors before throwing, rather than failing on the
-     * first one — docs/tech.md AC: "erreur de colonne… message indiquant la ligne/colonne
-     * problématique" reads as "tell me everything wrong at once", not "tell me about row 2 only
-     * to have row 5 fail on the next attempt". Each row is also run through the same Bean
-     * Validation {@code CreateFormationRequest} itself declares (review: a hand-built request used
-     * to skip {@code @Size}/{@code @AssertTrue} entirely, since those only fire behind
-     * {@code @Valid @RequestBody} — an inverted date range used to reach the DB's own CHECK
-     * constraint and surface as a 500 instead of this method's documented 400).
-     *
-     * @throws InvalidFormationDataException if the file isn't a valid {@code .xlsx}, is larger
-     *         than {@value #MAX_FILE_SIZE_BYTES} bytes, has more than {@value #MAX_ROWS} data rows,
-     *         or any row has an invalid/unresolvable value
-     */
     public List<CreateFormationRequest> parse(MultipartFile file) {
         String filename = file.getOriginalFilename();
         if (filename == null || !filename.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
@@ -100,19 +69,13 @@ public class ExcelImportUtil {
                     "Fichier trop volumineux (max " + (MAX_FILE_SIZE_BYTES / (1024 * 1024)) + " Mo)");
         }
 
-        // Guards against a zip-bomb-style OOXML payload expanding far past what the compressed
-        // upload size suggests — POI's default ratio (0.01, i.e. up to ~100:1) is looser than this
-        // endpoint needs for a spreadsheet of formation rows (review).
         ZipSecureFile.setMinInflateRatio(0.05);
 
         Workbook workbook;
         try {
             workbook = WorkbookFactory.create(file.getInputStream());
         } catch (IOException | RuntimeException ex) {
-            // Narrowed to just the open/parse step (review) — a DB failure or a bug inside the row
-            // loop below must NOT be swallowed and reported as "your file isn't valid .xlsx" with
-            // zero trace in the logs, the exact class of problem GlobalExceptionHandler.
-            // handleDataIntegrityViolation was hardened against for the same reason (TICKET-019).
+
             log.warn("Rejected formation import file '{}': not a readable .xlsx", filename, ex);
             throw new InvalidFormationDataException("Format invalide, seuls les fichiers .xlsx sont acceptés");
         }
@@ -142,7 +105,7 @@ public class ExcelImportUtil {
             if (row == null || isBlankRow(row)) {
                 continue;
             }
-            // 1-based, human-facing line number (row 0 is the header, so data row 0 -> "ligne 2").
+
             int line = rowIndex + 1;
             RowResult result = parseRow(row, line);
             result.request().ifPresent(requests::add);
@@ -167,7 +130,6 @@ public class ExcelImportUtil {
         }
     }
 
-    /** One row's outcome: either a valid request, or the errors that reject the whole file. */
     private record RowResult(Optional<CreateFormationRequest> request, List<String> errors) {
     }
 
@@ -214,9 +176,6 @@ public class ExcelImportUtil {
             return new RowResult(Optional.empty(), errors);
         }
 
-        // Re-checks the exact rules CreateFormationRequest declares (@Size, @AssertTrue
-        // isDateRangeValid) — the ones @Valid @RequestBody would run on the JSON path but this
-        // hand-built request would otherwise skip entirely (review).
         for (ConstraintViolation<CreateFormationRequest> violation : validator.validate(request)) {
             errors.add(cellError(line, violation.getPropertyPath().toString(), violation.getMessage()));
         }

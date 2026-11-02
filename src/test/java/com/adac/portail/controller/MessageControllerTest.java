@@ -37,15 +37,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link MessageController} — TICKET-029. No method security here (see the
- * controller's Javadoc), so no {@code @EnableMethodSecurity} test config is needed —
- * {@link WithMockAdacUser} alone is enough to give {@code @AuthenticationPrincipal} a real
- * {@link AdacUserDetails} (see its Javadoc for why {@code @WithMockUser} can't) — and, branch-wide
- * review: every test below that reaches the service asserts the exact principal with
- * {@code eq(...)}, not {@code any()}, so a broken principal binding would fail loudly here instead
- * of passing silently (the same regression class {@code WithMockAdacUser} itself exists to catch).
- */
 @WebMvcTest(MessageController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class MessageControllerTest {
@@ -69,8 +60,6 @@ class MessageControllerTest {
         return (AdacUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
-    // --- GET /api/messages ----------------------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getConversationsReturnsListFromServiceForTheRealPrincipal() throws Exception {
@@ -82,8 +71,6 @@ class MessageControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1));
     }
-
-    // --- GET /api/messages/{conversationId} ---------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -97,8 +84,6 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.length()").value(1));
     }
 
-    // Branch-wide review: an unknown conversationId is not a 404 (would let any authenticated
-    // caller enumerate the user-id space) — the service returns an empty list instead.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getConversationMessagesWithNoSharedHistoryReturnsEmptyListNotNotFound() throws Exception {
@@ -109,9 +94,6 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.length()").value(0));
     }
 
-    // --- POST /api/messages/send -------------------------------------------------------------
-
-    // Ticket Test 1: SUPER_ADMIN -> STAGIAIRE -> 201.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void sendMessageBySuperAdminReturnsCreated() throws Exception {
@@ -125,9 +107,6 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.id").value(1));
     }
 
-    // Ticket Test 2: STAGIAIRE -> STAGIAIRE -> 403 (mapped from the service's UnauthorizedException
-    // — the real role-matrix coverage lives in MessageServiceImplTest; this only proves the
-    // controller/GlobalExceptionHandler wiring).
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
     void sendMessageMapsUnauthorizedExceptionToForbidden() throws Exception {
@@ -141,9 +120,6 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.status").value(403));
     }
 
-    // Both recipientIds (individual) and filter (group) set at once -> 400 (TICKET-030 made group
-    // send valid, obsoleting this test's original "not yet supported" premise — repurposed rather
-    // than deleted, since "both set" is a real 400 case worth a controller-wiring test).
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void sendMessageWithBothRecipientIdsAndFilterReturnsBadRequest() throws Exception {
@@ -158,9 +134,6 @@ class MessageControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // The recipientIds sibling of this test lives above (sendMessageWithNullRecipientIdReturnsBadRequest)
-    // — same guard on filter.userIds, added alongside it in TICKET-030 for the same reason (an
-    // unvalidated [null] would otherwise reach the repository lookup as an unhandled 500).
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void sendGroupMessageWithNullUserIdInFilterReturnsBadRequest() throws Exception {
@@ -194,8 +167,6 @@ class MessageControllerTest {
         verify(messageService, never()).sendMessage(any(), any());
     }
 
-    // --- POST /api/messages/send (group, TICKET-030) --------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void sendGroupMessageWithFormationFilterReturnsCreated() throws Exception {
@@ -210,8 +181,6 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.isGroup").value(true));
     }
 
-    // ADMIN + MISSING_DOCS mapped from the service's UnauthorizedException — role-matrix coverage
-    // lives in MessageServiceImplTest, this only proves the controller/handler wiring.
     @Test
     @WithMockAdacUser(role = Role.ADMIN)
     void sendGroupMessageWithMissingDocsFilterByAdminReturnsForbidden() throws Exception {
@@ -225,8 +194,6 @@ class MessageControllerTest {
                                 "filter", Map.of("type", "MISSING_DOCS")))))
                 .andExpect(status().isForbidden());
     }
-
-    // --- GET /api/messages/group/preview (TICKET-030) -------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -252,8 +219,6 @@ class MessageControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // filterType is the first required query param in this codebase (branch-wide review) — proves
-    // GlobalExceptionHandler.handleMissingParameter, not left to Spring Boot's default /error body.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void previewGroupRecipientsWithoutFilterTypeReturnsBadRequest() throws Exception {
@@ -271,8 +236,6 @@ class MessageControllerTest {
 
         verify(messageService, never()).previewGroupRecipients(any(), any());
     }
-
-    // --- PATCH /api/messages/{id}/read --------------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)

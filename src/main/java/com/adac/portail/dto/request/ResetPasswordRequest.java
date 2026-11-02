@@ -9,9 +9,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** POST /api/auth/reset-password — same shape as {@link ActivateAccountRequest}, kept as a
- * separate type since the two flows (first activation vs. later password reset) are free to
- * diverge — see docs/tech.md. */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,7 +23,6 @@ public class ResetPasswordRequest {
     @Pattern(regexp = "\\d{6}", message = "code must be 6 digits")
     private String code;
 
-    // See ActivateAccountRequest.newPassword for why both bounds and the pattern are here.
     @NotBlank
     @Size(min = 8, max = 72)
     @Pattern(regexp = "(?=.*[A-Z])(?=.*\\d)[\\s\\S]*", message = "must contain at least one uppercase letter and one digit")

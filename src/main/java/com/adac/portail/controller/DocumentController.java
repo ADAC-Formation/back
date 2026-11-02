@@ -31,13 +31,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/**
- * Document upload/list/download/delete (US-009, US-010) — see docs/tech.md § 6. No
- * {@code @PreAuthorize}: every rule (which target is allowed per role, ownership, enrollment) is
- * data-dependent, the same reasoning already documented on {@code FormationController} and
- * {@code MessageController} — {@link DocumentService} enforces them and throws {@code
- * UnauthorizedException} (403) when violated.
- */
 @RestController
 @RequestMapping("/api/documents")
 @RequiredArgsConstructor
@@ -91,11 +84,7 @@ public class DocumentController {
             @PathVariable @Parameter(description = "Document id") Long id,
             @AuthenticationPrincipal AdacUserDetails principal) {
         DownloadedDocument document = documentService.downloadDocument(id, principal);
-        // Branch-wide review (security): never hand-build this header from a filename the client
-        // chose — a `"` in a quoted-string filename parameter can inject a second `filename*`
-        // parameter that overrides what the browser saves the download as. ContentDisposition
-        // quotes/escapes correctly and emits the RFC 5987 filename* form for non-ASCII names
-        // (FileValidator additionally rejects `"`/`/`/control characters outright at upload time).
+
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(document.fileName(), StandardCharsets.UTF_8)
                 .build();

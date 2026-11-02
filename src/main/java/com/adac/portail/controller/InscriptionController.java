@@ -27,16 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * Formation enrollment (US-006) — see docs/tech.md § 5.
- *
- * <p>{@code GET} is SUPER_ADMIN/ADMIN only (review) — every {@code InscriptionResponse.stagiaire}
- * is a full {@code UserResponse} (email included), so letting an enrolled STAGIAIRE call it would
- * hand them every co-trainee's email address, not just "who else is in this session"; ADMIN
- * visibility is still scoped to their own formations inside {@code InscriptionServiceImpl} (reuses
- * {@code FormationService.findVisibleFormationOrThrow}). {@code POST}/{@code DELETE} are
- * SUPER_ADMIN only, same convention as {@code FormationController}'s write routes.</p>
- */
 @RestController
 @RequestMapping("/api/formations/{formationId}/inscriptions")
 @RequiredArgsConstructor

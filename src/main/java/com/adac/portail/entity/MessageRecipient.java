@@ -41,7 +41,6 @@ public class MessageRecipient {
     @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
 
-    /** Null = unread; set = read at this timestamp. */
     @Column(name = "read_at")
     private OffsetDateTime readAt;
 }

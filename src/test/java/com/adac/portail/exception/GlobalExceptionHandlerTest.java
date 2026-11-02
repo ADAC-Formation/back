@@ -12,13 +12,6 @@ import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * TICKET-019 branch-wide review: {@link GlobalExceptionHandler#handleDataIntegrityViolation}
- * used to map every {@link DataIntegrityViolationException} to 409 and never log it — hiding
- * genuine server-side constraint bugs (NOT NULL, FK, check) behind a client-facing "already
- * exists" and leaving zero trace in the logs. Only a real unique-constraint violation (SQLState
- * {@code 23505}) should still produce the 409; anything else must fall through to a logged 500.
- */
 class GlobalExceptionHandlerTest {
 
     private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
@@ -60,10 +53,6 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Branch-wide review: Formation.version (TICKET-022) and User.version (TICKET-019) both exist
-    // to make a lost-update race throw this instead of silently overwriting, but neither ticket
-    // added a handler — ObjectOptimisticLockingFailureException extends ConcurrencyFailureException,
-    // not DataIntegrityViolationException, so it fell through to Spring Boot's default 500 body.
     @Test
     void optimisticLockingFailureReturnsConflict() {
         ObjectOptimisticLockingFailureException ex =

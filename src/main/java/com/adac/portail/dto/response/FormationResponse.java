@@ -26,13 +26,10 @@ public class FormationResponse {
     private Modalite modalite;
     private FormationStatus status;
 
-    /** Always populated, even when {@code category.isActive} is false — see docs/tech.md. */
     private CategoryResponse category;
 
-    /** May be the Super Admin (see docs/tech.md). */
     private UserResponse formateur;
 
-    /** Computed — not derivable from the (deliberately lean) Formation entity alone; set by the service layer. */
     private int inscriptionsCount;
 
     private OffsetDateTime createdAt;

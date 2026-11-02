@@ -38,18 +38,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link CategoryController} — TICKET-047.
- *
- * <p>Security filters are disabled ({@code addFilters = false}, same as {@code UserControllerTest}
- * on {@code feature/users}) — role enforcement is {@code @PreAuthorize} (method security), which
- * doesn't need the servlet filter chain. {@link MethodSecurityTestConfig} turns it on for this
- * slice; {@code SecurityConfig} itself isn't imported.</p>
- *
- * <p>{@code GET /api/categories} has no {@code @PreAuthorize} (any authenticated role may call
- * it — see {@code CategoryController}), so {@code @WithMockUser} without a role is enough there;
- * every other route needs {@code roles = "SUPER_ADMIN"}.</p>
- */
 @WebMvcTest(CategoryController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import(CategoryControllerTest.MethodSecurityTestConfig.class)
@@ -74,8 +62,6 @@ class CategoryControllerTest {
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
 
-    // --- POST /api/categories ----------------------------------------------------------------
-
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
     void createCategoryBySuperAdminReturnsCreated() throws Exception {
@@ -88,9 +74,7 @@ class CategoryControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of("nom", "Formation SST", "couleur", "#FF5733"))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.nom").value("Formation SST"))
-                // AC: "isActive = true par défaut" — asserted at the wire level, not just on the
-                // entity (see BooleanFieldJsonContractTest for why @JsonProperty("isActive") is
-                // load-bearing here: a plain "active" field would pass every other test silently).
+
                 .andExpect(jsonPath("$.isActive").value(true));
     }
 
@@ -139,11 +123,10 @@ class CategoryControllerTest {
                         .content(objectMapper.writeValueAsString(Map.of("nom", "Formation SST", "couleur", "#FF5733"))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                // docs/tech.md § 3 pins this exact message on the 409 body.
+
                 .andExpect(jsonPath("$.message").value("Cette catégorie existe déjà"));
     }
 
-    // Test 4 (ticket): invalid couleur → 400.
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
     void createCategoryWithInvalidCouleurReturnsBadRequest() throws Exception {
@@ -167,8 +150,6 @@ class CategoryControllerTest {
         verify(categoryService, never()).createCategory(any());
     }
 
-    // --- GET /api/categories -----------------------------------------------------------------
-
     @Test
     @WithMockUser
     void getCategoriesWithNoParamReturnsAllFromService() throws Exception {
@@ -180,7 +161,6 @@ class CategoryControllerTest {
                 .andExpect(jsonPath("$.length()").value(2));
     }
 
-    // Test 6 (ticket): ?active=true returns only active categories.
     @Test
     @WithMockUser
     void getCategoriesWithActiveTrueForwardsTheParam() throws Exception {
@@ -193,8 +173,6 @@ class CategoryControllerTest {
 
         verify(categoryService).getCategories(eq(true));
     }
-
-    // --- PUT /api/categories/{id} ------------------------------------------------------------
 
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
@@ -242,8 +220,6 @@ class CategoryControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // Mirrors the equivalent POST tests — PUT carries the same @Valid contract on
-    // UpdateCategoryRequest and must not silently reach the service with an invalid body.
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
     void updateCategoryWithInvalidCouleurReturnsBadRequest() throws Exception {
@@ -265,8 +241,6 @@ class CategoryControllerTest {
 
         verify(categoryService, never()).updateCategory(any(), any());
     }
-
-    // --- PATCH /api/categories/{id}/activate, /deactivate -------------------------------------
 
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
@@ -316,12 +290,6 @@ class CategoryControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // --- DELETE /api/categories/{id} — must not exist ------------------------------------------
-
-    // AC: "Aucun endpoint DELETE /api/categories/{id} n'existe" — categories are never deleted,
-    // only deactivated (Category's Javadoc: a formation's FK must always resolve). This is the
-    // one explicitly negative acceptance criterion in the ticket; without a test, a future PR
-    // could add @DeleteMapping and nothing here would catch it.
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
     void deleteEndpointDoesNotExist() throws Exception {

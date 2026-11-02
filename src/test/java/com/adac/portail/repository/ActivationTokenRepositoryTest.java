@@ -87,7 +87,7 @@ class ActivationTokenRepositoryTest {
         activationTokenRepository.save(ActivationToken.builder()
                 .user(user).codeHash("h2").type(TokenType.ACCOUNT_ACTIVATION)
                 .expiresAt(now.plusMinutes(30)).build());
-        // Different type — must not count toward ACCOUNT_ACTIVATION's limit.
+
         activationTokenRepository.save(ActivationToken.builder()
                 .user(user).codeHash("h3").type(TokenType.PASSWORD_RESET)
                 .expiresAt(now.plusMinutes(30)).build());
@@ -122,11 +122,11 @@ class ActivationTokenRepositoryTest {
                 .build());
 
         OffsetDateTime now = OffsetDateTime.now();
-        // neverActivated has only an unused token pending — never completed activation.
+
         activationTokenRepository.save(ActivationToken.builder()
                 .user(neverActivated).codeHash("h1").type(TokenType.ACCOUNT_ACTIVATION)
                 .expiresAt(now.plusMinutes(30)).build());
-        // suspended completed activation once (usedAt set) before being disabled again.
+
         activationTokenRepository.save(ActivationToken.builder()
                 .user(suspended).codeHash("h2").type(TokenType.ACCOUNT_ACTIVATION)
                 .expiresAt(now.plusMinutes(30)).usedAt(now.minusDays(10)).build());

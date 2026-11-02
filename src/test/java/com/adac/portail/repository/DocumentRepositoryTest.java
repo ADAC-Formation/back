@@ -49,8 +49,7 @@ class DocumentRepositoryTest {
                 .prenom("Super")
                 .role(Role.SUPER_ADMIN)
                 .build());
-        // TICKET-046: formations.category_id is NOT NULL since V2 — any seeded category works,
-        // this test isn't about categories.
+
         Category category = categoryRepository.findAll().get(0);
 
         Formation formation = formationRepository.save(Formation.builder()

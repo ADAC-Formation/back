@@ -34,12 +34,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link DocumentController} — TICKET-026. Same {@code addFilters = false} +
- * {@link WithMockAdacUser} pattern as {@code MessageControllerTest} / {@code FormationControllerTest}
- * — no {@code @PreAuthorize} here either, every role-and-ownership rule is data-dependent and
- * enforced by {@link DocumentService}.
- */
 @WebMvcTest(DocumentController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class DocumentControllerTest {
@@ -56,9 +50,6 @@ class DocumentControllerTest {
     @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
 
-    // --- POST /api/documents --------------------------------------------------------------
-
-    // Ticket Test 1: valid file + formationId -> 201.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void uploadValidFileWithFormationIdReturnsCreated() throws Exception {
@@ -72,7 +63,6 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.fileName").value("programme.pdf"));
     }
 
-    // Ticket Test 2: both formationId and inscriptionId -> 400.
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void uploadWithBothTargetsReturnsBadRequest() throws Exception {
@@ -96,8 +86,6 @@ class DocumentControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // Ticket Test 3: disallowed file type -> 400 (mapped from the service's BadRequestException —
-    // FileValidatorTest covers the actual format/size rules).
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void uploadWithDisallowedFileTypeReturnsBadRequest() throws Exception {
@@ -110,9 +98,6 @@ class DocumentControllerTest {
                 .andExpect(jsonPath("$.message").value("Format non autorisé"));
     }
 
-    // Ticket Test 4: ADMIN upload on another formateur's formation -> 403 (mapped from the
-    // service's UnauthorizedException — the real role-matrix coverage lives in
-    // DocumentServiceImplTest; this only proves the controller/GlobalExceptionHandler wiring).
     @Test
     @WithMockAdacUser(role = Role.ADMIN)
     void uploadOnAnotherFormateursFormationReturnsForbidden() throws Exception {
@@ -123,8 +108,6 @@ class DocumentControllerTest {
         mockMvc.perform(multipart("/api/documents").file(file).param("formationId", "1"))
                 .andExpect(status().isForbidden());
     }
-
-    // --- GET /api/documents ---------------------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
@@ -155,8 +138,6 @@ class DocumentControllerTest {
         mockMvc.perform(get("/api/documents").param("formationId", "404")).andExpect(status().isForbidden());
     }
 
-    // --- GET /api/documents/{id}/download ---------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void downloadReturnsBinaryStreamWithContentTypeAndFilename() throws Exception {
@@ -166,10 +147,7 @@ class DocumentControllerTest {
         mockMvc.perform(get("/api/documents/9/download"))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/pdf"))
-                // Branch-wide review: ContentDisposition.filename(name, UTF_8) always emits both
-                // an RFC 2047 Q-encoded quoted-string form and the RFC 5987 filename* form once a
-                // charset is given (see its source) — not the raw concatenation the original
-                // version built.
+
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"=?UTF-8?Q?programme.pdf?=\"; filename*=UTF-8''programme.pdf"))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"))
@@ -193,8 +171,6 @@ class DocumentControllerTest {
 
         mockMvc.perform(get("/api/documents/9/download")).andExpect(status().isForbidden());
     }
-
-    // --- DELETE /api/documents/{id} ---------------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)

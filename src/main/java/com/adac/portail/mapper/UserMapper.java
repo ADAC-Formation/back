@@ -7,7 +7,5 @@ import org.mapstruct.Mapper;
 @Mapper(componentModel = "spring")
 public interface UserMapper {
 
-    // User.isActive() (property "active") now matches UserResponse's "active" field/accessors —
-    // see UserResponse.active for why it isn't named isActive. No explicit @Mapping needed.
     UserResponse toResponse(User user);
 }

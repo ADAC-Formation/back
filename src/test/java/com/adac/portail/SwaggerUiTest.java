@@ -10,10 +10,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Verifies that Swagger UI is exposed and reachable (following the redirect
- * from /swagger-ui.html to /swagger-ui/index.html, as a browser would).
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")

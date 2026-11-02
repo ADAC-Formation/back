@@ -24,11 +24,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/**
- * In-app notifications (US-015) — see docs/tech.md § 8. Every notification is scoped to the
- * caller (their own {@code recipient_id}) — no {@code @PreAuthorize} needed, there's no
- * cross-user access to gate at all, not even for SUPER_ADMIN (notifications are personal).
- */
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor

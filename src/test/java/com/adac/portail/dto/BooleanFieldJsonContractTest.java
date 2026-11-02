@@ -9,12 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Pins the docs/tech.md JSON contract for the "isXxx"-named boolean fields. Without the
- * {@code @JsonProperty} pin on each (see UserResponse.active and its siblings), Jackson strips
- * the "is" from an {@code isXxx()} getter and serializes as "xxx" instead — silently breaking
- * the frontend contract with no error anywhere. See TICKET-005 review.
- */
 class BooleanFieldJsonContractTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();

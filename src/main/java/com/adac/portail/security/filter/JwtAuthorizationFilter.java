@@ -25,15 +25,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Optional;
 
-/**
- * Reads the {@code jwt} HttpOnly cookie on every request and, if valid, populates the
- * {@link SecurityContextHolder} — see CLAUDE.md, Auth section, for the exact cookie-reading
- * snippet this follows.
- *
- * <p>A stale token (user deleted, or deactivated since the cookie was issued) must never
- * authenticate the request — {@link UsernameNotFoundException} and account-status checks are
- * both handled here, before the chain continues, rather than left to leak as a 500.</p>
- */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthorizationFilter extends OncePerRequestFilter {
@@ -54,8 +45,7 @@ public class JwtAuthorizationFilter extends OncePerRequestFilter {
                     .map(userDetailsService::loadUserByUsername)
                     .ifPresent(userDetails -> authenticate(userDetails, request));
         } catch (UsernameNotFoundException | AccountStatusException e) {
-            // Deleted or deactivated user still holding a live cookie — leave the context empty
-            // so the request falls through to the 401 entry point instead of a raw 500.
+
             log.debug("Rejecting stale jwt cookie: {}", e.getClass().getSimpleName());
             SecurityContextHolder.clearContext();
         }

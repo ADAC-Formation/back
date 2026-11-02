@@ -38,20 +38,9 @@ public class ActivationToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    /**
-     * Hash of the 6-digit code (never the code itself — a 6-digit code is only ~20 bits of
-     * entropy, so storing it in cleartext would make any DB read of this table directly usable
-     * for account takeover). Hashing happens in the auth service (TICKET-015); this column just
-     * reserves the right shape for it.
-     */
     @Column(name = "code_hash", nullable = false, length = 255)
     private String codeHash;
 
-    /**
-     * Failed verification attempts against this token. The auth service (TICKET-015) should
-     * invalidate the token past a small threshold, so guessing the code isn't just rate-limited
-     * by creation (see docs/DB_MODEL.md) but also bounded per-token.
-     */
     @Column(nullable = false)
     @Builder.Default
     private int attempts = 0;
@@ -63,7 +52,6 @@ public class ActivationToken {
     @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
 
-    /** Null = still valid; set = already used (invalid). */
     @Column(name = "used_at")
     private OffsetDateTime usedAt;
 

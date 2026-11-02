@@ -18,11 +18,6 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
 
-/**
- * {@code formation} XOR {@code inscription} must be non-null — enforced by the
- * {@code chk_documents_exactly_one_target} CHECK constraint in
- * {@code db/migration/V1__init_schema.sql}, not in Java.
- */
 @Entity
 @Table(name = "documents")
 @Getter
@@ -48,13 +43,6 @@ public class Document {
     @Column(name = "mime_type", nullable = false)
     private String mimeType;
 
-    /**
-     * Raw Supabase Storage object path (e.g. {@code "formations/1/<uuid>-programme.pdf"}) — not
-     * exposed via {@code DocumentResponse}. {@link #fileUrl} is the full, percent-encoded
-     * authenticated URL built from it (see {@code SupabaseConfig.buildObjectUrl}); this field is
-     * what {@code StorageServiceImpl.download} needs to re-issue a request without undoing that
-     * encoding (TICKET-026, V5__add_document_storage_path.sql).
-     */
     @Column(name = "storage_path", nullable = false, columnDefinition = "text")
     private String storagePath;
 
@@ -62,12 +50,10 @@ public class Document {
     @JoinColumn(name = "uploaded_by", nullable = false)
     private User uploadedBy;
 
-    /** Nullable — set when this document is visible to every enrollee of the formation. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "formation_id")
     private Formation formation;
 
-    /** Nullable — set when this document targets a single trainee's enrollment. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "inscription_id")
     private Inscription inscription;

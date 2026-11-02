@@ -8,12 +8,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Wraps the domain {@link User} instead of Spring Security's built-in {@code User} principal, so
- * anything reading {@code Authentication.getPrincipal()} — the login response, a future
- * {@code @AuthenticationPrincipal} in a controller — has the full entity (id, nom, prenom,
- * emailNotificationsEnabled, ...) without a second DB round trip.
- */
 public class AdacUserDetails implements UserDetails {
 
     private final User user;

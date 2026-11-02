@@ -42,32 +42,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link UserController} — TICKET-019.
- *
- * <p>Endpoints follow docs/tech.md (POST/GET .../formateurs and .../stagiaires, split PATCH
- * .../deactivate + .../reactivate) rather than the generic {@code POST/PATCH /api/users} sketched
- * in docs/tickets/TICKET-019.md — see that file's revision note.</p>
- *
- * <p>Security filters are disabled ({@code addFilters = false}, same as {@code AuthControllerTest})
- * — role enforcement here is {@code @PreAuthorize} (method security), which runs as an AOP
- * proxy around the controller method and doesn't need the servlet filter chain. {@link
- * MethodSecurityTestConfig} turns that on for this slice; {@code SecurityConfig} itself isn't
- * imported (it would drag in the full JWT filter chain and its bean graph).</p>
- *
- * <p>{@link WithMockAdacUser} (not {@code @WithMockUser}) populates the {@code SecurityContext}
- * with a real {@link AdacUserDetails} — branch-wide review found that {@code @WithMockUser}
- * builds Spring Security's own {@code User} principal, which makes
- * {@code @AuthenticationPrincipal AdacUserDetails principal} resolve to {@code null}
- * (wrong-type). Every test below that reaches the service now asserts the exact principal with
- * {@code eq(...)} instead of {@code any()}/{@code isNull()}, so a broken principal binding fails
- * loudly instead of silently matching.</p>
- *
- * <p>{@code JwtAuthorizationFilter} is still a {@code @Component} the slice picks up as a bean
- * (see {@code AuthControllerTest}'s Javadoc for why) — {@code jwtTokenService} and
- * {@code customUserDetailsService} below only satisfy its construction, never exercised since
- * {@code addFilters = false} skips registering it in the mock chain.</p>
- */
 @WebMvcTest(UserController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import(UserControllerTest.MethodSecurityTestConfig.class)
@@ -96,8 +70,6 @@ class UserControllerTest {
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
     }
-
-    // --- POST /formateurs --------------------------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -177,8 +149,6 @@ class UserControllerTest {
         verify(userService, never()).createFormateur(any());
     }
 
-    // --- POST /stagiaires --------------------------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void createStagiaireBySuperAdminReturnsCreated() throws Exception {
@@ -241,8 +211,6 @@ class UserControllerTest {
         verify(userService, never()).createStagiaire(any());
     }
 
-    // --- GET /formateurs, /stagiaires ----------------------------------------------------------
-
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN, id = 42L)
     void getFormateursReturnsListFromServiceForTheRealPrincipal() throws Exception {
@@ -258,11 +226,7 @@ class UserControllerTest {
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getFormateursWithActiveFalseForwardsTheParamAsIs() throws Exception {
-        // Regression test for the branch-wide review finding: ?active=false used to be
-        // indistinguishable from an absent param (both collapsed to "no filter" in the service).
-        // The controller itself only has to forward the raw value — UserServiceImplTest covers
-        // the tri-state filtering logic — but this locks in that "false" isn't silently dropped
-        // before it gets there (e.g. by a @RequestParam default or a wrong Boolean overload).
+
         when(userService.getFormateurs(eq(false), any())).thenReturn(List.of());
 
         mockMvc.perform(get("/api/users/formateurs").param("active", "false"))
@@ -281,10 +245,7 @@ class UserControllerTest {
     @Test
     @WithMockAdacUser(role = Role.ADMIN, id = 7L)
     void getStagiairesByAdminDelegatesToServiceForTheRealPrincipal() throws Exception {
-        // The active-only restriction and formation ownership are enforced in UserServiceImpl
-        // (see UserServiceImplTest) — this only checks the controller forwards the request and
-        // the real caller identity through, not any() (branch-wide review: @WithMockUser used to
-        // make this untestable since @AuthenticationPrincipal resolved to null under it).
+
         AdacUserDetails principal = currentPrincipal();
         when(userService.getStagiaires(eq(null), eq(null), eq(principal))).thenReturn(
                 List.of(UserResponse.builder().id(5L).role(Role.STAGIAIRE).build()));
@@ -311,8 +272,6 @@ class UserControllerTest {
         mockMvc.perform(get("/api/users/stagiaires"))
                 .andExpect(status().isForbidden());
     }
-
-    // --- GET /{id} ----------------------------------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -343,8 +302,6 @@ class UserControllerTest {
 
         verify(userService, never()).getById(any(), any());
     }
-
-    // --- PATCH /{id}/deactivate, /reactivate ---------------------------------------------------
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -423,10 +380,6 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.status").value(409));
     }
 
-    // --- PATCH /me ------------------------------------------------------------------------
-    // TICKET-020. No GET /api/users/me: GET /api/auth/me already returns the caller's full
-    // profile (TICKET-014) — see docs/tech.md, "PATCH /api/users/me" note.
-
     @Test
     void updateMeWithAuthenticatedPrincipalReturnsUpdatedUserResponse() throws Exception {
         User user = User.builder()
@@ -462,10 +415,6 @@ class UserControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
-
-    // --- PUT /{id} --------------------------------------------------------------------------
-    // TICKET-050. Unlike PATCH /me (self-service, any role), this edits an arbitrary account's
-    // data and is SUPER_ADMIN only — see docs/tech.md.
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
@@ -543,10 +492,7 @@ class UserControllerTest {
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void updateUserWithBlankEmailReturnsBadRequest() throws Exception {
-        // Branch-wide review, BLOCKING: @Email alone returns valid for "" (Hibernate Validator
-        // short-circuits on an empty string), and @Size(max=...) has no lower bound — without
-        // @Size(min=1) on UpdateUserRequest.email, this used to be a 200 that wiped the NOT NULL
-        // UNIQUE column and permanently locked the target out.
+
         mockMvc.perform(put("/api/users/3")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("email", ""))))
@@ -566,16 +512,6 @@ class UserControllerTest {
         verify(userService, never()).updateUser(any(), any(), any());
     }
 
-    // No "without authentication" case here, unlike PATCH /me: every other @PreAuthorize route
-    // in this class (create/deactivate/reactivate) is only tested for the wrong-role case in
-    // this slice (addFilters = false has no anonymous-authentication token to evaluate
-    // hasRole(...) against, so it's not a faithful stand-in for the real chain here) — the real
-    // "no cookie at all" protection for this route is .anyRequest().authenticated() in
-    // SecurityConfig, covered end-to-end by JwtAuthenticationIntegrationTest instead (same
-    // convention as updateMeWithoutCookieReturnsUnauthorized/messagesEndpointsWithoutCookieReturnUnauthorized
-    // there).
-
-    /** The {@link AdacUserDetails} that {@link WithMockAdacUser} put in the SecurityContext for the current test. */
     private static AdacUserDetails currentPrincipal() {
         return (AdacUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }

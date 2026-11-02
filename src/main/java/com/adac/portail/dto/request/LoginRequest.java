@@ -14,9 +14,6 @@ import lombok.Setter;
 @AllArgsConstructor
 public class LoginRequest {
 
-    // Bounded on purpose: this value becomes half of LoginAttemptService's lockout map key
-    // before any DB lookup happens, so an unbounded string here is an easy way to grow that map
-    // with oversized entries (see TICKET-045 review).
     @NotBlank
     @Email
     @Size(max = 255)

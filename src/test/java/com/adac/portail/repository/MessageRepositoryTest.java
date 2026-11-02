@@ -14,12 +14,6 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Behavioural coverage for {@link MessageRepository#findConversationBetween}: bidirectionality,
- * DISTINCT actually deduplicating a group message with several recipients, ascending order, and
- * — the access-control-shaped case — that an unrelated third party's messages don't leak into a
- * thread they aren't part of.
- */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("dev")
@@ -50,21 +44,16 @@ class MessageRepositoryTest {
         User b = save("message-repo-test-b@adac.fr");
         User c = save("message-repo-test-c@adac.fr");
 
-        // A -> B (individual)
         Message aToB = messageRepository.save(Message.builder().sender(a).content("Salut B").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(aToB).recipient(b).build());
 
-        // B -> A (individual, later)
         Message bToA = messageRepository.save(Message.builder().sender(b).content("Salut A").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(bToA).recipient(a).build());
 
-        // A -> {B, C} (group message, later still) — must appear exactly once in the A/B thread,
-        // and must not leak an A/C-only message into the A/B thread.
         Message aToGroup = messageRepository.save(Message.builder().sender(a).content("Salut tous").isGroup(true).build());
         messageRecipientRepository.save(MessageRecipient.builder().message(aToGroup).recipient(b).build());
         messageRecipientRepository.save(MessageRecipient.builder().message(aToGroup).recipient(c).build());
 
-        // A -> C only (unrelated to the A/B thread)
         Message aToC = messageRepository.save(Message.builder().sender(a).content("Juste pour C").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(aToC).recipient(c).build());
 
@@ -75,7 +64,6 @@ class MessageRepositoryTest {
         assertThat(thread).extracting(Message::getId).doesNotContain(aToC.getId());
     }
 
-    // TICKET-029: findConversationPartnerIds backs GET /api/messages (the conversations list).
     @Test
     void findConversationPartnerIdsReturnsEachDistinctCorrespondentOnceInEitherDirection() {
         User a = save("message-repo-test-partners-a@adac.fr");
@@ -83,17 +71,14 @@ class MessageRepositoryTest {
         User c = save("message-repo-test-partners-c@adac.fr");
         User unrelated = save("message-repo-test-partners-unrelated@adac.fr");
 
-        // A -> B twice (must still count as one partner, not two).
         Message aToB1 = messageRepository.save(Message.builder().sender(a).content("1").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(aToB1).recipient(b).build());
         Message aToB2 = messageRepository.save(Message.builder().sender(a).content("2").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(aToB2).recipient(b).build());
 
-        // C -> A (other direction).
         Message cToA = messageRepository.save(Message.builder().sender(c).content("3").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(cToA).recipient(a).build());
 
-        // B <-> unrelated: must not leak into A's partner list.
         Message bToUnrelated = messageRepository.save(Message.builder().sender(b).content("4").build());
         messageRecipientRepository.save(MessageRecipient.builder().message(bToUnrelated).recipient(unrelated).build());
 
@@ -103,8 +88,6 @@ class MessageRepositoryTest {
         assertThat(partnerIds).doesNotContain(unrelated.getId());
     }
 
-    // TICKET-029 branch-wide review: findLastMessageIdPerPartner backs GET /api/messages without
-    // the N+1 the original per-partner loop had.
     @Test
     void findLastMessageIdPerPartnerReturnsTheNewestMessageIdForEachPartner() {
         User a = save("message-repo-test-lastmsg-a@adac.fr");
@@ -138,8 +121,7 @@ class MessageRepositoryTest {
         List<Message> result = messageRepository.findAllByIdWithSender(List.of(message.getId()));
 
         assertThat(result).hasSize(1);
-        // Touching a field on the sender proxy — would throw LazyInitializationException outside
-        // a transaction if it weren't fetched eagerly (same class of bug as InscriptionRepository's).
+
         assertThat(result.get(0).getSender().getEmail()).isEqualTo(a.getEmail());
     }
 }

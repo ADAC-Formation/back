@@ -45,7 +45,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/** TICKET-029 — see docs/tickets/TICKET-029.md § Write tests first. */
 @ExtendWith(MockitoExtension.class)
 class MessageServiceImplTest {
 
@@ -84,15 +83,13 @@ class MessageServiceImplTest {
         return new AdacUserDetails(user);
     }
 
-    // --- sendMessage: role matrix (ticket ACs), exhaustive over the 3x3x2 combinations ----------
-
     @ParameterizedTest(name = "{0} -> {1} (target active={2}) allowed={3}")
     @CsvSource({
             "SUPER_ADMIN, SUPER_ADMIN, true,  true",
-            "SUPER_ADMIN, ADMIN,       false, true", // AC: SUPER_ADMIN may write to *anyone*, even inactive
+            "SUPER_ADMIN, ADMIN,       false, true",
             "SUPER_ADMIN, STAGIAIRE,   false, true",
             "ADMIN,       SUPER_ADMIN, true,  true",
-            "ADMIN,       SUPER_ADMIN, false, true", // no active check on a SUPER_ADMIN target — see canMessage's Javadoc
+            "ADMIN,       SUPER_ADMIN, false, true",
             "ADMIN,       ADMIN,       true,  true",
             "ADMIN,       ADMIN,       false, false",
             "ADMIN,       STAGIAIRE,   true,  true",
@@ -100,7 +97,7 @@ class MessageServiceImplTest {
             "STAGIAIRE,   SUPER_ADMIN, true,  true",
             "STAGIAIRE,   ADMIN,       true,  true",
             "STAGIAIRE,   ADMIN,       false, false",
-            "STAGIAIRE,   STAGIAIRE,   true,  false", // ticket Test 2: no stagiaire-to-stagiaire messaging
+            "STAGIAIRE,   STAGIAIRE,   true,  false",
             "STAGIAIRE,   STAGIAIRE,   false, false",
     })
     void sendMessageEnforcesTheFullRoleMatrix(Role senderRole, Role targetRole, boolean targetActive, boolean allowed) {
@@ -120,10 +117,6 @@ class MessageServiceImplTest {
         }
     }
 
-    // --- sendMessage: other behaviour ---------------------------------------------------------
-
-    // Branch-wide review: unknown recipient and disallowed recipient must be indistinguishable
-    // (both 403) — a 404 on "unknown" would let any authenticated caller map the user-id space.
     @Test
     void sendMessageWithUnknownRecipientThrowsUnauthorizedNotNotFound() {
         User sender = user(1L, Role.SUPER_ADMIN, true);
@@ -187,9 +180,6 @@ class MessageServiceImplTest {
         assertThat(captor.getValue().getRecipient()).isSameAs(recipient);
     }
 
-    // Ticket Test 4: sendMessage triggers a notification for the recipient. Distinct ids for
-    // sender (1), recipient (2) and the saved message (10) — a collision here would let this pass
-    // whether the impl notifies with the sender's id or the message's id (branch-wide review).
     @Test
     void sendMessageNotifiesTheRecipient() {
         User sender = user(1L, Role.SUPER_ADMIN, true);
@@ -229,8 +219,6 @@ class MessageServiceImplTest {
         assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(2L);
     }
 
-    // --- sendMessage: group send (TICKET-030) -------------------------------------------------
-
     private static SendMessageRequest.Filter filter(MessageFilterType type, Long formationId, List<Long> userIds) {
         return new SendMessageRequest.Filter(type, formationId, userIds);
     }
@@ -246,11 +234,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(messageRepository, formationService, inscriptionRepository);
     }
 
-    // Ticket Test 1 (adapted, see plan): SUPER_ADMIN, filtre FORMATION, 3 inscrits -> un seul
-    // Message, 3 MessageRecipient, 3 notifications (schéma message_recipients, pas 3 Message).
-    // Branch-wide review: also asserts MessageResponse.recipients holds all three, not just a
-    // count — the previous version of this test only verified save()/notify() call counts, which
-    // stayed green even if the assembled response silently dropped or duplicated recipients.
     @Test
     void sendGroupMessageWithFormationFilterSendsOneMessageToEveryEnrolledStagiaire() {
         User superAdmin = user(1L, Role.SUPER_ADMIN, true);
@@ -316,11 +299,6 @@ class MessageServiceImplTest {
                 .isNotNull();
     }
 
-    // Branch-wide review (BLOCKING): formation visibility/ownership is FormationService's rule
-    // (404 for a non-owning ADMIN, not 403 — see findVisibleFormationOrThrow's Javadoc); this
-    // service only has to propagate whatever it throws, not re-implement the rule. Mocking
-    // ResourceNotFoundException here proves that propagation, not the ownership rule itself
-    // (already covered by FormationServiceImplTest).
     @Test
     void sendGroupMessageWithFormationFilterPropagatesFormationServicesVisibilityDecision() {
         when(formationService.findVisibleFormationOrThrow(eq(5L), any()))
@@ -333,8 +311,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(messageRepository);
     }
 
-    // Branch-wide review (BLOCKING): STAGIAIRE is rejected before any formation lookup — they may
-    // never use this filter regardless of formationId, unlike the ADMIN-ownership case above.
     @Test
     void sendGroupMessageWithFormationFilterByStagiaireThrowsForbiddenWithoutLookingUpTheFormation() {
         assertThatThrownBy(() -> messageService.sendMessage(principal(user(7L, Role.STAGIAIRE, true)),
@@ -344,9 +320,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(formationService);
     }
 
-    // Branch-wide review (BLOCKING): the individual-send role matrix (canMessage) must still apply
-    // to a group send — an ADMIN can't reach a deactivated stagiaire via FORMATION when the
-    // identical individual send would 403 on that same target.
     @Test
     void sendGroupMessageWithFormationFilterExcludesStagiairesTheCallerCouldNotMessageIndividually() {
         User formateur = user(2L, Role.ADMIN, true);
@@ -378,8 +351,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(formationService);
     }
 
-    // Ticket Test 3: sendGroupMessage FORMATION avec 3 inscrits -> 3 notifications (voir test
-    // ci-dessus pour le compte exact) ; ce test couvre en plus MISSING_DOCS.
     @Test
     void sendGroupMessageWithMissingDocsFilterBySuperAdminSucceeds() {
         User stagiaireWithoutDocs = user(10L, Role.STAGIAIRE, true);
@@ -447,8 +418,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(messageRepository);
     }
 
-    // Duplicate ids in userIds must not be rejected as "unknown destinataire" — findAllById
-    // collapses them to one row (branch-wide review).
     @Test
     void sendGroupMessageWithManualFilterDuplicateUserIdsStillSucceeds() {
         User u1 = user(10L, Role.STAGIAIRE, true);
@@ -477,9 +446,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(messageRepository);
     }
 
-    // --- previewGroupRecipients (TICKET-030) --------------------------------------------------
-
-    // Ticket Test 4: previewGroupRecipients MISSING_DOCS -> uniquement les stagiaires sans documents.
     @Test
     void previewGroupRecipientsWithMissingDocsFilterReturnsStagiairesWithoutDocs() {
         User stagiaire = user(10L, Role.STAGIAIRE, true);
@@ -527,9 +493,6 @@ class MessageServiceImplTest {
         verifyNoInteractions(messageRepository, messageRecipientRepository, notificationService);
     }
 
-    // --- markAsRead --------------------------------------------------------------------------
-
-    // Ticket Test 5 (adapted, see revision note): marks the one message, not the whole thread.
     @Test
     void markAsReadSetsReadAtOnTheCallersRecipientRow() {
         User currentUser = user(2L, Role.STAGIAIRE, true);
@@ -580,8 +543,6 @@ class MessageServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // --- getConversations ----------------------------------------------------------------------
-
     @Test
     void getConversationsWithNoPartnersReturnsEmptyListWithoutFurtherQueries() {
         User currentUser = user(1L, Role.SUPER_ADMIN, true);
@@ -598,9 +559,6 @@ class MessageServiceImplTest {
         User newer = user(3L, Role.STAGIAIRE, true);
         when(messageRepository.findConversationPartnerIds(1L)).thenReturn(List.of(2L, 3L));
 
-        // The last-message-id query is the one thing that decides "latest" — pin it explicitly
-        // rather than a single-message-per-thread fixture that can't distinguish "last" from
-        // "only" (branch-wide review).
         MessageRepository.PartnerLastMessageId lastFor2 = partnerLastMessageId(2L, 100L);
         MessageRepository.PartnerLastMessageId lastFor3 = partnerLastMessageId(3L, 101L);
         when(messageRepository.findLastMessageIdPerPartner(1L, List.of(2L, 3L))).thenReturn(List.of(lastFor2, lastFor3));
@@ -630,10 +588,6 @@ class MessageServiceImplTest {
         assertThat(result.get(1).getUnreadCount()).isEqualTo(0);
     }
 
-    // --- getConversationMessages -----------------------------------------------------------------
-
-    // Branch-wide review: an unknown conversationId must be indistinguishable from a known user
-    // with no shared history — both return an empty thread, never a 404 (existence oracle).
     @Test
     void getConversationMessagesWithNoSharedHistoryReturnsEmptyListWithoutLookingUpTheUser() {
         User currentUser = user(1L, Role.SUPER_ADMIN, true);
@@ -669,13 +623,10 @@ class MessageServiceImplTest {
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getReadAt()).isNull();
         assertThat(result.get(1).getReadAt()).isEqualTo(readAt);
-        // Only one call, not one per message.
+
         verify(messageRecipientRepository, never()).findByMessageAndRecipient(any(), any());
     }
 
-    // Defensive: a future group message (TICKET-030) puts two MessageRecipient rows on one
-    // Message — the batch resolver must not crash the whole thread read over it (branch-wide
-    // review: the original Collectors.toMap threw IllegalStateException on a duplicate key).
     @Test
     void getConversationMessagesToleratesMoreThanOneRecipientRowForTheSameMessage() {
         User currentUser = user(1L, Role.SUPER_ADMIN, true);

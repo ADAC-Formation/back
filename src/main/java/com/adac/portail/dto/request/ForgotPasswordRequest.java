@@ -7,7 +7,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** POST /api/auth/forgot-password — see docs/tech.md. */
 @Getter
 @Setter
 @NoArgsConstructor

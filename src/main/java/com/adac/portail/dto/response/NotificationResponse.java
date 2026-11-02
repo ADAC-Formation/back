@@ -21,15 +21,12 @@ public class NotificationResponse {
     private Long id;
     private NotificationType type;
 
-    /** Human-readable text, e.g. "Nouveau message de Marie". */
     private String content;
 
     private EntityType entityType;
 
-    /** For navigation, e.g. click -> formation 5. */
     private Long entityId;
 
-    // See UserResponse.active for why this isn't named isRead.
     @JsonProperty("isRead")
     private boolean read;
 

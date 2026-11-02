@@ -31,18 +31,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Logout, "who am I", account activation and password reset. Login itself is handled directly by
- * {@link com.adac.portail.security.filter.JwtAuthenticationFilter} (see ARCHI.md) — there is no
- * {@code login} method here, and {@code POST /api/auth/login} accordingly doesn't appear in the
- * generated OpenAPI document (springdoc only scans {@code @RestController} handlers).
- *
- * <p>Four of these six endpoints are genuinely public (see {@code SecurityConfig.PUBLIC_ROUTES}):
- * {@code activate}, {@code resendActivation}, {@code forgotPassword}, {@code resetPassword} carry
- * {@code @SecurityRequirements} (empty) to opt back out of {@code SwaggerConfig}'s
- * globally-applied {@code jwtCookieAuth} requirement — without it, Swagger UI would show them as
- * needing a cookie the caller can't have yet.</p>
- */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -61,10 +49,7 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@AuthenticationPrincipal AdacUserDetails principal) {
-        // Client-side only: this expires the cookie but the JWT itself stays valid for the rest
-        // of its lifetime (JWT_EXPIRATION) if a copy of it survives elsewhere — no server-side
-        // revocation exists yet. Accepted risk for the MVP given HttpOnly + SameSite=Strict, see
-        // ARCHI.md — Authentification.
+
         log.info("Logout for {}", principal != null ? principal.getUsername() : "anonymous");
 
         return ResponseEntity.noContent()
@@ -79,11 +64,7 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/me")
     public ResponseEntity<?> me(@AuthenticationPrincipal AdacUserDetails principal) {
-        // /api/auth/me requires authentication at the filter-chain level since TICKET-045
-        // (SecurityConfig.PUBLIC_ROUTES excludes it — see its Javadoc), so this null check is now
-        // genuine defense in depth rather than the primary enforcement: kept in case that ever
-        // regresses (e.g. a future wildcard re-added carelessly), so docs/tech.md's "401 non
-        // authentifié" contract holds either way.
+
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Authentification requise"));

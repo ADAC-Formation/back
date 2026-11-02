@@ -33,7 +33,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** TICKET-023 — see docs/tickets/TICKET-023.md § Write tests first. */
 @ExtendWith(MockitoExtension.class)
 class InscriptionServiceImplTest {
 
@@ -64,10 +63,6 @@ class InscriptionServiceImplTest {
                 .nom("Nom").prenom("Prenom").email(role.name() + id + "@adac.fr").build();
     }
 
-    // --- getInscriptions -----------------------------------------------------------------------
-
-    // Reuses FormationService.findVisibleFormationOrThrow for the visibility check (review: one
-    // lookup, not a discarded DTO + a second findById) — a 404/403 there must surface unchanged.
     @Test
     void getInscriptionsDelegatesVisibilityToFormationService() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -95,8 +90,6 @@ class InscriptionServiceImplTest {
         verify(inscriptionRepository, never()).findAllByFormation(any());
     }
 
-    // Review: every row shares the same formation, so its enrollment count is just the list size
-    // — no hardcoded 0, no extra query.
     @Test
     void getInscriptionsSetsInscriptionsCountToListSize() {
         AdacUserDetails principal = new AdacUserDetails(user(9L, Role.SUPER_ADMIN));
@@ -113,8 +106,6 @@ class InscriptionServiceImplTest {
         verify(inscriptionMapper).toResponse(i2, 2);
         verify(inscriptionRepository, never()).countByFormation(any());
     }
-
-    // --- createInscription ----------------------------------------------------------------------
 
     @Test
     void createInscriptionEnrollsStagiaireAndReturnsMappedResponse() {
@@ -141,7 +132,6 @@ class InscriptionServiceImplTest {
         assertThat(captor.getValue().getFormation()).isEqualTo(formation);
     }
 
-    // Test 4 (ticket): doublon -> DuplicateInscriptionException.
     @Test
     void createInscriptionAlreadyEnrolledThrows() {
         Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
@@ -159,7 +149,6 @@ class InscriptionServiceImplTest {
         verify(inscriptionRepository, never()).save(any());
     }
 
-    // Test 5 (ticket): formation archivée -> exception.
     @Test
     void createInscriptionOnArchivedFormationThrows() {
         Formation formation = Formation.builder().id(1L).status(FormationStatus.ARCHIVED).build();
@@ -199,8 +188,6 @@ class InscriptionServiceImplTest {
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
-    // A formateur/Super Admin id is not a stagiaire — same reasoning as
-    // FormationServiceImpl.findFormateurOrThrow rejecting a stagiaire id, mirrored here.
     @Test
     void createInscriptionWithNonStagiaireIdThrowsResourceNotFound() {
         Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
@@ -216,8 +203,6 @@ class InscriptionServiceImplTest {
         verify(inscriptionRepository, never()).save(any());
     }
 
-    // Review: consistent with FormationServiceImpl.findFormateurOrThrow rejecting a deactivated
-    // formateur — a deactivated (offboarded) stagiaire must not be enrollable either.
     @Test
     void createInscriptionWithDeactivatedStagiaireThrowsResourceNotFound() {
         Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
@@ -232,8 +217,6 @@ class InscriptionServiceImplTest {
 
         verify(inscriptionRepository, never()).save(any());
     }
-
-    // --- deleteInscription -----------------------------------------------------------------------
 
     @Test
     void deleteInscriptionRemovesTheRow() {
@@ -250,8 +233,6 @@ class InscriptionServiceImplTest {
         Formation formation = Formation.builder().id(1L).build();
         when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
 
-        // No stubbed existsBy check at all — deleteByStagiaire_IdAndFormation_Id is a no-op
-        // derived delete either way (0 rows affected), so this must not throw.
         inscriptionService.deleteInscription(1L, 404L);
 
         verify(inscriptionRepository).deleteByStagiaire_IdAndFormation_Id(404L, 1L);

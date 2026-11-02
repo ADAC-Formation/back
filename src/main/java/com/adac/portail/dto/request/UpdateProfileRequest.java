@@ -5,7 +5,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** PATCH /api/users/me — all fields optional (see docs/tech.md). */
 @Getter
 @Setter
 @NoArgsConstructor

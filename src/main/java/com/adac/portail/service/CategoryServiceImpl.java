@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/** See {@link CategoryService} for the contract; docs/tech.md § 3 for the wire shapes. */
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
@@ -35,7 +34,7 @@ public class CategoryServiceImpl implements CategoryService {
         Category category = Category.builder()
                 .nom(request.getNom())
                 .couleur(request.getCouleur())
-                // isActive defaults to true via Category.isActive's @Builder.Default.
+
                 .build();
         return saveOrThrowIfNameTaken(category);
     }
@@ -72,8 +71,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     @Transactional
     public CategoryResponse deactivateCategory(Long id) {
-        // Deliberately doesn't touch Formation/FormationRepository at all — formations already
-        // referencing this category keep it as-is (simple FK, no cascade), see docs/tech.md.
+
         Category category = findOrThrow(id);
         category.setActive(false);
         return categoryMapper.toResponse(categoryRepository.save(category));
@@ -84,23 +82,6 @@ public class CategoryServiceImpl implements CategoryService {
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND_MESSAGE));
     }
 
-    /**
-     * The {@code existsByNomIgnoreCase*} pre-check in {@link #createCategory} / {@link
-     * #updateCategory} is check-then-act, not race-proof — two concurrent calls with the same name
-     * can both pass it before either commits. {@code uk_categories_nom_upper}
-     * (V3__add_categories.sql) is what actually guarantees uniqueness at the database level; this
-     * turns the resulting {@link DataIntegrityViolationException} on the losing request into the
-     * same friendly 409 the pre-check produces in the common case, instead of a request that leaks
-     * the driver's default 500 (review, TICKET-047).
-     *
-     * <p>{@code saveAndFlush}, not {@code save}: for {@code updateCategory}, {@code category} is
-     * already managed (loaded in this same transaction), so a plain {@code save()} is a no-op
-     * {@code merge()} — the actual {@code UPDATE} (and the constraint check with it) would
-     * otherwise only run at transaction commit, after this method has already returned normally
-     * and this {@code catch} can no longer see it. {@code createCategory}'s {@code IDENTITY}
-     * generation strategy already forces an immediate {@code INSERT} either way, so flushing
-     * explicitly is a no-op cost there.</p>
-     */
     private CategoryResponse saveOrThrowIfNameTaken(Category category) {
         try {
             return categoryMapper.toResponse(categoryRepository.saveAndFlush(category));

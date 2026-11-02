@@ -5,11 +5,6 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Pure unit test — no Spring context needed. Covers the URL-building logic this ticket actually
- * adds (see TICKET-007 review: this isn't a "simple bean" the ticket's own note exempts from
- * testing — a bug here 404s a real upload/download in prod).
- */
 class SupabaseConfigTest {
 
     private final SupabaseConfig config = new SupabaseConfig(

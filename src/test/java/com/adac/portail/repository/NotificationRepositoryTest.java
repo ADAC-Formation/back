@@ -46,7 +46,6 @@ class NotificationRepositoryTest {
                 .build());
     }
 
-    // TICKET-033: the bell view is unread AND not dismissed — neither condition alone is enough.
     @Test
     void bellQueryReturnsOnlyUnreadAndNotDeletedFromBell() {
         User recipient = saveRecipient("notification-repo-bell@adac.fr");
@@ -71,9 +70,6 @@ class NotificationRepositoryTest {
                 .isEmpty();
     }
 
-    // Ordering matters — the bell/history both advertise "most recent first" and the frontend
-    // relies on it (docs/tech.md § 8); renaming OrderByCreatedAtDesc to Asc would break no test
-    // that only checks a single-element result, hence the explicit 3-element check here.
     @Test
     void bellQueryOrdersMostRecentFirst() {
         User recipient = saveRecipient("notification-repo-bell-order@adac.fr");
@@ -98,8 +94,6 @@ class NotificationRepositoryTest {
         assertThat(notificationRepository.countByRecipientAndIsReadFalseAndDeletedFromBellFalse(recipient)).isEqualTo(2);
     }
 
-    // Full history (GET /api/notifications, no filter) keeps everything, including read and
-    // dismissed-from-bell notifications — only the bell view excludes them.
     @Test
     void fullHistoryIncludesReadAndDismissedFromBellNotifications() {
         User recipient = saveRecipient("notification-repo-history@adac.fr");
@@ -110,8 +104,6 @@ class NotificationRepositoryTest {
         assertThat(notificationRepository.findTop200ByRecipientOrderByCreatedAtDesc(recipient)).hasSize(3);
     }
 
-    // Branch-wide review: this endpoint has no @PreAuthorize at all — the recipient predicate in
-    // the query IS the entire access control, so it needs its own proof, not just the bell query's.
     @Test
     void fullHistoryDoesNotReturnAnotherUsersNotifications() {
         User recipient = saveRecipient("notification-repo-history-owner@adac.fr");
@@ -162,8 +154,6 @@ class NotificationRepositoryTest {
                 .isEmpty();
     }
 
-    // TICKET-033 branch-wide review: fetch + ownership check in one query, replacing a
-    // findById-then-compare-in-Java pattern.
     @Test
     void findByIdAndRecipientReturnsEmptyForAnotherUsersNotification() {
         User owner = saveRecipient("notification-repo-owned-owner@adac.fr");

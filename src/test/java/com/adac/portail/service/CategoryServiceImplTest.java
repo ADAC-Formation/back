@@ -26,7 +26,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** TICKET-047 — see docs/tickets/TICKET-047.md § Write tests first. */
 @ExtendWith(MockitoExtension.class)
 class CategoryServiceImplTest {
 
@@ -38,8 +37,6 @@ class CategoryServiceImplTest {
 
     @InjectMocks
     private CategoryServiceImpl categoryService;
-
-    // --- createCategory ------------------------------------------------------------------
 
     @Test
     void createCategorySavesActiveCategoryAndReturnsMappedResponse() {
@@ -60,7 +57,6 @@ class CategoryServiceImplTest {
         assertThat(captor.getValue().isActive()).isTrue();
     }
 
-    // Test 3 (ticket): createCategory with an already-used name (case-insensitive) throws.
     @Test
     void createCategoryWithDuplicateNameThrowsAndNeverSaves() {
         CreateCategoryRequest request = new CreateCategoryRequest("estime de soi en travail social", "#FF5733");
@@ -72,11 +68,6 @@ class CategoryServiceImplTest {
         verify(categoryRepository, never()).saveAndFlush(any());
     }
 
-    // Branch-wide review: existsByNomIgnoreCase is check-then-act, not race-proof — two concurrent
-    // creates with the same name can both pass it before either commits. uk_categories_nom_upper
-    // (V3__add_categories.sql) is the real guarantee; this proves the resulting
-    // DataIntegrityViolationException on the losing request still surfaces as the same 409, not a
-    // raw 500.
     @Test
     void createCategoryLosingConcurrentRaceThrowsCategoryAlreadyExists() {
         CreateCategoryRequest request = new CreateCategoryRequest("Formation SST", "#FF5733");
@@ -86,8 +77,6 @@ class CategoryServiceImplTest {
         assertThatThrownBy(() -> categoryService.createCategory(request))
                 .isInstanceOf(CategoryAlreadyExistsException.class);
     }
-
-    // --- getCategories ---------------------------------------------------------------------
 
     @Test
     void getCategoriesWithNoFilterReturnsAllCategories() {
@@ -114,8 +103,6 @@ class CategoryServiceImplTest {
         verify(categoryRepository, never()).findAll();
     }
 
-    // --- updateCategory ----------------------------------------------------------------------
-
     @Test
     void updateCategoryChangesNomAndCouleurWithoutTouchingIsActive() {
         Category existing = Category.builder().id(1L).nom("Old name").couleur("#000000").isActive(false).build();
@@ -131,9 +118,6 @@ class CategoryServiceImplTest {
         assertThat(existing.isActive()).isFalse();
     }
 
-    // AC: "nom et/ou couleur" — the common real-world case is a colour-only fix with the name
-    // unchanged, which is exactly the path existsByNomIgnoreCaseAndIdNot must not flag as taken
-    // (it excludes the category's own id).
     @Test
     void updateCategoryWithUnchangedNomOnlyChangesCouleur() {
         Category existing = Category.builder().id(1L).nom("SST").couleur("#000000").build();
@@ -170,8 +154,6 @@ class CategoryServiceImplTest {
         verify(categoryRepository, never()).saveAndFlush(any());
     }
 
-    // Same race as createCategory, on the rename path: the pre-check passes but a concurrent
-    // rename to the same name commits first.
     @Test
     void updateCategoryLosingConcurrentRaceThrowsCategoryAlreadyExists() {
         Category existing = Category.builder().id(1L).nom("Old name").couleur("#000000").build();
@@ -183,12 +165,6 @@ class CategoryServiceImplTest {
                 .isInstanceOf(CategoryAlreadyExistsException.class);
     }
 
-    // --- activateCategory / deactivateCategory ------------------------------------------------
-
-    // Test 5 (ticket): deactivate then activate flips isActive back to true. Formations are
-    // provably untouched because CategoryServiceImpl has no FormationRepository dependency at
-    // all (unlike a Mockito null-injection, which would succeed silently) — see CategoryService's
-    // Javadoc on deactivateCategory.
     @Test
     void deactivateThenActivateRestoresIsActiveWithoutTouchingFormations() {
         Category category = Category.builder().id(1L).isActive(true).build();

@@ -10,13 +10,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Pure unit test — no Spring context needed, {@link JwtTokenService} has no framework
- * dependency beyond {@code UserDetails}.
- */
 class JwtTokenServiceTest {
 
-    private static final String VALID_SECRET = "a".repeat(32); // 256 bits
+    private static final String VALID_SECRET = "a".repeat(32);
     private static final UserDetails USER = User.withUsername("user@adac.fr").password("x").authorities("ROLE_STAGIAIRE").build();
 
     @Test
@@ -48,10 +44,6 @@ class JwtTokenServiceTest {
         JwtTokenService service = new JwtTokenService(VALID_SECRET, 60_000);
         String token = service.generateToken(USER);
 
-        // Flip a character in the middle of the payload, not the very last character of the
-        // token: base64url without padding leaves the last character's low bits unused, so
-        // flipping only that one can decode back to the same bytes and not actually tamper
-        // anything — flaky pass. A middle character has no such unused bits.
         int mid = token.length() / 2;
         char flipped = token.charAt(mid) == 'A' ? 'B' : 'A';
         String tampered = token.substring(0, mid) + flipped + token.substring(mid + 1);
@@ -74,7 +66,7 @@ class JwtTokenServiceTest {
         JwtTokenService service = new JwtTokenService(VALID_SECRET, 1);
         String token = service.generateToken(USER);
 
-        Thread.sleep(50); // token expired after 1ms — comfortably past that
+        Thread.sleep(50);
         assertThat(service.verify(token)).isEmpty();
     }
 

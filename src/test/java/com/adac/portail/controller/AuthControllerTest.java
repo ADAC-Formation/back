@@ -39,27 +39,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/**
- * Slice test for {@link AuthController} — TICKET-014.
- *
- * <p>Login itself is exercised end-to-end by {@code JwtAuthenticationIntegrationTest}: it is
- * handled directly by {@code JwtAuthenticationFilter}, not this controller (see ARCHI.md), so it
- * isn't re-tested here. This class only covers {@code /logout} and {@code /me}'s own logic;
- * {@code JwtAuthenticationIntegrationTest} additionally exercises both through the real filter
- * chain (cookie in, cookie/401 out) — this class alone can't prove {@code /me} stays behind auth
- * once {@code SecurityConfig} stops permitting {@code /api/auth/**} (TICKET-045).
- *
- * <p>Security filters are disabled ({@code addFilters = false}) so {@code /me}'s own
- * null-principal 401 check is exercised directly, independent of the real filter chain — which
- * also means the authenticated case below sets {@link SecurityContextHolder} by hand rather than
- * via {@code SecurityMockMvcRequestPostProcessors.authentication(...)}: that helper relies on the
- * very filter ({@code SecurityContextHolderFilter}) that {@code addFilters = false} skips.</p>
- *
- * <p>{@code JwtAuthorizationFilter} is a {@code @Component} implementing {@code Filter}, so
- * {@code @WebMvcTest} still picks it up as a bean (even with {@code addFilters = false}, which
- * only skips registering it in the mock chain) — its own dependencies are mocked below purely to
- * satisfy that construction, they're never exercised.</p>
- */
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 class AuthControllerTest {
@@ -145,8 +124,6 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value(401));
     }
 
-    // --- activate ---------------------------------------------------------------------------
-
     @Test
     void activateWithValidCodeReturnsOk() throws Exception {
         mockMvc.perform(post("/api/auth/activate")
@@ -189,10 +166,7 @@ class AuthControllerTest {
 
     @Test
     void activateWithUnparseableJsonReturnsBadRequestInTheStandardErrorShape() throws Exception {
-        // Distinct from the bean-validation test above: this body never parses at all, so @Valid
-        // never runs — a different exception (HttpMessageNotReadableException), and without its
-        // own handler this fell through to Spring's default (400 with an empty body, found via
-        // manual probing in the TICKET-045 branch-wide review).
+
         mockMvc.perform(post("/api/auth/activate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("not json"))
@@ -205,7 +179,7 @@ class AuthControllerTest {
 
     @Test
     void activateWithWeakPasswordReturnsBadRequest() throws Exception {
-        // Long enough (8+) but no uppercase and no digit — docs/STORIES.md US-002 AC-03.
+
         mockMvc.perform(post("/api/auth/activate")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
@@ -214,8 +188,6 @@ class AuthControllerTest {
 
         verify(activationService, never()).activate(any());
     }
-
-    // --- resend-activation --------------------------------------------------------------------
 
     @Test
     void resendActivationReturnsOk() throws Exception {
@@ -239,8 +211,6 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.status").value(429));
     }
 
-    // --- forgot-password ----------------------------------------------------------------------
-
     @Test
     void forgotPasswordReturnsSameResponseRegardlessOfWhetherEmailIsKnown() throws Exception {
         mockMvc.perform(post("/api/auth/forgot-password")
@@ -251,8 +221,6 @@ class AuthControllerTest {
 
         verify(activationService).forgotPassword("known-or-not@adac.fr");
     }
-
-    // --- reset-password ----------------------------------------------------------------------
 
     @Test
     void resetPasswordWithValidCodeReturnsOk() throws Exception {

@@ -65,14 +65,6 @@ public class User {
     @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
-    /**
-     * Optimistic lock (TICKET-019 branch-wide review) — without it, Hibernate writes every column
-     * on {@code save()}, so a {@code PATCH /api/users/me} that reads this row before a concurrent
-     * {@code deactivate}/{@code activate}/{@code reset-password} commits will flush a stale
-     * {@code is_active}/{@code password_hash} back over it, silently undoing the other request.
-     * A concurrent writer now gets {@link org.springframework.orm.ObjectOptimisticLockingFailureException}
-     * instead.
-     */
     @Version
     @Column(nullable = false)
     @Builder.Default

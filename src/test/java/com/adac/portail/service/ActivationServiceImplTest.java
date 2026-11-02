@@ -34,14 +34,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Mocks {@link EmailService} rather than {@code MailSender}/{@code SimpleMailMessage} directly
- * (TICKET-034 migration — see {@code ActivationServiceImpl}'s Javadoc): the plain-text-vs-HTML
- * body and the SMTP plumbing are {@code EmailServiceImpl}'s concern now (see its own test), this
- * class only needs to prove the right {@code EmailService} method is called for the right token
- * type, and that a {@code MailException} from it doesn't turn into a 500 — same behaviors as
- * before, just through the new seam.
- */
 @ExtendWith(MockitoExtension.class)
 class ActivationServiceImplTest {
 
@@ -54,8 +46,6 @@ class ActivationServiceImplTest {
     @Mock
     private EmailService emailService;
 
-    // Real BCrypt, not mocked: the service hashes/matches the 6-digit code with it, and a mock
-    // encoder that just echoes its input would let a wrong-code test pass for the wrong reason.
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     private ActivationServiceImpl activationService;
@@ -77,8 +67,6 @@ class ActivationServiceImplTest {
                 .isActive(false)
                 .build();
     }
-
-    // --- activate -----------------------------------------------------------------------
 
     @Test
     void activateWithValidCodeActivatesUserAndConsumesToken() {
@@ -127,8 +115,7 @@ class ActivationServiceImplTest {
 
     @Test
     void activateWithNoUnusedTokenThrowsInvalidException() {
-        // Covers both "never requested" and "already used" (the repo query already filters
-        // usedAt IS NULL, so a used token surfaces as Optional.empty() here too).
+
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.findFirstByUserAndTypeAndUsedAtIsNullOrderByCreatedAtDesc(
                 user, TokenType.ACCOUNT_ACTIVATION)).thenReturn(Optional.empty());
@@ -163,9 +150,7 @@ class ActivationServiceImplTest {
 
     @Test
     void activateAfterMaxAttemptsThrowsInvalidExceptionWithoutCheckingTheCode() {
-        // 400, not 429: a distinct "too many attempts" status would itself confirm a real token
-        // exists for this email, once attempts actually persists (see the @Transactional fix) —
-        // see verifyAndConsumeToken's Javadoc.
+
         ActivationToken token = ActivationToken.builder()
                 .user(user)
                 .codeHash(passwordEncoder.encode("123456"))
@@ -178,7 +163,6 @@ class ActivationServiceImplTest {
         when(activationTokenRepository.findFirstByUserAndTypeAndUsedAtIsNullOrderByCreatedAtDesc(
                 user, TokenType.ACCOUNT_ACTIVATION)).thenReturn(Optional.of(token));
 
-        // Right code this time — must still be blocked, the lockout doesn't care.
         assertThatThrownBy(() -> activationService.activate(
                 new ActivateAccountRequest(user.getEmail(), "123456", "N3wPassword!")))
                 .isInstanceOf(ActivationTokenInvalidException.class);
@@ -187,8 +171,7 @@ class ActivationServiceImplTest {
 
     @Test
     void activateForSuspendedAccountThrowsInvalidExceptionWithoutTouchingAnyToken() {
-        // Suspended (isActive=false, but already activated once before) must not be reactivatable
-        // by replaying an old, still-unexpired activation code directly against /activate.
+
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull(user, TokenType.ACCOUNT_ACTIVATION))
                 .thenReturn(true);
@@ -201,8 +184,6 @@ class ActivationServiceImplTest {
         verify(activationTokenRepository, never())
                 .findFirstByUserAndTypeAndUsedAtIsNullOrderByCreatedAtDesc(any(), any());
     }
-
-    // --- resendActivation -----------------------------------------------------------------
 
     @Test
     void resendActivationWithinLimitCreatesNewTokenAndSendsEmail() {
@@ -217,9 +198,6 @@ class ActivationServiceImplTest {
         assertThat(tokenCaptor.getValue().getType()).isEqualTo(TokenType.ACCOUNT_ACTIVATION);
         assertThat(tokenCaptor.getValue().getExpiresAt()).isAfter(OffsetDateTime.now().plusMinutes(29));
 
-        // Branch-wide review: anyString() would equally accept the hash or an unrelated string —
-        // the one property that actually matters is that the *emailed* code is the one hashed
-        // into the token, so BCryptPasswordEncoder.matches ties the two together for real.
         ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
         verify(emailService).sendActivationEmail(eq(user), codeCaptor.capture());
         assertThat(passwordEncoder.matches(codeCaptor.getValue(), tokenCaptor.getValue().getCodeHash())).isTrue();
@@ -227,8 +205,7 @@ class ActivationServiceImplTest {
 
     @Test
     void resendActivationSwallowsMailExceptionInsteadOfReturning500() {
-        // Same reasoning as forgotPassword's equivalent test: an SMTP failure must not turn into
-        // a 500 for a known, pending email while an unknown one keeps getting 200.
+
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
                 eq(user), eq(TokenType.ACCOUNT_ACTIVATION), any())).thenReturn(1L);
@@ -264,8 +241,7 @@ class ActivationServiceImplTest {
 
     @Test
     void resendActivationForSuspendedAccountDoesNothing() {
-        // isActive=false but a used ACCOUNT_ACTIVATION token exists -> this user was activated
-        // once and later suspended, not a new pending account (see isPendingFirstActivation).
+
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.existsByUserAndTypeAndUsedAtIsNotNull(user, TokenType.ACCOUNT_ACTIVATION))
                 .thenReturn(true);
@@ -287,8 +263,6 @@ class ActivationServiceImplTest {
         verify(emailService, never()).sendActivationEmail(any(), anyString());
     }
 
-    // --- forgotPassword ---------------------------------------------------------------------
-
     @Test
     void forgotPasswordWithKnownEmailCreatesTokenAndSendsEmail() {
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
@@ -303,9 +277,7 @@ class ActivationServiceImplTest {
 
     @Test
     void forgotPasswordOverLimitSwallowsRateLimitAndReturnsNormally() {
-        // Unlike resend-activation, this endpoint's contract (docs/tech.md) is the same response
-        // no matter what — a 429 here would tell an attacker the email exists AND is currently
-        // rate-limited. Must not throw, and must not send.
+
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
                 eq(user), eq(TokenType.PASSWORD_RESET), any())).thenReturn(3L);
@@ -318,8 +290,7 @@ class ActivationServiceImplTest {
 
     @Test
     void forgotPasswordSwallowsMailExceptionInsteadOfReturning500() {
-        // Same reasoning as the rate-limit case: an SMTP-level failure must not turn into a
-        // response difference between a known and an unknown email.
+
         when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
         when(activationTokenRepository.countByUserAndTypeAndCreatedAtAfter(
                 eq(user), eq(TokenType.PASSWORD_RESET), any())).thenReturn(0L);
@@ -339,8 +310,6 @@ class ActivationServiceImplTest {
         verify(activationTokenRepository, never()).save(any());
         verify(emailService, never()).sendPasswordResetEmail(any(), anyString());
     }
-
-    // --- resetPassword ----------------------------------------------------------------------
 
     @Test
     void resetPasswordWithValidCodeUpdatesPasswordAndConsumesToken() {
@@ -365,8 +334,6 @@ class ActivationServiceImplTest {
         assertThat(token.getUsedAt()).isNotNull();
         verify(userRepository).save(user);
     }
-
-    // --- sendActivationCode (TICKET-019) ---------------------------------------------------
 
     @Test
     void sendActivationCodeIssuesTokenAndSendsEmail() {

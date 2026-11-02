@@ -27,7 +27,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** TICKET-034 — see docs/tickets/TICKET-034.md § Write tests first, Test 1-3. */
 @ExtendWith(MockitoExtension.class)
 class EmailServiceImplTest {
 
@@ -44,9 +43,7 @@ class EmailServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // A real MimeMessage, not a mock: MimeMessageHelper calls real methods on whatever
-        // createMimeMessage() returns, so a Mockito mock here would NPE/no-op unrealistically.
-        // lenient(): the toggle-disabled test never reaches this call at all, by design.
+
         lenient().when(mailSender.createMimeMessage()).thenReturn(new MimeMessage((Session) null));
         ReflectionTestUtils.setField(emailService, "fromAddress", "no-reply@adac.fr");
 
@@ -60,14 +57,6 @@ class EmailServiceImplTest {
                 .build();
     }
 
-    // --- sendActivationEmail / sendPasswordResetEmail ------------------------------------------
-    // Always sent, independent of emailNotificationsEnabled — these are transactional emails
-    // (docs/tickets/TICKET-034.md AC), not in-app-notification emails.
-
-    // Branch-wide review (CRITICAL): the previous version of this test only verified send() was
-    // called at all — it stayed green whether the message carried HTML or the raw template string
-    // as plain text, the wrong subject, or no From header. Asserting the real MimeMessage content
-    // is what actually proves the plain-text -> HTML migration did what it claims.
     @Test
     void sendActivationEmailSendsCorrectlyAddressedHtmlMessage() throws Exception {
         when(templateBuilder.buildActivationEmail("Jane", "123456")).thenReturn("<html>code 123456</html>");
@@ -115,8 +104,7 @@ class EmailServiceImplTest {
 
     @Test
     void sendActivationEmailPropagatesMailExceptionRatherThanSwallowingIt() {
-        // Swallowing (so a failed send never blocks e.g. account creation) is ActivationServiceImpl's
-        // call to make per caller — see its own tests — not this service's.
+
         when(templateBuilder.buildActivationEmail(any(), any())).thenReturn("<html></html>");
         doThrow(new MailSendException("boom")).when(mailSender).send(any(MimeMessage.class));
 
@@ -124,10 +112,6 @@ class EmailServiceImplTest {
                 .isInstanceOf(MailSendException.class);
     }
 
-    // Branch-wide review (CRITICAL): the MimeMessageHelper wrap was the one branch in this class
-    // with no test at all — and it's the branch ActivationServiceImpl's account-enumeration-oracle
-    // avoidance depends on (its catch blocks only catch MailException). A malformed address is a
-    // real way to reach MimeMessageHelper.setTo's checked MessagingException.
     @Test
     void sendActivationEmailWrapsAMalformedAddressAsMailPreparationException() {
         user.setEmail("not an address");
@@ -138,8 +122,6 @@ class EmailServiceImplTest {
 
         verify(mailSender, never()).send(any(MimeMessage.class));
     }
-
-    // --- sendNotificationEmail (TICKET-034 AC: respects emailNotificationsEnabled) -------------
 
     @Test
     void sendNotificationEmailWithToggleEnabledSendsTheEmail() throws Exception {
@@ -164,10 +146,7 @@ class EmailServiceImplTest {
         ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
         verify(mailSender).send(captor.capture());
         MimeMessage message = captor.getValue();
-        // JavaMail only rewrites the Content-Type header from the DataHandler set by
-        // MimeMessageHelper.setText(...) on saveChanges()/actual transport — a real send() call
-        // does this implicitly, but our mocked mailSender never does, so getContentType() would
-        // read a stale default without this.
+
         message.saveChanges();
         return message;
     }
