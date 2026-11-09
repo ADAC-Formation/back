@@ -5,6 +5,7 @@ import com.adac.portail.dto.request.UpdateFormationRequest;
 import com.adac.portail.dto.response.FormationResponse;
 import com.adac.portail.entity.Category;
 import com.adac.portail.entity.Formation;
+import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Modalite;
@@ -247,11 +248,14 @@ class FormationServiceImplTest {
         Formation enrolled = Formation.builder().id(1L).category(Category.builder().id(1L).build()).build();
         when(inscriptionRepository.findFormationsByStagiaire(stagiaire)).thenReturn(List.of(enrolled));
         when(inscriptionRepository.countByFormation(enrolled)).thenReturn(0L);
+        when(inscriptionRepository.findByStagiaireAndFormation(stagiaire, enrolled))
+                .thenReturn(Optional.of(Inscription.builder().id(77L).build()));
         when(formationMapper.toResponse(enrolled, 0)).thenReturn(FormationResponse.builder().id(1L).build());
 
         List<FormationResponse> result = formationService.getFormations(null, null, principal);
 
         assertThat(result).hasSize(1);
+        assertThat(result.get(0).getInscriptionId()).isEqualTo(77L);
         verify(formationRepository, never()).findAll();
         verify(formationRepository, never()).findAllByFormateur(any());
     }
@@ -266,6 +270,7 @@ class FormationServiceImplTest {
         when(formationMapper.toResponse(formation, 0)).thenReturn(expected);
 
         assertThat(formationService.getFormationById(1L, principal)).isSameAs(expected);
+        verify(inscriptionRepository, never()).findByStagiaireAndFormation(any(), any());
     }
 
     @Test
@@ -302,6 +307,7 @@ class FormationServiceImplTest {
         when(formationMapper.toResponse(formation, 0)).thenReturn(expected);
 
         assertThat(formationService.getFormationById(1L, principal)).isSameAs(expected);
+        verify(inscriptionRepository, never()).findByStagiaireAndFormation(any(), any());
     }
 
     @Test
@@ -324,10 +330,13 @@ class FormationServiceImplTest {
         when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
         when(inscriptionRepository.existsByStagiaireAndFormation(stagiaire, formation)).thenReturn(true);
         when(inscriptionRepository.countByFormation(formation)).thenReturn(0L);
+        when(inscriptionRepository.findByStagiaireAndFormation(stagiaire, formation))
+                .thenReturn(Optional.of(Inscription.builder().id(77L).build()));
         FormationResponse expected = FormationResponse.builder().id(1L).build();
         when(formationMapper.toResponse(formation, 0)).thenReturn(expected);
 
         assertThat(formationService.getFormationById(1L, principal)).isSameAs(expected);
+        assertThat(expected.getInscriptionId()).isEqualTo(77L);
     }
 
     @Test

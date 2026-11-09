@@ -240,9 +240,12 @@ class FormationControllerTest {
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
     void getFormationsByStagiaireIsAllowed() throws Exception {
-        when(formationService.getFormations(any(), any(), any())).thenReturn(List.of());
+        when(formationService.getFormations(any(), any(), any()))
+                .thenReturn(List.of(FormationResponse.builder().id(1L).inscriptionId(77L).build()));
 
-        mockMvc.perform(get("/api/formations")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/formations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].inscriptionId").value(77));
     }
 
     @Test

@@ -324,3 +324,19 @@ Conserver la branche et les changements existants. Préserver les changements é
     basculer le sujet du JWT sur l'id utilisateur reste recommandé, non priorisé pour l'instant.
   - Gap de case-sensitivity sur `createPendingUser` (création) — même faille que celle corrigée
     dans `updateUser`, pré-existante, non traitée ici (hors périmètre TICKET-050).
+
+## Correctif — inscriptionId pour le stagiaire + suppression de ses uploads (lié TICKET-028)
+
+- Contexte : point bloquant remonté par Manon (front) : un stagiaire ne pouvait pas connaître son
+  `inscriptionId`, donc impossible de déposer son premier document. Décisions de Charlotte :
+  option 1 (champ dans `FormationResponse`) et le stagiaire peut supprimer ses propres uploads.
+- Travail réalisé : `FormationResponse.inscriptionId` (nullable, renseigné seulement pour le
+  stagiaire inscrit sur `GET /formations` et `GET /formations/{id}`) ;
+  `InscriptionRepository.findByStagiaireAndFormation` ; `DocumentServiceImpl.deleteDocument`
+  autorise le STAGIAIRE sur ses propres uploads (SUPER_ADMIN inchangé, ADMIN inchangé).
+- Tests : `mvn clean test` — 526/526 GREEN (RED initial : erreur de compilation, symboles absents).
+- Documentation : docs/tech.md (FormationResponse, DELETE /documents), docs/STORIES.md (AC-06),
+  docs/tickets/TICKET-026.md, Swagger du DELETE.
+- Branche : fix/stagiaire-inscription-id (depuis dev). Revue review-code : voir rapport final.
+- Divergence connue : N+1 léger sur `GET /formations` pour un stagiaire (1 requête par formation
+  pour l'inscription), identique au compte d'inscriptions déjà fait par formation.

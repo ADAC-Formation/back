@@ -9,6 +9,7 @@ import org.mapstruct.Mapping;
 public interface FormationMapper {
 
     @Mapping(target = "inscriptionsCount", ignore = true)
+    @Mapping(target = "inscriptionId", ignore = true)
     FormationResponse toResponse(Formation formation);
 
     default FormationResponse toResponse(Formation formation, int inscriptionsCount) {

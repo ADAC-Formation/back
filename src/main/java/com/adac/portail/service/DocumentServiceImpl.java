@@ -145,10 +145,7 @@ public class DocumentServiceImpl implements DocumentService {
         Document document = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException(DOCUMENT_NOT_FOUND));
         User caller = principal.getUser();
-        if (caller.getRole() == Role.STAGIAIRE) {
-            throw new UnauthorizedException("Droits insuffisants");
-        }
-        if (caller.getRole() == Role.ADMIN && !document.getUploadedBy().getId().equals(caller.getId())) {
+        if (caller.getRole() != Role.SUPER_ADMIN && !document.getUploadedBy().getId().equals(caller.getId())) {
             throw new UnauthorizedException("Vous ne pouvez supprimer que vos propres documents");
         }
         String path = document.getStoragePath();

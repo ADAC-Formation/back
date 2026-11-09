@@ -32,5 +32,7 @@ public class FormationResponse {
 
     private int inscriptionsCount;
 
+    private Long inscriptionId;
+
     private OffsetDateTime createdAt;
 }

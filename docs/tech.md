@@ -485,12 +485,10 @@ Télécharger un fichier.
 
 ### DELETE /api/documents/{id}
 Supprimer un document (SUPER_ADMIN : tous ; ADMIN : uniquement ses propres uploads, quelle que soit
-la formation ; STAGIAIRE : jamais). TICKET-026 review : la formulation précédente ("ADMIN sur ses
-formations") ne correspondait ni à la fiche du ticket ni à l'implémentation — corrigée pour refléter
-la règle réellement voulue (propriété de l'upload, pas de la formation).
+la formation ; STAGIAIRE : uniquement ses propres uploads).
 ```json
 // 204 No Content
-// 403 — STAGIAIRE, ou ADMIN sur un document qu'il n'a pas lui-même uploadé
+// 403 — STAGIAIRE ou ADMIN sur un document qu'il n'a pas lui-même uploadé
 // 404 — document inconnu
 ```
 
@@ -658,6 +656,7 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 | category | CategoryResponse | CategoryResponse | toujours renseigné, même si `category.isActive` est `false` |
 | formateur | UserResponse | UserResponse | peut être le Super Admin |
 | inscriptionsCount | int | number | calculé |
+| inscriptionId | Long (nullable) | `number \| null` | renseigné uniquement pour un STAGIAIRE inscrit (son propre id d'inscription, à passer à `POST /api/documents` et `GET /api/documents?inscriptionId=`) ; `null` pour SUPER_ADMIN et ADMIN |
 | createdAt | LocalDateTime | string | ISO 8601 |
 
 ### InscriptionResponse

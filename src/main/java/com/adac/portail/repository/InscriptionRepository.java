@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface InscriptionRepository extends JpaRepository<Inscription, Long> {
 
@@ -26,6 +27,8 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
     List<User> findStagiairesByFormateur(@Param("formateur") User formateur);
 
     boolean existsByStagiaireAndFormation_Formateur(User stagiaire, User formateur);
+
+    Optional<Inscription> findByStagiaireAndFormation(User stagiaire, Formation formation);
 
     boolean existsByStagiaireAndFormation(User stagiaire, Formation formation);
 
