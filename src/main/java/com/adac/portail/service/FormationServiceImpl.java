@@ -80,14 +80,14 @@ public class FormationServiceImpl implements FormationService {
         return base.stream()
                 .filter(formation -> status == null || formation.getStatus() == status)
                 .filter(formation -> categoryId == null || Objects.equals(formation.getCategory().getId(), categoryId))
-                .map(this::toResponse)
+                .map(formation -> toResponse(formation, caller))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public FormationResponse getFormationById(Long id, AdacUserDetails principal) {
-        return toResponse(findVisibleFormationOrThrow(id, principal));
+        return toResponse(findVisibleFormationOrThrow(id, principal), principal.getUser());
     }
 
     @Override
@@ -158,6 +158,15 @@ public class FormationServiceImpl implements FormationService {
         return excelImportUtil.parse(file).stream()
                 .map(request -> createFormation(request, principal))
                 .toList();
+    }
+
+    private FormationResponse toResponse(Formation formation, User caller) {
+        FormationResponse response = toResponse(formation);
+        if (caller.getRole() == Role.STAGIAIRE) {
+            inscriptionRepository.findByStagiaireAndFormation(caller, formation)
+                    .ifPresent(inscription -> response.setInscriptionId(inscription.getId()));
+        }
+        return response;
     }
 
     private FormationResponse toResponse(Formation formation) {

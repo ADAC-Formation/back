@@ -81,6 +81,18 @@ class InscriptionRepositoryTest {
     }
 
     @Test
+    void findByStagiaireAndFormationReturnsOnlyThatStagiairesInscription() {
+        User superAdmin = saveUser("inscr-repo-admin9@adac.fr", Role.SUPER_ADMIN);
+        Formation formation = saveFormation(superAdmin, null);
+        User stagiaire = saveUser("inscr-repo-fsf-1@adac.fr", Role.STAGIAIRE);
+        User other = saveUser("inscr-repo-fsf-2@adac.fr", Role.STAGIAIRE);
+        Inscription mine = inscriptionRepository.save(Inscription.builder().stagiaire(stagiaire).formation(formation).build());
+
+        assertThat(inscriptionRepository.findByStagiaireAndFormation(stagiaire, formation)).contains(mine);
+        assertThat(inscriptionRepository.findByStagiaireAndFormation(other, formation)).isEmpty();
+    }
+
+    @Test
     void findStagiairesByFormationReturnsFullyUsableUsersNotLazyProxies() {
         User superAdmin = saveUser("inscr-repo-admin@adac.fr", Role.SUPER_ADMIN);
         Formation formation = saveFormation(superAdmin, null);

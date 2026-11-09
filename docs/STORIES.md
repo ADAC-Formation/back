@@ -168,7 +168,7 @@
 - [ ] AC-03 : Le fichier est stocké sur Supabase Storage — l'URL est sauvegardée en base
 - [ ] AC-04 : Le document uploadé est immédiatement visible par tous les stagiaires inscrits à cette formation
 - [ ] AC-05 : Le Formateur peut ajouter des documents uniquement sur ses formations (erreur 403 sinon)
-- [ ] AC-06 : Le Super Admin peut supprimer un document ; le Formateur peut supprimer ses propres uploads
+- [ ] AC-06 : Le Super Admin peut supprimer un document ; le Formateur et le Stagiaire peuvent supprimer leurs propres uploads
 - [ ] AC-07 : Une notification est envoyée aux stagiaires concernés lors d'un nouvel upload
 
 **Taille** : M

@@ -180,7 +180,13 @@ class DocumentControllerTest {
 
     @Test
     @WithMockAdacUser(role = Role.STAGIAIRE)
-    void deleteByStagiaireReturnsForbidden() throws Exception {
+    void deleteOwnUploadByStagiaireReturnsNoContent() throws Exception {
+        mockMvc.perform(delete("/api/documents/9")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void deleteSomeoneElsesUploadByStagiaireReturnsForbidden() throws Exception {
         doThrow(new UnauthorizedException("Droits insuffisants")).when(documentService).deleteDocument(eq(9L), any());
 
         mockMvc.perform(delete("/api/documents/9")).andExpect(status().isForbidden());

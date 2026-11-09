@@ -454,7 +454,7 @@ class DocumentServiceImplTest {
     }
 
     @Test
-    void deleteByStagiaireReturnsForbidden() {
+    void deleteSomeoneElsesUploadByStagiaireReturnsForbidden() {
         Document document = Document.builder().id(9L).uploadedBy(user(2L, Role.ADMIN)).build();
         when(documentRepository.findById(9L)).thenReturn(Optional.of(document));
         AdacUserDetails caller = principal(user(7L, Role.STAGIAIRE));
@@ -462,6 +462,18 @@ class DocumentServiceImplTest {
         assertThatThrownBy(() -> documentService.deleteDocument(9L, caller)).isInstanceOf(UnauthorizedException.class);
         verify(documentRepository, never()).delete(any());
         verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void deleteOwnUploadByStagiaireSucceeds() {
+        User stagiaire = user(7L, Role.STAGIAIRE);
+        Document document = Document.builder().id(9L).uploadedBy(stagiaire).storagePath("inscriptions/5/x.pdf").build();
+        when(documentRepository.findById(9L)).thenReturn(Optional.of(document));
+
+        documentService.deleteDocument(9L, principal(stagiaire));
+
+        verify(documentRepository).delete(document);
+        verify(storageService).delete("inscriptions/5/x.pdf");
     }
 
     @Test

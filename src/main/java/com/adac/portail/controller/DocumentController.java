@@ -95,7 +95,7 @@ public class DocumentController {
                 .body(document.content());
     }
 
-    @Operation(summary = "Delete a document", description = "SUPER_ADMIN any document; ADMIN only their own uploads; STAGIAIRE never.")
+    @Operation(summary = "Delete a document", description = "SUPER_ADMIN any document; ADMIN and STAGIAIRE only their own uploads.")
     @ApiResponse(responseCode = "204", description = "No Content")
     @ApiResponse(responseCode = "403", description = "Insufficient role",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))

@@ -36,7 +36,7 @@ Contrat API (`docs/tech.md`) :
 - [x] Fichier > 10 Mo → 400 "Fichier trop volumineux (max 10 Mo)"
 - [x] ADMIN peut uploader uniquement sur ses formations → 403 sinon
 - [x] `GET /api/documents?formationId={id}` : STAGIAIRE ne voit que les docs de ses formations
-- [x] `DELETE /api/documents/{id}` : SUPER_ADMIN peut tout supprimer ; ADMIN supprime ses uploads ; STAGIAIRE → 403
+- [x] `DELETE /api/documents/{id}` : SUPER_ADMIN peut tout supprimer ; ADMIN et STAGIAIRE suppriment leurs propres uploads (le reste → 403)
       (voir note de révision : la formulation `tech.md` a été corrigée pour matcher cette règle, pas l'inverse)
 - [x] Upload déclenche une notification pour les stagiaires concernés (appel `NotificationService`, déjà réel depuis TICKET-029)
 
