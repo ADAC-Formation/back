@@ -16,7 +16,7 @@ public class SupabaseConfig {
     public SupabaseConfig(@Value("${supabase.url}") String url,
                            @Value("${supabase.key}") String key,
                            @Value("${supabase.bucket}") String bucket) {
-        this.url = url;
+        this.url = url.replaceAll("/+$", "");
         this.key = key;
         this.bucket = bucket;
     }

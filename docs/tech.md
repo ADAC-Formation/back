@@ -672,10 +672,9 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 |---|---|---|---|
 | id | Long | number | |
 | fileName | String | string | nom original |
-| fileUrl | String | string | URL Supabase |
 | fileSize | Long | number | en octets |
 | mimeType | String | string | ex: `application/pdf` |
-| uploadedBy | UserResponse | UserResponse | |
+| uploadedBy | UploaderResponse | `{ id, prenom, nom }` | uniquement ces 3 champs (pas d'e-mail ni de rôle) ; le téléchargement passe par `GET /api/documents/{id}/download` |
 | formationId | Long (nullable) | `number \| null` | |
 | inscriptionId | Long (nullable) | `number \| null` | |
 | createdAt | LocalDateTime | string | ISO 8601 |
