@@ -471,8 +471,11 @@ Uploader un document.
 //   STAGIAIRE → inscriptionId uniquement (ses inscriptions)
 
 // 201 Created → DocumentResponse
+// Formats acceptés : pdf, jpg, jpeg, png, docx, xlsx — 10 Mo max
 // 400 — type de fichier non autorisé ou taille dépassée
 // 403 — droits insuffisants
+// 404 — formation ou inscription inconnue
+// 409 — formation archivée (dépôt refusé)
 ```
 
 ### GET /api/documents/{id}/download
@@ -490,6 +493,7 @@ la formation ; STAGIAIRE : uniquement ses propres uploads).
 // 204 No Content
 // 403 — STAGIAIRE ou ADMIN sur un document qu'il n'a pas lui-même uploadé
 // 404 — document inconnu
+// 409 — formation archivée (suppression refusée)
 ```
 
 ---

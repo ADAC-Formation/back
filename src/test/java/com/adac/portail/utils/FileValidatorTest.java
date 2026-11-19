@@ -25,6 +25,16 @@ class FileValidatorTest {
         assertThatCode(() -> validator.validate(file("photo.jpeg", JPG_BYTES))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(file("logo.png", PNG_BYTES))).doesNotThrowAnyException();
         assertThatCode(() -> validator.validate(file("cv.docx", DOCX_BYTES))).doesNotThrowAnyException();
+        assertThatCode(() -> validator.validate(file("liste.xlsx", DOCX_BYTES))).doesNotThrowAnyException();
+    }
+
+    @Test
+    void xlsxHasTheOfficeOpenXmlSheetMimeTypeAndRejectsNonZipContent() {
+        assertThat(validator.canonicalMimeType("liste.xlsx"))
+                .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        assertThatThrownBy(() -> validator.validate(file("fake.xlsx", PDF_BYTES)))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Format non autorisé");
     }
 
     @Test

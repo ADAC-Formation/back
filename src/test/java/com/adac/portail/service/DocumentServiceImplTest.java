@@ -5,6 +5,8 @@ import com.adac.portail.entity.Document;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
+import com.adac.portail.entity.enums.FormationStatus;
+import com.adac.portail.exception.ConflictException;
 import com.adac.portail.entity.enums.EntityType;
 import com.adac.portail.entity.enums.NotificationType;
 import com.adac.portail.entity.enums.Role;
@@ -517,5 +519,62 @@ class DocumentServiceImplTest {
         documentService.deleteDocument(9L, principal(user(1L, Role.SUPER_ADMIN)));
 
         verify(documentRepository).delete(document);
+    }
+
+    private static Formation archivedFormation(User formateur) {
+        return Formation.builder().id(1L).status(FormationStatus.ARCHIVED).formateur(formateur).build();
+    }
+
+    @Test
+    void uploadOnArchivedFormationReturnsConflict() {
+        User superAdmin = user(1L, Role.SUPER_ADMIN);
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(archivedFormation(superAdmin)));
+
+        assertThatThrownBy(() -> documentService.uploadDocument(pdfFile(), 1L, null, principal(superAdmin)))
+                .isInstanceOf(ConflictException.class);
+
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void uploadOnInscriptionOfArchivedFormationReturnsConflict() {
+        User stagiaire = user(7L, Role.STAGIAIRE);
+        Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire)
+                .formation(archivedFormation(user(2L, Role.ADMIN))).build();
+        when(inscriptionRepository.findById(5L)).thenReturn(Optional.of(inscription));
+
+        assertThatThrownBy(() -> documentService.uploadDocument(pdfFile(), null, 5L, principal(stagiaire)))
+                .isInstanceOf(ConflictException.class);
+
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void deleteDocumentOfArchivedFormationReturnsConflict() {
+        User superAdmin = user(1L, Role.SUPER_ADMIN);
+        Document document = Document.builder().id(9L).uploadedBy(superAdmin)
+                .formation(archivedFormation(superAdmin)).storagePath("formations/1/x.pdf").build();
+        when(documentRepository.findById(9L)).thenReturn(Optional.of(document));
+
+        assertThatThrownBy(() -> documentService.deleteDocument(9L, principal(superAdmin)))
+                .isInstanceOf(ConflictException.class);
+
+        verify(documentRepository, never()).delete(any());
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void deleteDocumentOnInscriptionOfArchivedFormationReturnsConflict() {
+        User stagiaire = user(7L, Role.STAGIAIRE);
+        Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire)
+                .formation(archivedFormation(user(2L, Role.ADMIN))).build();
+        Document document = Document.builder().id(9L).uploadedBy(stagiaire).inscription(inscription)
+                .storagePath("inscriptions/5/x.pdf").build();
+        when(documentRepository.findById(9L)).thenReturn(Optional.of(document));
+
+        assertThatThrownBy(() -> documentService.deleteDocument(9L, principal(stagiaire)))
+                .isInstanceOf(ConflictException.class);
+
+        verify(documentRepository, never()).delete(any());
     }
 }
