@@ -20,6 +20,8 @@ import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
+import com.adac.portail.dto.response.UserInscriptionResponse;
+import com.adac.portail.mapper.InscriptionMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -53,6 +55,9 @@ class UserServiceImplTest {
 
     @Mock
     private UserMapper userMapper;
+
+    @Mock
+    private InscriptionMapper inscriptionMapper;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -694,5 +699,24 @@ class UserServiceImplTest {
 
         verify(passwordEncoder, never()).matches(any(), any());
         verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void getInscriptionsOfMapsEachInscriptionOfTheStagiaire() {
+        User stagiaire = User.builder().id(9L).role(Role.STAGIAIRE).build();
+        Inscription inscription = Inscription.builder().id(5L).build();
+        UserInscriptionResponse mapped = new UserInscriptionResponse(5L, null);
+        when(userRepository.findById(9L)).thenReturn(Optional.of(stagiaire));
+        when(inscriptionRepository.findAllByStagiaire(stagiaire)).thenReturn(List.of(inscription));
+        when(inscriptionMapper.toUserInscription(inscription)).thenReturn(mapped);
+
+        assertThat(userService.getInscriptionsOf(9L)).containsExactly(mapped);
+    }
+
+    @Test
+    void getInscriptionsOfUnknownUserIsNotFound() {
+        when(userRepository.findById(404L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.getInscriptionsOf(404L)).isInstanceOf(ResourceNotFoundException.class);
     }
 }

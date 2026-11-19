@@ -202,6 +202,14 @@ tiers par id.
 // 404
 ```
 
+### GET /api/users/{id}/inscriptions
+Formations auxquelles un utilisateur est inscrit. **SUPER_ADMIN uniquement.**
+```json
+// 200 — [{ "id": 5, "formation": FormationResponse }]  (tableau vide si aucune inscription)
+// 403 — rôle insuffisant
+// 404 — utilisateur inconnu
+```
+
 ### PATCH /api/users/me
 Modifier son propre profil (tous les rôles).
 ```json

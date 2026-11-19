@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
@@ -14,6 +15,7 @@ import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.exception.UnauthorizedException;
+import com.adac.portail.mapper.InscriptionMapper;
 import com.adac.portail.mapper.UserMapper;
 import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
@@ -43,6 +45,7 @@ public class UserServiceImpl implements UserService {
     private final FormationRepository formationRepository;
     private final InscriptionRepository inscriptionRepository;
     private final UserMapper userMapper;
+    private final InscriptionMapper inscriptionMapper;
     private final PasswordEncoder passwordEncoder;
     private final ActivationService activationService;
     private final LoginAttemptService loginAttemptService;
@@ -154,6 +157,15 @@ public class UserServiceImpl implements UserService {
         }
         user.setActive(true);
         return toResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserInscriptionResponse> getInscriptionsOf(Long userId) {
+        User user = findUserOrThrow(userId);
+        return inscriptionRepository.findAllByStagiaire(user).stream()
+                .map(inscriptionMapper::toUserInscription)
+                .toList();
     }
 
     @Override

@@ -5,11 +5,13 @@ import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
 import com.adac.portail.dto.response.ErrorResponse;
+import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -98,6 +100,18 @@ public class UserController {
             @PathVariable @Parameter(description = "User id") Long id,
             @AuthenticationPrincipal AdacUserDetails principal) {
         return ResponseEntity.ok(userService.getById(id, principal));
+    }
+
+    @Operation(summary = "List a user's inscriptions", description = "SUPER_ADMIN only. One { id, formation } per formation the user is enrolled in (empty for non-stagiaires).")
+    @ApiResponse(responseCode = "200", description = "OK",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserInscriptionResponse.class))))
+    @ApiResponse(responseCode = "404", description = "No such user",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @GetMapping("/{id}/inscriptions")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<List<UserInscriptionResponse>> getInscriptions(
+            @PathVariable @Parameter(description = "User id") Long id) {
+        return ResponseEntity.ok(userService.getInscriptionsOf(id));
     }
 
     @Operation(summary = "Suspend a user", description = "SUPER_ADMIN only. The user can no longer log in. Refuses self-suspension and suspending the last active SUPER_ADMIN.")

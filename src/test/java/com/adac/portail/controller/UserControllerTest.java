@@ -15,6 +15,7 @@ import com.adac.portail.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
 import com.adac.portail.exception.UnauthorizedException;
+import com.adac.portail.dto.response.UserInscriptionResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -570,5 +571,29 @@ class UserControllerTest {
     @Test
     void changePasswordWithoutAuthenticationReturnsUnauthorized() throws Exception {
         changePassword("Old1password", "New1password").andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void getUserInscriptionsReturnsTheList() throws Exception {
+        when(userService.getInscriptionsOf(9L)).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
+
+        mockMvc.perform(get("/api/users/9/inscriptions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(5));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void getUserInscriptionsIsForbiddenForNonSuperAdmin() throws Exception {
+        mockMvc.perform(get("/api/users/9/inscriptions")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void getUserInscriptionsOfUnknownUserReturnsNotFound() throws Exception {
+        when(userService.getInscriptionsOf(404L)).thenThrow(new ResourceNotFoundException("Utilisateur introuvable"));
+
+        mockMvc.perform(get("/api/users/404/inscriptions")).andExpect(status().isNotFound());
     }
 }
