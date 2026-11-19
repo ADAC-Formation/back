@@ -6,9 +6,11 @@ import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.EntityType;
+import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.NotificationType;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.BadRequestException;
+import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.exception.UnauthorizedException;
 import com.adac.portail.mapper.DocumentMapper;
@@ -40,6 +42,8 @@ public class DocumentServiceImpl implements DocumentService {
             "Un document doit être lié à exactement une formation ou une inscription";
     private static final String NOT_OWN_FORMATION_UPLOAD =
             "Vous ne pouvez déposer un document que sur vos propres formations";
+    private static final String FORMATION_ARCHIVED =
+            "La formation est archivée : les documents ne peuvent plus être modifiés";
     private static final String NOT_OWN_FORMATION_VIEW =
             "Vous ne pouvez consulter que les documents de vos formations";
 
@@ -68,11 +72,13 @@ public class DocumentServiceImpl implements DocumentService {
             formation = formationRepository.findById(formationId)
                     .orElseThrow(() -> new ResourceNotFoundException(FORMATION_NOT_FOUND));
             assertCanUploadToFormation(formation, caller);
+            assertNotArchived(formation);
             path = "formations/%d/%s-%s".formatted(formationId, UUID.randomUUID(), file.getOriginalFilename());
         } else {
             inscription = inscriptionRepository.findById(inscriptionId)
                     .orElseThrow(() -> new ResourceNotFoundException(INSCRIPTION_NOT_FOUND));
             assertCanUploadToInscription(inscription, caller);
+            assertNotArchived(inscription.getFormation());
             path = "inscriptions/%d/%s-%s".formatted(inscriptionId, UUID.randomUUID(), file.getOriginalFilename());
         }
 
@@ -148,6 +154,9 @@ public class DocumentServiceImpl implements DocumentService {
         if (caller.getRole() != Role.SUPER_ADMIN && !document.getUploadedBy().getId().equals(caller.getId())) {
             throw new UnauthorizedException("Vous ne pouvez supprimer que vos propres documents");
         }
+        assertNotArchived(document.getFormation() != null
+                ? document.getFormation()
+                : document.getInscription() != null ? document.getInscription().getFormation() : null);
         String path = document.getStoragePath();
         documentRepository.delete(document);
         try {
@@ -155,6 +164,12 @@ public class DocumentServiceImpl implements DocumentService {
         } catch (RuntimeException e) {
 
             log.error("Failed to delete storage object {} for deleted document {}", path, id, e);
+        }
+    }
+
+    private void assertNotArchived(Formation formation) {
+        if (formation != null && formation.getStatus() == FormationStatus.ARCHIVED) {
+            throw new ConflictException(FORMATION_ARCHIVED);
         }
     }
 

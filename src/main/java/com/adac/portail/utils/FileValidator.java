@@ -19,7 +19,8 @@ public class FileValidator {
             "jpg", "image/jpeg",
             "jpeg", "image/jpeg",
             "png", "image/png",
-            "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private static final Pattern UNSAFE_FILENAME_CHARS = Pattern.compile("[\"\\\\/\\p{Cntrl}]");
     private static final int MAX_FILENAME_LENGTH = 200;
@@ -60,7 +61,7 @@ public class FileValidator {
             case "pdf" -> startsWith(header, 0x25, 0x50, 0x44, 0x46, 0x2D);
             case "png" -> startsWith(header, 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A);
             case "jpg", "jpeg" -> startsWith(header, 0xFF, 0xD8, 0xFF);
-            case "docx" -> startsWith(header, 0x50, 0x4B, 0x03, 0x04);
+            case "docx", "xlsx" -> startsWith(header, 0x50, 0x4B, 0x03, 0x04);
             default -> false;
         };
     }
