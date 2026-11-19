@@ -24,9 +24,12 @@ import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +63,7 @@ public class MessageServiceImpl implements MessageService {
     private final NotificationService notificationService;
     private final FormationService formationService;
     private final InscriptionRepository inscriptionRepository;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -315,7 +319,11 @@ public class MessageServiceImpl implements MessageService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                send.run();
+                // The message transaction is already committed here: a plain @Transactional notify() would
+                // join it and its INSERT would never be flushed, so the notification gets its own transaction.
+                TransactionTemplate template = new TransactionTemplate(transactionManager);
+                template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                template.executeWithoutResult(status -> send.run());
             }
         });
     }
