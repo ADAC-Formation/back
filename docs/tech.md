@@ -211,6 +211,20 @@ Modifier son propre profil (tous les rôles).
 // 200 OK → UserResponse
 ```
 
+### PATCH /api/users/me/password
+Changer son propre mot de passe (tous les rôles).
+```json
+// Body
+{ "oldPassword": "string", "newPassword": "string" }
+// newPassword : 8 à 72 caractères, au moins une majuscule et un chiffre (même règle que /auth/activate)
+
+// 204 No Content
+// 400 — newPassword ne respecte pas la règle, ou body invalide
+// 401 — non authentifié
+// 403 — ancien mot de passe incorrect (volontairement pas 401 : le front traite 401 comme « session expirée »)
+// 429 — 5 ancien mots de passe erronés en 15 min : verrou temporaire
+```
+
 ### PUT /api/users/{id}
 Modifier les infos d'un utilisateur (SUPER_ADMIN uniquement) — corriger un nom ou un email erroné.
 N'importe quel rôle cible (stagiaire, formateur, ou un autre SUPER_ADMIN). Ne modifie jamais

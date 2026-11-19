@@ -1,5 +1,6 @@
 package com.adac.portail.controller;
 
+import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
@@ -156,5 +157,27 @@ public class UserController {
                     .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Authentification requise"));
         }
         return ResponseEntity.ok(userService.updateMe(principal, request));
+    }
+
+    @Operation(summary = "Change own password", description = "Any authenticated role. The old password must match. Wrong attempts are rate-limited (5 per 15 min).")
+    @ApiResponse(responseCode = "204", description = "Password changed")
+    @ApiResponse(responseCode = "400", description = "New password breaks the rule (8-72 chars, one uppercase, one digit) or body invalid",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "401", description = "Not authenticated",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Old password is wrong",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "429", description = "Too many wrong attempts",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PatchMapping("/me/password")
+    public ResponseEntity<?> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new ErrorResponse(HttpStatus.UNAUTHORIZED.value(), "Authentification requise"));
+        }
+        userService.changePassword(principal, request);
+        return ResponseEntity.noContent().build();
     }
 }

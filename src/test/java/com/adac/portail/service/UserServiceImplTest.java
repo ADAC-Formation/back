@@ -1,5 +1,6 @@
 package com.adac.portail.service;
 
+import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
@@ -12,6 +13,8 @@ import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
+import com.adac.portail.exception.UnauthorizedException;
+import com.adac.portail.security.LoginAttemptService;
 import com.adac.portail.mapper.UserMapper;
 import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
@@ -56,6 +59,9 @@ class UserServiceImplTest {
 
     @Mock
     private ActivationService activationService;
+
+    @Mock
+    private LoginAttemptService loginAttemptService;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -637,5 +643,56 @@ class UserServiceImplTest {
         when(activationService.hasEverActivated(pending)).thenReturn(false);
 
         assertThat(getByIdAsSuperAdmin(pending).isActivated()).isFalse();
+    }
+
+    private User passwordUser() {
+        return User.builder().id(9L).email("me@adac.fr").role(Role.STAGIAIRE).isActive(true)
+                .passwordHash("old-hash").build();
+    }
+
+    @Test
+    void changePasswordWithCorrectOldPasswordStoresNewHash() {
+        User user = passwordUser();
+        when(loginAttemptService.key("me@adac.fr", "password-change")).thenReturn("k");
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Old1password", "old-hash")).thenReturn(true);
+        when(passwordEncoder.encode("New1password")).thenReturn("new-hash");
+
+        userService.changePassword(new AdacUserDetails(user), new ChangePasswordRequest("Old1password", "New1password"));
+
+        assertThat(user.getPasswordHash()).isEqualTo("new-hash");
+        verify(userRepository).save(user);
+        verify(loginAttemptService).recordSuccess("k");
+    }
+
+    @Test
+    void changePasswordWithWrongOldPasswordIsForbiddenAndCountsAsFailure() {
+        User user = passwordUser();
+        when(loginAttemptService.key("me@adac.fr", "password-change")).thenReturn("k");
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Wrong1password", "old-hash")).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.changePassword(new AdacUserDetails(user),
+                new ChangePasswordRequest("Wrong1password", "New1password")))
+                .isInstanceOf(UnauthorizedException.class);
+
+        assertThat(user.getPasswordHash()).isEqualTo("old-hash");
+        verify(userRepository, never()).save(any());
+        verify(loginAttemptService).recordFailure("k");
+    }
+
+    @Test
+    void changePasswordWhileLockedIsRateLimitedWithoutCheckingThePassword() {
+        User user = passwordUser();
+        when(loginAttemptService.key("me@adac.fr", "password-change")).thenReturn("k");
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(loginAttemptService.isLocked("k")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.changePassword(new AdacUserDetails(user),
+                new ChangePasswordRequest("Old1password", "New1password")))
+                .isInstanceOf(RateLimitException.class);
+
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(userRepository, never()).save(any());
     }
 }
