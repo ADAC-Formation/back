@@ -14,7 +14,7 @@ Avant un ticket backend, lire les documents du ticket et, selon le sujet, `docs/
 
 ## Collaboration et Git
 
-Pour chaque ticket, présenter un plan concret et attendre la validation de Charlotte avant d'exécuter le travail. Le plan indique explicitement les opérations Git prévues : création ou changement de branche, commit, et le cas échéant push et pull request. La validation couvre les opérations annoncées ; ne pas demander à nouveau l'autorisation à chaque étape.
+Pour chaque ticket, présenter un plan concret à un humain (Charlotte, ou Manon quand c'est elle qui conduit la session) et attendre sa validation avant d'exécuter le travail. Le plan indique explicitement les opérations Git prévues : création ou changement de branche, commit, et le cas échéant push et pull request. La validation couvre les opérations annoncées ; ne pas demander à nouveau l'autorisation à chaque étape.
 
 Préserver tout travail étranger au ticket. Ne jamais utiliser une indexation globale : contrôler les fichiers et le contenu exact de l'index avant chaque commit.
 
