@@ -607,4 +607,35 @@ class UserServiceImplTest {
         assertThat(target.getRole()).isEqualTo(Role.STAGIAIRE);
         assertThat(target.isActive()).isTrue();
     }
+
+    private UserResponse getByIdAsSuperAdmin(User target) {
+        User superAdmin = User.builder().id(1L).role(Role.SUPER_ADMIN).isActive(true).build();
+        when(userRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(userMapper.toResponse(target)).thenReturn(UserResponse.builder().build());
+        return userService.getById(target.getId(), new AdacUserDetails(superAdmin));
+    }
+
+    @Test
+    void activeUserIsActivatedWithoutAnyTokenLookup() {
+        User active = User.builder().id(7L).role(Role.STAGIAIRE).isActive(true).build();
+
+        assertThat(getByIdAsSuperAdmin(active).isActivated()).isTrue();
+        verify(activationService, never()).hasEverActivated(any());
+    }
+
+    @Test
+    void suspendedUserWhoActivatedOnceIsActivated() {
+        User suspended = User.builder().id(7L).role(Role.STAGIAIRE).isActive(false).build();
+        when(activationService.hasEverActivated(suspended)).thenReturn(true);
+
+        assertThat(getByIdAsSuperAdmin(suspended).isActivated()).isTrue();
+    }
+
+    @Test
+    void neverActivatedUserIsNotActivated() {
+        User pending = User.builder().id(7L).role(Role.STAGIAIRE).isActive(false).build();
+        when(activationService.hasEverActivated(pending)).thenReturn(false);
+
+        assertThat(getByIdAsSuperAdmin(pending).isActivated()).isFalse();
+    }
 }

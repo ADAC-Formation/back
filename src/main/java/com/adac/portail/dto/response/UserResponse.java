@@ -26,6 +26,8 @@ public class UserResponse {
     @JsonProperty("isActive")
     private boolean active;
 
+    private boolean activated;
+
     private boolean emailNotificationsEnabled;
     private OffsetDateTime createdAt;
 }

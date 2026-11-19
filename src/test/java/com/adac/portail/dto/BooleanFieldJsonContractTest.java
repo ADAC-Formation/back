@@ -24,6 +24,13 @@ class BooleanFieldJsonContractTest {
     }
 
     @Test
+    void userResponseSerializesActivated() throws Exception {
+        UserResponse response = UserResponse.builder().activated(true).build();
+
+        assertThat(objectMapper.writeValueAsString(response)).contains("\"activated\":true");
+    }
+
+    @Test
     void messageResponseSerializesIsGroupNotGroup() throws Exception {
         MessageResponse response = MessageResponse.builder().group(true).build();
 

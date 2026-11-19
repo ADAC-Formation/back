@@ -27,7 +27,7 @@ class ActivationTokenRepositoryTest {
     private ActivationTokenRepository activationTokenRepository;
 
     @Test
-    void findAllByUsedAtIsNotNullOrExpiresAtBeforeReturnsExpiredAndUsedTokens() {
+    void findAllDueForCleanupReturnsExpiredUnusedAndUsedResetTokensButKeepsUsedActivationTokens() {
         User user = userRepository.save(User.builder()
                 .email("activation-token-repo-test@adac.fr")
                 .passwordHash("hashed")
@@ -45,12 +45,20 @@ class ActivationTokenRepositoryTest {
                 .expiresAt(now.minusMinutes(5))
                 .build());
 
-        ActivationToken used = activationTokenRepository.save(ActivationToken.builder()
+        ActivationToken usedReset = activationTokenRepository.save(ActivationToken.builder()
                 .user(user)
-                .codeHash("hash-used")
-                .type(TokenType.ACCOUNT_ACTIVATION)
+                .codeHash("hash-used-reset")
+                .type(TokenType.PASSWORD_RESET)
                 .expiresAt(now.plusMinutes(25))
                 .usedAt(now.minusMinutes(1))
+                .build());
+
+        ActivationToken usedActivation = activationTokenRepository.save(ActivationToken.builder()
+                .user(user)
+                .codeHash("hash-used-activation")
+                .type(TokenType.ACCOUNT_ACTIVATION)
+                .expiresAt(now.minusMinutes(10))
+                .usedAt(now.minusMinutes(20))
                 .build());
 
         ActivationToken stillValid = activationTokenRepository.save(ActivationToken.builder()
@@ -60,12 +68,12 @@ class ActivationTokenRepositoryTest {
                 .expiresAt(now.plusMinutes(25))
                 .build());
 
-        List<ActivationToken> result = activationTokenRepository.findAllByUsedAtIsNotNullOrExpiresAtBefore(now);
+        List<ActivationToken> result = activationTokenRepository.findAllDueForCleanup(now);
 
         assertThat(result).extracting(ActivationToken::getId)
-                .containsExactlyInAnyOrder(expired.getId(), used.getId());
+                .containsExactlyInAnyOrder(expired.getId(), usedReset.getId());
         assertThat(result).extracting(ActivationToken::getId)
-                .doesNotContain(stillValid.getId());
+                .doesNotContain(stillValid.getId(), usedActivation.getId());
     }
 
     @Test

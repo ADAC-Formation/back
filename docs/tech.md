@@ -635,6 +635,7 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 | prenom | String | string | |
 | role | Role (enum) | `'SUPER_ADMIN' \| 'ADMIN' \| 'STAGIAIRE'` | |
 | isActive | boolean | boolean | |
+| activated | boolean | boolean | `true` si le compte a déjà été activé au moins une fois. `isActive=false` + `activated=false` → « Jamais activé » (action : renvoyer le code) ; `isActive=false` + `activated=true` → « Suspendu » (action : réactiver) |
 | emailNotificationsEnabled | boolean | boolean | |
 | createdAt | LocalDateTime | string | ISO 8601 |
 

@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService {
     public UserResponse createFormateur(CreateUserRequest request) {
         User user = createPendingUser(request, Role.ADMIN);
         sendActivationCodeAfterCommit(user);
-        return userMapper.toResponse(user);
+        return toResponse(user);
     }
 
     @Override
@@ -57,7 +57,7 @@ public class UserServiceImpl implements UserService {
         User user = createPendingUser(request, Role.STAGIAIRE);
         enroll(user, request.getFormationIds());
         sendActivationCodeAfterCommit(user);
-        return userMapper.toResponse(user);
+        return toResponse(user);
     }
 
     @Override
@@ -66,7 +66,7 @@ public class UserServiceImpl implements UserService {
         boolean forceActiveOnly = principal.getUser().getRole() == Role.ADMIN;
         return userRepository.findAllByRole(Role.ADMIN).stream()
                 .filter(formateur -> matchesActiveFilter(formateur, active, forceActiveOnly))
-                .map(userMapper::toResponse)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -93,7 +93,7 @@ public class UserServiceImpl implements UserService {
 
         return stagiaires.stream()
                 .filter(stagiaire -> matchesActiveFilter(stagiaire, active, isAdmin))
-                .map(userMapper::toResponse)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -114,7 +114,7 @@ public class UserServiceImpl implements UserService {
                 throw new ResourceNotFoundException("Utilisateur introuvable");
             }
         }
-        return userMapper.toResponse(target);
+        return toResponse(target);
     }
 
     private boolean matchesActiveFilter(User user, Boolean active, boolean forceActiveOnly) {
@@ -136,7 +136,7 @@ public class UserServiceImpl implements UserService {
             throw new ConflictException("Impossible de suspendre le dernier compte Super Admin actif");
         }
         user.setActive(false);
-        return userMapper.toResponse(userRepository.save(user));
+        return toResponse(userRepository.save(user));
     }
 
     @Override
@@ -149,7 +149,7 @@ public class UserServiceImpl implements UserService {
                     "Ce compte n'a jamais été activé — utilisez le renvoi du code d'activation, pas la réactivation");
         }
         user.setActive(true);
-        return userMapper.toResponse(userRepository.save(user));
+        return toResponse(userRepository.save(user));
     }
 
     @Override
@@ -160,7 +160,7 @@ public class UserServiceImpl implements UserService {
         if (request.getEmailNotificationsEnabled() != null) {
             user.setEmailNotificationsEnabled(request.getEmailNotificationsEnabled());
         }
-        return userMapper.toResponse(userRepository.save(user));
+        return toResponse(userRepository.save(user));
     }
 
     @Override
@@ -198,7 +198,7 @@ public class UserServiceImpl implements UserService {
             sendActivationCodeAfterCommit(saved);
         }
 
-        return userMapper.toResponse(saved);
+        return toResponse(saved);
     }
 
     private User createPendingUser(CreateUserRequest request, Role role) {
@@ -260,6 +260,12 @@ public class UserServiceImpl implements UserService {
         } catch (RateLimitException e) {
             log.info("Activation code resend rate-limited for user id={}, data change already applied", user.getId());
         }
+    }
+
+    private UserResponse toResponse(User user) {
+        UserResponse response = userMapper.toResponse(user);
+        response.setActivated(user.isActive() || activationService.hasEverActivated(user));
+        return response;
     }
 
     private User findUserOrThrow(Long id) {
