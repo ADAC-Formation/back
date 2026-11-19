@@ -22,7 +22,7 @@ public class TokenCleanupScheduler {
     @Scheduled(cron = "0 0 3 * * *")
     public void purgeExpiredAndUsedTokens() {
         List<ActivationToken> dueForCleanup =
-                activationTokenRepository.findAllByUsedAtIsNotNullOrExpiresAtBefore(OffsetDateTime.now());
+                activationTokenRepository.findAllDueForCleanup(OffsetDateTime.now());
         activationTokenRepository.deleteAll(dueForCleanup);
         log.info("Token cleanup: removed {} expired/used activation token(s)", dueForCleanup.size());
     }

@@ -28,7 +28,7 @@ class TokenCleanupSchedulerTest {
     void deletesExpiredAndUsedTokensFoundAsOfNow() {
         ActivationToken expired = ActivationToken.builder().id(1L).build();
         ActivationToken used = ActivationToken.builder().id(2L).build();
-        when(activationTokenRepository.findAllByUsedAtIsNotNullOrExpiresAtBefore(any(OffsetDateTime.class)))
+        when(activationTokenRepository.findAllDueForCleanup(any(OffsetDateTime.class)))
                 .thenReturn(List.of(expired, used));
 
         tokenCleanupScheduler.purgeExpiredAndUsedTokens();
@@ -38,7 +38,7 @@ class TokenCleanupSchedulerTest {
 
     @Test
     void doesNothingWhenNoTokensAreDueForCleanup() {
-        when(activationTokenRepository.findAllByUsedAtIsNotNullOrExpiresAtBefore(any(OffsetDateTime.class)))
+        when(activationTokenRepository.findAllDueForCleanup(any(OffsetDateTime.class)))
                 .thenReturn(List.of());
 
         tokenCleanupScheduler.purgeExpiredAndUsedTokens();

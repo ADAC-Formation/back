@@ -447,6 +447,11 @@ HTTP Request
     codes (3/15min × 3 essais) reste sous ~9 tentatives/15min sans jamais déclencher d'alerte ni
     de blocage compte. À revoir si le profil de risque change (compteur cumulé, notification à
     l'utilisateur sur tentatives répétées).
+  - `TokenCleanupScheduler` ne supprime **jamais** les tokens `ACCOUNT_ACTIVATION` déjà utilisés : ils sont la
+    seule trace qu'un compte a été activé une fois (`hasEverActivated`, champ `activated` de `UserResponse`,
+    refus de `reactivate` sur un compte jamais activé). Avant ce correctif, le nettoyage de 3h les effaçait et
+    un compte suspendu redevenait « jamais activé ». Les tokens déjà purgés ne reviennent pas : un compte
+    suspendu avant ce correctif peut apparaître `activated=false` à tort.
   - `TokenCleanupScheduler` charge tous les tokens dus en mémoire puis les supprime un par un
     (pas de requête `DELETE` en masse) — non-problème à l'échelle actuelle (~50 utilisateurs),
     à revoir si le volume change significativement.

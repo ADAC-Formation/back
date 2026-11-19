@@ -25,4 +25,13 @@ class FormationMapperTest {
 
         assertThat(response.getFormateur().getRole()).isEqualTo(Role.ADMIN);
     }
+
+    @Test
+    void nestedFormateurIsActivatedWhenActive() {
+        User formateur = User.builder().id(7L).role(Role.ADMIN).isActive(true).build();
+
+        FormationResponse response = formationMapper.toResponse(Formation.builder().id(1L).formateur(formateur).build(), 0);
+
+        assertThat(response.getFormateur().isActivated()).isTrue();
+    }
 }
