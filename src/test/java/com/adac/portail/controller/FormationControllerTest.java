@@ -382,4 +382,14 @@ class FormationControllerTest {
     private static AdacUserDetails currentPrincipal() {
         return (AdacUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void patchingNonExistentFormateurSubResourceReturnsNotFound() throws Exception {
+        mockMvc.perform(patch("/api/formations/1/formateur")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"formateurId\":2}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404));
+    }
 }

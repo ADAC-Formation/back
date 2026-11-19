@@ -177,6 +177,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(HttpStatus.METHOD_NOT_ALLOWED.value(), "Méthode non autorisée sur cette ressource"));
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(HttpStatus.NOT_FOUND.value(), "Ressource introuvable"));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception ex) {
         log.error("Unexpected exception reached the top-level handler", ex);
