@@ -681,4 +681,48 @@ class MessageServiceImplTest {
         when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
         return saved;
     }
+
+    @Test
+    void getRecipientsReturnsOnlyUsersTheCallerMayMessageExcludingSelf() {
+        User me = user(1, Role.STAGIAIRE, true);
+        User superAdmin = user(2, Role.SUPER_ADMIN, true);
+        User activeAdmin = user(3, Role.ADMIN, true);
+        User inactiveAdmin = user(4, Role.ADMIN, false);
+        User otherStagiaire = user(5, Role.STAGIAIRE, true);
+        when(userRepository.findAll()).thenReturn(List.of(me, superAdmin, activeAdmin, inactiveAdmin, otherStagiaire));
+        when(userMapper.toResponse(any(User.class))).thenAnswer(inv -> {
+            UserResponse r = new UserResponse();
+            r.setId(((User) inv.getArgument(0)).getId());
+            return r;
+        });
+
+        List<UserResponse> result = messageService.getRecipients(principal(me));
+
+        assertThat(result).extracting(UserResponse::getId).containsExactly(2L, 3L);
+    }
+
+    @Test
+    void markConversationAsReadStampsEveryUnreadRowFromThatPartner() {
+        User me = user(1, Role.STAGIAIRE, true);
+        MessageRecipient unread1 = MessageRecipient.builder().build();
+        MessageRecipient unread2 = MessageRecipient.builder().build();
+        when(userRepository.existsById(7L)).thenReturn(true);
+        when(messageRecipientRepository.findUnreadFromSender(me, 7L)).thenReturn(List.of(unread1, unread2));
+
+        messageService.markConversationAsRead(principal(me), 7L);
+
+        assertThat(unread1.getReadAt()).isNotNull();
+        assertThat(unread2.getReadAt()).isNotNull();
+    }
+
+    @Test
+    void markConversationAsReadWithUnknownPartnerIsNotFound() {
+        User me = user(1, Role.STAGIAIRE, true);
+        when(userRepository.existsById(404L)).thenReturn(false);
+
+        assertThatThrownBy(() -> messageService.markConversationAsRead(principal(me), 404L))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verify(messageRecipientRepository, never()).findUnreadFromSender(any(), any());
+    }
 }

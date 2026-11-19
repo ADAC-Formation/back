@@ -521,6 +521,19 @@ Liste des conversations (derniers messages de chaque fil).
 // Triées par date DESC (plus récent en premier)
 ```
 
+### GET /api/messages/recipients
+Liste des utilisateurs que l'appelant peut contacter (mêmes règles de rôle que `POST /send`, l'appelant est exclu).
+```json
+// 200 — UserResponse[]
+```
+
+### PATCH /api/messages/conversations/{conversationId}/read
+Marque comme lus tous les messages non lus reçus de l'autre participant (`conversationId` = id de cet utilisateur). Idempotent.
+```json
+// 204 No Content
+// 404 — utilisateur inconnu
+```
+
 ### GET /api/messages/{conversationId}
 Tous les messages d'un fil de conversation.
 ```json

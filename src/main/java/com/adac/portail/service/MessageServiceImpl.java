@@ -251,6 +251,29 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<UserResponse> getRecipients(AdacUserDetails principal) {
+        User caller = principal.getUser();
+        // ponytail: loads all users and filters in memory; fine for an ADAC-sized user base, move to a query if it grows
+        return userRepository.findAll().stream()
+                .filter(target -> !target.getId().equals(caller.getId()))
+                .filter(target -> canMessage(caller.getRole(), target))
+                .map(userMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void markConversationAsRead(AdacUserDetails principal, Long conversationId) {
+        if (!userRepository.existsById(conversationId)) {
+            throw new ResourceNotFoundException("Utilisateur introuvable");
+        }
+        OffsetDateTime now = OffsetDateTime.now();
+        messageRecipientRepository.findUnreadFromSender(principal.getUser(), conversationId)
+                .forEach(row -> row.setReadAt(now));
+    }
+
+    @Override
     @Transactional
     public void markAsRead(AdacUserDetails principal, Long messageId) {
         Message message = messageRepository.findById(messageId)

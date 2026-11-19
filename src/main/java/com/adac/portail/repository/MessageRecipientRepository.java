@@ -35,6 +35,12 @@ public interface MessageRecipientRepository extends JpaRepository<MessageRecipie
     List<MessageRecipient> findAllByMessageInAndRecipientIdIn(
             @Param("messages") List<Message> messages, @Param("recipientIds") List<Long> recipientIds);
 
+    @Query("""
+            SELECT mr FROM MessageRecipient mr
+            WHERE mr.recipient = :recipient AND mr.message.sender.id = :senderId AND mr.readAt IS NULL
+            """)
+    List<MessageRecipient> findUnreadFromSender(@Param("recipient") User recipient, @Param("senderId") Long senderId);
+
     interface UnreadCountBySender {
         Long getSenderId();
 

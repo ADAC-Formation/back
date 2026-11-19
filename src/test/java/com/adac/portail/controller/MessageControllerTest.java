@@ -257,4 +257,37 @@ class MessageControllerTest {
         mockMvc.perform(patch("/api/messages/404/read"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void getRecipientsReturnsTheListFromTheService() throws Exception {
+        UserResponse admin = new UserResponse();
+        admin.setId(3L);
+        when(messageService.getRecipients(any())).thenReturn(List.of(admin));
+
+        mockMvc.perform(get("/api/messages/recipients"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(3));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void markConversationAsReadReturnsNoContentWithTheRealPrincipal() throws Exception {
+        AdacUserDetails principal = currentPrincipal();
+
+        mockMvc.perform(patch("/api/messages/conversations/7/read"))
+                .andExpect(status().isNoContent());
+
+        verify(messageService).markConversationAsRead(eq(principal), eq(7L));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void markConversationAsReadWithUnknownUserReturnsNotFound() throws Exception {
+        doThrow(new ResourceNotFoundException("Utilisateur introuvable"))
+                .when(messageService).markConversationAsRead(any(), eq(404L));
+
+        mockMvc.perform(patch("/api/messages/conversations/404/read"))
+                .andExpect(status().isNotFound());
+    }
 }
