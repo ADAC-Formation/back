@@ -14,6 +14,7 @@ import com.adac.portail.security.WithMockAdacUser;
 import com.adac.portail.service.UserService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
+import com.adac.portail.exception.UnauthorizedException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -514,5 +515,60 @@ class UserControllerTest {
 
     private static AdacUserDetails currentPrincipal() {
         return (AdacUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    }
+
+    private void authenticateAsStagiaire() {
+        User user = User.builder().id(9L).email("stagiaire@adac.fr").role(Role.STAGIAIRE).build();
+        AdacUserDetails principal = new AdacUserDetails(user);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions changePassword(String oldPassword, String newPassword)
+            throws Exception {
+        return mockMvc.perform(patch("/api/users/me/password")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("oldPassword", oldPassword, "newPassword", newPassword))));
+    }
+
+    @Test
+    void changePasswordWithValidBodyReturnsNoContent() throws Exception {
+        authenticateAsStagiaire();
+
+        changePassword("Old1password", "New1password").andExpect(status().isNoContent());
+
+        verify(userService).changePassword(any(), any());
+    }
+
+    @Test
+    void changePasswordWithWeakNewPasswordReturnsBadRequest() throws Exception {
+        authenticateAsStagiaire();
+
+        changePassword("Old1password", "weak").andExpect(status().isBadRequest());
+
+        verify(userService, never()).changePassword(any(), any());
+    }
+
+    @Test
+    void changePasswordWithBlankOldPasswordReturnsBadRequest() throws Exception {
+        authenticateAsStagiaire();
+
+        changePassword("", "New1password").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void changePasswordWithWrongOldPasswordReturnsForbidden() throws Exception {
+        authenticateAsStagiaire();
+        doThrow(new UnauthorizedException("Ancien mot de passe incorrect"))
+                .when(userService).changePassword(any(), any());
+
+        changePassword("Wrong1password", "New1password")
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403));
+    }
+
+    @Test
+    void changePasswordWithoutAuthenticationReturnsUnauthorized() throws Exception {
+        changePassword("Old1password", "New1password").andExpect(status().isUnauthorized());
     }
 }

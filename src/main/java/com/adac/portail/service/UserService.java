@@ -1,5 +1,6 @@
 package com.adac.portail.service;
 
+import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
@@ -25,6 +26,8 @@ public interface UserService {
     UserResponse deactivate(Long id, AdacUserDetails principal);
 
     UserResponse reactivate(Long id);
+
+    void changePassword(AdacUserDetails principal, ChangePasswordRequest request);
 
     UserResponse updateMe(AdacUserDetails principal, UpdateProfileRequest request);
 

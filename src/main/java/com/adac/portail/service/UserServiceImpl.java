@@ -1,5 +1,6 @@
 package com.adac.portail.service;
 
+import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
@@ -12,11 +13,13 @@ import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
+import com.adac.portail.exception.UnauthorizedException;
 import com.adac.portail.mapper.UserMapper;
 import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
+import com.adac.portail.security.LoginAttemptService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +45,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final ActivationService activationService;
+    private final LoginAttemptService loginAttemptService;
 
     @Override
     @Transactional
@@ -150,6 +154,23 @@ public class UserServiceImpl implements UserService {
         }
         user.setActive(true);
         return toResponse(userRepository.save(user));
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(AdacUserDetails principal, ChangePasswordRequest request) {
+        User user = findUserOrThrow(principal.getUser().getId());
+        String attemptKey = loginAttemptService.key(user.getEmail(), "password-change");
+        if (loginAttemptService.isLocked(attemptKey)) {
+            throw new RateLimitException("Trop de tentatives, réessayez plus tard");
+        }
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPasswordHash())) {
+            loginAttemptService.recordFailure(attemptKey);
+            throw new UnauthorizedException("Ancien mot de passe incorrect");
+        }
+        loginAttemptService.recordSuccess(attemptKey);
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     @Override
