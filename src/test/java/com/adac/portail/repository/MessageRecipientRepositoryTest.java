@@ -80,4 +80,25 @@ class MessageRecipientRepositoryTest {
                 MessageRecipientRepository.UnreadCountBySender::getUnreadCount)
                 .containsExactly(org.assertj.core.groups.Tuple.tuple(senderA.getId(), 2L));
     }
+
+    @Test
+    void findUnreadFromSenderReturnsOnlyUnreadRowsFromThatSenderToThatRecipient() {
+        User me = save("mr-unread-me@adac.fr");
+        User alice = save("mr-unread-alice@adac.fr");
+        User bob = save("mr-unread-bob@adac.fr");
+
+        Message fromAlice1 = messageRepository.save(Message.builder().sender(alice).content("1").build());
+        MessageRecipient unread = messageRecipientRepository.save(MessageRecipient.builder().message(fromAlice1).recipient(me).build());
+        Message fromAlice2 = messageRepository.save(Message.builder().sender(alice).content("2").build());
+        messageRecipientRepository.save(MessageRecipient.builder().message(fromAlice2).recipient(me)
+                .readAt(java.time.OffsetDateTime.now()).build());
+        Message fromBob = messageRepository.save(Message.builder().sender(bob).content("3").build());
+        messageRecipientRepository.save(MessageRecipient.builder().message(fromBob).recipient(me).build());
+        Message aliceToBob = messageRepository.save(Message.builder().sender(alice).content("4").build());
+        messageRecipientRepository.save(MessageRecipient.builder().message(aliceToBob).recipient(bob).build());
+
+        List<MessageRecipient> result = messageRecipientRepository.findUnreadFromSender(me, alice.getId());
+
+        assertThat(result).extracting(MessageRecipient::getId).containsExactly(unread.getId());
+    }
 }

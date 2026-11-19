@@ -21,5 +21,9 @@ public interface MessageService {
 
     List<UserResponse> previewGroupRecipients(AdacUserDetails principal, SendMessageRequest.Filter filter);
 
+    List<UserResponse> getRecipients(AdacUserDetails principal);
+
+    void markConversationAsRead(AdacUserDetails principal, Long conversationId);
+
     void markAsRead(AdacUserDetails principal, Long messageId);
 }

@@ -49,6 +49,26 @@ public class MessageController {
         return ResponseEntity.ok(messageService.getConversations(principal));
     }
 
+    @Operation(summary = "List users the caller may message", description = "Same role rules as POST /send (inactive ADMIN/STAGIAIRE hidden from non-SUPER_ADMIN); the caller is excluded.")
+    @ApiResponse(responseCode = "200", description = "OK",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserResponse.class))))
+    @GetMapping("/recipients")
+    public ResponseEntity<List<UserResponse>> getRecipients(@AuthenticationPrincipal AdacUserDetails principal) {
+        return ResponseEntity.ok(messageService.getRecipients(principal));
+    }
+
+    @Operation(summary = "Mark a whole conversation as read", description = "Marks every unread message received from the other participant. Idempotent.")
+    @ApiResponse(responseCode = "204", description = "No Content")
+    @ApiResponse(responseCode = "404", description = "No such user",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PatchMapping("/conversations/{conversationId}/read")
+    public ResponseEntity<Void> markConversationAsRead(
+            @PathVariable @Parameter(description = "The other participant's user id") Long conversationId,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        messageService.markConversationAsRead(principal, conversationId);
+        return ResponseEntity.noContent().build();
+    }
+
     @Operation(summary = "Get a conversation thread", description = "conversationId is the other participant's user id — there is no dedicated Conversation entity.")
     @ApiResponse(responseCode = "200", description = "OK")
     @ApiResponse(responseCode = "404", description = "No such user",
