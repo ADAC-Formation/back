@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -26,6 +27,8 @@ public interface UserService {
     UserResponse deactivate(Long id, AdacUserDetails principal);
 
     UserResponse reactivate(Long id);
+
+    List<UserInscriptionResponse> getInscriptionsOf(Long userId);
 
     void changePassword(AdacUserDetails principal, ChangePasswordRequest request);
 
