@@ -1,5 +1,6 @@
 package com.adac.portail.mapper;
 
+import com.adac.portail.dto.response.UploaderResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.User;
 import org.mapstruct.Mapper;
@@ -8,4 +9,6 @@ import org.mapstruct.Mapper;
 public interface UserMapper {
 
     UserResponse toResponse(User user);
+
+    UploaderResponse toUploader(User user);
 }

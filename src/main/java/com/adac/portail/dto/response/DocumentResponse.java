@@ -19,12 +19,10 @@ public class DocumentResponse {
 
     private String fileName;
 
-    private String fileUrl;
-
     private Long fileSize;
 
     private String mimeType;
-    private UserResponse uploadedBy;
+    private UploaderResponse uploadedBy;
     private Long formationId;
     private Long inscriptionId;
     private OffsetDateTime createdAt;

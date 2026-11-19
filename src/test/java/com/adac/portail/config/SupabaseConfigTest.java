@@ -52,4 +52,12 @@ class SupabaseConfigTest {
         assertThat(config.getKey()).isEqualTo("service-key");
         assertThat(config.getBucket()).isEqualTo("adac-documents");
     }
+
+    @Test
+    void stripsTrailingSlashesFromUrl() {
+        SupabaseConfig withSlash = new SupabaseConfig("https://xxxx.supabase.co/", "k", "b");
+
+        assertThat(withSlash.getUrl()).isEqualTo("https://xxxx.supabase.co");
+        assertThat(withSlash.buildObjectUrl("a.pdf")).isEqualTo("https://xxxx.supabase.co/storage/v1/object/b/a.pdf");
+    }
 }
