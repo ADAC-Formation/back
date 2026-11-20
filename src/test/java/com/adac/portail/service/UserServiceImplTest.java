@@ -710,13 +710,42 @@ class UserServiceImplTest {
         when(inscriptionRepository.findAllByStagiaire(stagiaire)).thenReturn(List.of(inscription));
         when(inscriptionMapper.toUserInscription(inscription)).thenReturn(mapped);
 
-        assertThat(userService.getInscriptionsOf(9L)).containsExactly(mapped);
+        assertThat(userService.getInscriptionsOf(9L, new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build())))
+                .containsExactly(mapped);
+    }
+
+    @Test
+    void getInscriptionsOfByAdminKeepsOnlyTheFormationsHeTeaches() {
+        User formateur = User.builder().id(2L).role(Role.ADMIN).build();
+        User other = User.builder().id(3L).role(Role.ADMIN).build();
+        User stagiaire = User.builder().id(9L).role(Role.STAGIAIRE).isActive(true).build();
+        Inscription mine = Inscription.builder().id(5L).formation(Formation.builder().id(50L).formateur(formateur).build()).build();
+        Inscription theirs = Inscription.builder().id(6L).formation(Formation.builder().id(60L).formateur(other).build()).build();
+        UserInscriptionResponse mapped = new UserInscriptionResponse(5L, null);
+        when(userRepository.findById(9L)).thenReturn(Optional.of(stagiaire));
+        when(inscriptionRepository.existsByStagiaireAndFormation_Formateur(stagiaire, formateur)).thenReturn(true);
+        when(inscriptionRepository.findAllByStagiaire(stagiaire)).thenReturn(List.of(mine, theirs));
+        when(inscriptionMapper.toUserInscription(mine)).thenReturn(mapped);
+
+        assertThat(userService.getInscriptionsOf(9L, new AdacUserDetails(formateur))).containsExactly(mapped);
+    }
+
+    @Test
+    void getInscriptionsOfByAdminForAStagiaireOfAnotherFormateurIsNotFound() {
+        User formateur = User.builder().id(2L).role(Role.ADMIN).build();
+        User stagiaire = User.builder().id(9L).role(Role.STAGIAIRE).isActive(true).build();
+        when(userRepository.findById(9L)).thenReturn(Optional.of(stagiaire));
+        when(inscriptionRepository.existsByStagiaireAndFormation_Formateur(stagiaire, formateur)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.getInscriptionsOf(9L, new AdacUserDetails(formateur)))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verify(inscriptionRepository, never()).findAllByStagiaire(any());
     }
 
     @Test
     void getInscriptionsOfUnknownUserIsNotFound() {
         when(userRepository.findById(404L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.getInscriptionsOf(404L)).isInstanceOf(ResourceNotFoundException.class);
+        assertThatThrownBy(() -> userService.getInscriptionsOf(404L, new AdacUserDetails(User.builder().id(1L).role(Role.SUPER_ADMIN).build()))).isInstanceOf(ResourceNotFoundException.class);
     }
 }

@@ -576,7 +576,7 @@ class UserControllerTest {
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getUserInscriptionsReturnsTheList() throws Exception {
-        when(userService.getInscriptionsOf(9L)).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
+        when(userService.getInscriptionsOf(eq(9L), any())).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
 
         mockMvc.perform(get("/api/users/9/inscriptions"))
                 .andExpect(status().isOk())
@@ -585,14 +585,22 @@ class UserControllerTest {
 
     @Test
     @WithMockAdacUser(role = Role.ADMIN)
-    void getUserInscriptionsIsForbiddenForNonSuperAdmin() throws Exception {
+    void getUserInscriptionsIsAllowedForAdmin() throws Exception {
+        when(userService.getInscriptionsOf(eq(9L), any())).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
+
+        mockMvc.perform(get("/api/users/9/inscriptions")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void getUserInscriptionsIsForbiddenForStagiaire() throws Exception {
         mockMvc.perform(get("/api/users/9/inscriptions")).andExpect(status().isForbidden());
     }
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getUserInscriptionsOfUnknownUserReturnsNotFound() throws Exception {
-        when(userService.getInscriptionsOf(404L)).thenThrow(new ResourceNotFoundException("Utilisateur introuvable"));
+        when(userService.getInscriptionsOf(eq(404L), any())).thenThrow(new ResourceNotFoundException("Utilisateur introuvable"));
 
         mockMvc.perform(get("/api/users/404/inscriptions")).andExpect(status().isNotFound());
     }
