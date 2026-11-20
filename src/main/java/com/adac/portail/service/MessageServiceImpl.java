@@ -37,8 +37,10 @@ import org.slf4j.LoggerFactory;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -221,7 +223,11 @@ public class MessageServiceImpl implements MessageService {
                 yield resolveManualRecipients(filter.getUserIds());
             }
         };
-        return resolved.stream().filter(target -> canMessage(caller.getRole(), target)).toList();
+        Set<Long> excluded = filter.getExcludedUserIds() == null ? Set.of() : new HashSet<>(filter.getExcludedUserIds());
+        return resolved.stream()
+                .filter(target -> !excluded.contains(target.getId()))
+                .filter(target -> canMessage(caller.getRole(), target))
+                .toList();
     }
 
     private List<User> resolveFormationRecipients(AdacUserDetails principal, Long formationId) {
