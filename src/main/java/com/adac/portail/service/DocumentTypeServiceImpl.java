@@ -1,6 +1,7 @@
 package com.adac.portail.service;
 
 import com.adac.portail.dto.request.DocumentTypeRequest;
+import com.adac.portail.dto.response.CategoryResponse;
 import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.entity.Category;
 import com.adac.portail.entity.DocumentType;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.text.Normalizer;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -63,7 +65,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
                 : documentTypeRepository.findAll();
         return types.stream()
                 .sorted((a, b) -> sortKey(a.getNom()).compareTo(sortKey(b.getNom())))
-                .map(documentTypeMapper::toResponse)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -94,7 +96,18 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     private DocumentTypeResponse setActive(Long id, boolean active) {
         DocumentType documentType = findOrThrow(id);
         documentType.setActive(active);
-        return documentTypeMapper.toResponse(documentTypeRepository.save(documentType));
+        return toResponse(documentTypeRepository.save(documentType));
+    }
+
+    // Les catégories d'un type forment un ensemble sans ordre : la réponse les range par nom pour rester stable.
+    private DocumentTypeResponse toResponse(DocumentType documentType) {
+        DocumentTypeResponse response = documentTypeMapper.toResponse(documentType);
+        if (response.getCategories() != null) {
+            response.setCategories(response.getCategories().stream()
+                    .sorted(Comparator.comparing(CategoryResponse::getNom, String.CASE_INSENSITIVE_ORDER))
+                    .toList());
+        }
+        return response;
     }
 
     private DocumentType findOrThrow(Long id) {
@@ -173,7 +186,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
 
     private DocumentTypeResponse saveOrThrowIfNameTaken(DocumentType documentType) {
         try {
-            return documentTypeMapper.toResponse(documentTypeRepository.saveAndFlush(documentType));
+            return toResponse(documentTypeRepository.saveAndFlush(documentType));
         } catch (DataIntegrityViolationException ex) {
             throw new DocumentTypeAlreadyExistsException(NAME_TAKEN_MESSAGE);
         }

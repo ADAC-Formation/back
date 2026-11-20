@@ -1,6 +1,7 @@
 package com.adac.portail.service;
 
 import com.adac.portail.dto.request.DocumentTypeRequest;
+import com.adac.portail.dto.response.CategoryResponse;
 import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.entity.Category;
 import com.adac.portail.entity.DocumentType;
@@ -292,6 +293,18 @@ class DocumentTypeServiceImplTest {
 
         assertThatThrownBy(() -> service.activateDocumentType(404L)).isInstanceOf(ResourceNotFoundException.class);
         assertThatThrownBy(() -> service.deactivateDocumentType(404L)).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void theResponseListsItsCategoriesSortedByName() {
+        saveReturnsItsArgument();
+        when(documentTypeMapper.toResponse(any())).thenReturn(DocumentTypeResponse.builder().id(1L).categories(List.of(
+                CategoryResponse.builder().nom("Méthodologie").build(),
+                CategoryResponse.builder().nom("estime de soi").build())).build());
+
+        DocumentTypeResponse response = service.createDocumentType(request());
+
+        assertThat(response.getCategories()).extracting(CategoryResponse::getNom).containsExactly("estime de soi", "Méthodologie");
     }
 
     // --- liste ----------------------------------------------------------------------------------------------
