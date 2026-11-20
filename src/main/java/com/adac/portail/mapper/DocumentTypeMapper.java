@@ -20,6 +20,6 @@ public interface DocumentTypeMapper {
 
     @Named("splitFormats")
     default List<String> splitFormats(String csv) {
-        return csv == null || csv.isBlank() ? List.of() : Arrays.asList(csv.split(","));
+        return csv == null || csv.isBlank() ? List.of() : Arrays.stream(csv.split(",")).map(String::trim).toList();
     }
 }

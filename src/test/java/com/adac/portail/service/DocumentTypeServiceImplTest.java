@@ -160,6 +160,15 @@ class DocumentTypeServiceImplTest {
     }
 
     @Test
+    void doesNotReportAnotherConstraintFailureAsANameConflict() {
+        when(documentTypeRepository.saveAndFlush(any()))
+                .thenThrow(new DataIntegrityViolationException("violates foreign key constraint fk_document_type_categories_category"));
+
+        assertThatThrownBy(() -> service.createDocumentType(request()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void refusesCategoriesOnATypeForAllFormations() {
         DocumentTypeRequest request = request();
         request.setCategoryIds(List.of(1L));

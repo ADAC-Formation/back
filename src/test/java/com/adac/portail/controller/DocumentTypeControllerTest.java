@@ -208,6 +208,35 @@ class DocumentTypeControllerTest {
 
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
+    void createWithANullFormatInTheListReturnsBadRequest() throws Exception {
+        Map<String, Object> body = validBody();
+        List<String> formats = new java.util.ArrayList<>();
+        formats.add("pdf");
+        formats.add(null);
+        body.put("allowedFormats", formats);
+
+        mockMvc.perform(post("/api/document-types").contentType(MediaType.APPLICATION_JSON).content(json(body)))
+                .andExpect(status().isBadRequest());
+
+        verify(documentTypeService, never()).createDocumentType(any());
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    void createWithTooManyFormatsOrCategoriesReturnsBadRequest() throws Exception {
+        Map<String, Object> tooManyFormats = validBody();
+        tooManyFormats.put("allowedFormats", java.util.Collections.nCopies(21, "pdf"));
+        Map<String, Object> tooManyCategories = validBody();
+        tooManyCategories.put("categoryIds", java.util.stream.LongStream.rangeClosed(1, 101).boxed().toList());
+
+        mockMvc.perform(post("/api/document-types").contentType(MediaType.APPLICATION_JSON).content(json(tooManyFormats)))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/document-types").contentType(MediaType.APPLICATION_JSON).content(json(tooManyCategories)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
     void createWithADuplicateNameReturnsConflict() throws Exception {
         when(documentTypeService.createDocumentType(any()))
                 .thenThrow(new DocumentTypeAlreadyExistsException("Ce type de document existe déjà"));

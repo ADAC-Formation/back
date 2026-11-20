@@ -34,6 +34,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     private static final String NOT_FOUND_MESSAGE = "Type de document introuvable";
     private static final String CATEGORY_NOT_FOUND_MESSAGE = "Catégorie introuvable";
     private static final int MAX_DEADLINE_DAYS = 365;
+    private static final String NAME_INDEX = "uk_document_types_nom_upper";
 
     /** Mêmes formats que le dépôt de documents (tech.md § 6) ; un type peut en autoriser un sous-ensemble. */
     private static final Set<String> KNOWN_FORMATS = Set.of("pdf", "jpg", "jpeg", "png", "docx", "xlsx");
@@ -184,11 +185,22 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
         return ACCENTS.matcher(Normalizer.normalize(nom, Normalizer.Form.NFD)).replaceAll("").toLowerCase(Locale.ROOT);
     }
 
+    private static boolean violatesNameIndex(DataIntegrityViolationException ex) {
+        Throwable cause = ex.getMostSpecificCause();
+        String message = cause.getMessage() != null ? cause.getMessage() : ex.getMessage();
+        return message != null && message.contains(NAME_INDEX);
+    }
+
     private DocumentTypeResponse saveOrThrowIfNameTaken(DocumentType documentType) {
         try {
             return toResponse(documentTypeRepository.saveAndFlush(documentType));
         } catch (DataIntegrityViolationException ex) {
-            throw new DocumentTypeAlreadyExistsException(NAME_TAKEN_MESSAGE);
+            // Seul l'index d'unicité du nom veut dire « nom déjà pris » ; une autre contrainte (clé étrangère d'une
+            // catégorie supprimée entre-temps, CHECK) est une vraie erreur qu'un 409 trompeur cacherait.
+            if (violatesNameIndex(ex)) {
+                throw new DocumentTypeAlreadyExistsException(NAME_TAKEN_MESSAGE);
+            }
+            throw ex;
         }
     }
 }

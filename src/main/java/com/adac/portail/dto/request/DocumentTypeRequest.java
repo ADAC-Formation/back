@@ -39,6 +39,7 @@ public class DocumentTypeRequest {
     @NotNull
     private Boolean appliesToAllFormations;
 
+    @Size(max = 100)
     private List<@NotNull Long> categoryIds;
 
     @Min(0)
@@ -47,5 +48,7 @@ public class DocumentTypeRequest {
 
     private DeadlineAnchor deadlineAnchor;
 
-    private List<String> allowedFormats;
+    // 6 formats existent ; la marge laisse passer des doublons que le service écarte.
+    @Size(max = 20)
+    private List<@NotNull String> allowedFormats;
 }

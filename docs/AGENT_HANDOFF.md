@@ -340,3 +340,27 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Branche : fix/stagiaire-inscription-id (depuis dev). Revue review-code : voir rapport final.
 - Divergence connue : N+1 léger sur `GET /formations` pour un stagiaire (1 requête par formation
   pour l'inscription), identique au compte d'inscriptions déjà fait par formation.
+
+## Ticket 051 — Catalogue des types de document (CRUD, SUPER_ADMIN)
+
+- Outil ayant préparé le rapport : Claude Code (session conduite par Manon, plan validé par Manon le 2026-11-20)
+- Branche et HEAD observés : feature/document-types (depuis origin/dev 9a50cac), voir `git log` pour le dernier commit
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-046 (catégories, Done), TICKET-026 (documents, Done)
+- Travail réalisé : migration V6 (`document_types`, `document_type_categories`, index unique sur `UPPER(nom)`,
+  CHECK de délai), entité, dépôt, service, contrôleur `/api/document-types` (SUPER_ADMIN, sur le modèle des
+  catégories), mapper (`unmappedTargetPolicy = ERROR`), 409 dédié. Aucune donnée dans la migration.
+- Tests exécutés : `mvn test -Dtest='DocumentType*Test'` — 61/61 GREEN (RED confirmé à chaque couche : dépôt et
+  contrôleur par erreur de compilation, service par `UnsupportedOperationException`, retouches de revue par échec
+  des nouveaux tests). Suite complète : seuls échouent `CategoryRepositoryTest` (2) et
+  `ActivationTokenRepositoryTest` (1), dépendants des données de la base locale, sans rapport avec ce ticket ;
+  `FlywayMigrationTest` mis à jour pour V6.
+- Revue : `/code-review` medium sur `origin/dev..HEAD` ; 9 constats, 0 BLOCKING ; 2 CRITICAL et 2 SUGGESTION
+  corrigés, 5 non appliqués avec leur raison (voir la fiche, section Revue).
+- Documentation mise à jour : docs/tech.md (« Types de document »), docs/DB_MODEL.md et .mmd,
+  docs/tickets/TICKET-051.md, docs/TICKETS.md.
+- État Git observé : arbre propre hors la présente documentation ; aucun changement étranger au ticket.
+- Étape suivante : relecture par PR ; puis les tickets de la checklist (dépôt typé, checklist du stagiaire, vue de
+  la chargée et du formateur, retrait du filtre MISSING_DOCS).
+- Risques, divergences ou décisions attendues : la migration V6 est le point sensible de la relecture ; décision
+  de produit prise par Manon (catégories désactivées liables, GET réservé à SUPER_ADMIN, pas de verrou optimiste).

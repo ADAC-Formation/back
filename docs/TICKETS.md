@@ -68,6 +68,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-026 | Backend — Upload Supabase + download | back | TICKET-022, TICKET-023 | 3h | Done |
 | TICKET-027 | Frontend — Upload + téléchargement docs formation | front | TICKET-026 | 2h | À faire |
 | TICKET-028 | Frontend — Upload docs stagiaire (profil) | front | TICKET-027 | 1h | À faire |
+| TICKET-051 | Backend — Catalogue des types de document (CRUD, SUPER_ADMIN) | back | TICKET-046, TICKET-026 | 3h | Done |
 
 ## Phase 2 — Messagerie
 
@@ -120,6 +121,13 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
   TICKET-013, TICKET-042
 - **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
   ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
+
+## Note sur cette révision (2026-11-20)
+
+`TICKET-051` ajouté : catalogue des types de document (les pièces que les stagiaires fournissent), première
+tranche d'une checklist des documents voulue avec la chargée de formation. Les tranches suivantes (dépôt typé,
+checklist du stagiaire, vue de la chargée et du formateur) auront leurs propres tickets. Voir
+`docs/tickets/TICKET-051.md`.
 
 ## Note sur cette révision (2026-09-08)
 
