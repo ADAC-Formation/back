@@ -192,6 +192,37 @@ Créer un stagiaire (SUPER_ADMIN uniquement). Déclenche l'email d'activation.
 // 409 — email déjà utilisé
 ```
 
+### POST /api/users/import
+Créer des comptes depuis un fichier Excel (SUPER_ADMIN uniquement, TICKET-051). **Ligne par ligne** :
+chaque ligne valide crée un compte en attente d'activation et déclenche son email d'activation
+(comme `POST /users/formateurs` et `/stagiaires`) ; une ligne invalide est rapportée dans `errors`
+et ne crée rien. Aucune inscription à une formation.
+
+Une ligne d'en-tête (ignorée), puis une ligne par compte, 200 lignes au plus :
+
+| # | Colonne | Requis | Format |
+|---|---|---|---|
+| A | nom | oui | texte, 255 caractères max |
+| B | prenom | oui | texte, 255 caractères max |
+| C | email | oui | adresse email ; ni déjà utilisée par un compte, ni répétée dans le fichier (casse ignorée) |
+| D | role | oui | `Formateur` \| `Stagiaire` (casse ignorée) |
+
+```json
+// Content-Type: multipart/form-data
+// Body: file (fichier .xlsx, 2 Mo max)
+// 200 OK → AccountImportResponse
+{
+  "created": [ /* UserResponse, dans l'ordre du fichier */ ],
+  "errors": [ { "ligne": 3, "colonne": "email", "message": "e-mail déjà utilisé" } ]
+}
+// "ligne" = numéro de ligne Excel (l'en-tête est la ligne 1) ; "colonne" ∈ nom | prenom | email | role
+// Messages : "valeur manquante", "adresse e-mail invalide", "valeur trop longue (255 caractères au maximum)",
+//   "e-mail déjà utilisé", "e-mail déjà présent ligne N", "valeur invalide \"X\" (attendu Formateur ou Stagiaire)"
+// 400 — fichier refusé en entier (ErrorResponse) : pas un .xlsx lisible, plus de 2 Mo,
+//       plus de 200 lignes, ou aucun compte dans le fichier
+// 403 — rôle insuffisant
+```
+
 ### GET /api/users/{id}
 Profil d'un utilisateur. Réservé à SUPER_ADMIN et ADMIN — un STAGIAIRE consulte son propre profil
 via `PATCH /api/users/me` (pas de `GET /api/users/me` séparé pour l'instant), jamais celui d'un

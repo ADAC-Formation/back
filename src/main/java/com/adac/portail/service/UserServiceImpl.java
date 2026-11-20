@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.AccountImportResponse;
 import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
@@ -22,6 +23,7 @@ import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.security.LoginAttemptService;
+import com.adac.portail.utils.AccountImportParser;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +32,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -49,6 +53,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final ActivationService activationService;
     private final LoginAttemptService loginAttemptService;
+    private final AccountImportParser accountImportParser;
 
     @Override
     @Transactional
@@ -232,6 +237,21 @@ public class UserServiceImpl implements UserService {
         }
 
         return toResponse(saved);
+    }
+
+    // NOTES-09 : chaque ligne valide devient un compte en attente d'activation (e-mail envoyé après le
+    // commit, comme une création unitaire) ; les lignes refusées sont rendues telles quelles.
+    @Override
+    @Transactional
+    public AccountImportResponse importAccounts(MultipartFile file) {
+        AccountImportParser.Result parsed = accountImportParser.parse(file);
+        List<UserResponse> created = new ArrayList<>();
+        for (AccountImportParser.AccountRow row : parsed.rows()) {
+            User user = createPendingUser(row.request(), row.role());
+            sendActivationCodeAfterCommit(user);
+            created.add(toResponse(user));
+        }
+        return new AccountImportResponse(created, parsed.errors());
     }
 
     private User createPendingUser(CreateUserRequest request, Role role) {
