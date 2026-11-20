@@ -318,6 +318,89 @@ formation, mais reste inchangée sur les formations qui la référencent déjà.
 // 200 OK → CategoryResponse
 ```
 
+### Types de document (TICKET-051)
+
+Catalogue des pièces que les stagiaires fournissent (« Pièce d'identité », « Certificat médical »…), tenu par
+la chargée de formation. Un type est **obligatoire ou facultatif**, éventuellement **sensible**, vaut pour
+**toutes les formations** ou pour une ou plusieurs **catégories**, peut avoir un **délai** relatif aux dates de
+la formation et une liste de **formats acceptés**. Un type ne se supprime jamais : on le désactive.
+Cette tranche ne relie pas encore les documents déposés à un type (voir les tickets suivants).
+
+Tous les endpoints sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIRE, `401` sans session).
+
+```json
+// DocumentTypeResponse
+{
+  "id": 4,
+  "nom": "Certificat médical",
+  "aide": "Moins de 3 mois",                 // nullable
+  "isRequired": true,
+  "isSensitive": true,
+  "appliesToAllFormations": false,
+  "categories": [ CategoryResponse ],        // vide si appliesToAllFormations ; triées par nom
+  "deadlineDays": 7,                         // nullable, 0 à 365, avec deadlineAnchor
+  "deadlineAnchor": "BEFORE_START",          // BEFORE_START | AFTER_END, nullable
+  "allowedFormats": ["pdf", "jpg"],          // vide = règle générale (§ 6 : pdf, jpg, jpeg, png, docx, xlsx, 10 Mo)
+  "isActive": true,
+  "createdAt": "2026-11-20T09:00:00Z",
+  "updatedAt": null
+}
+```
+
+### GET /api/document-types
+Liste des types, triés par nom (sans tenir compte de la casse ni des accents).
+```json
+// Query params : ?active=true   // seulement les types actifs
+// 200 OK → DocumentTypeResponse[]
+```
+
+### POST /api/document-types
+Créer un type.
+```json
+// Body (isRequired, isSensitive et appliesToAllFormations obligatoires)
+{
+  "nom": "string",                    // 255 au plus
+  "aide": "string",                   // optionnel, 500 au plus
+  "isRequired": true,
+  "isSensitive": false,
+  "appliesToAllFormations": false,
+  "categoryIds": [1, 2],              // requis (non vide) si appliesToAllFormations=false, vide sinon
+  "deadlineDays": 7,                  // optionnel, 0 à 365 ; avec deadlineAnchor, ou aucun des deux
+  "deadlineAnchor": "BEFORE_START",   // BEFORE_START | AFTER_END
+  "allowedFormats": ["pdf", "jpg"]    // optionnel ; pdf, jpg, jpeg, png, docx, xlsx ; vide = règle générale
+}
+
+// 201 Created → DocumentTypeResponse
+// 400 — nom vide ou trop long, aide trop longue, drapeau manquant, délai incomplet ou hors bornes, format inconnu,
+//       catégories données avec appliesToAllFormations=true, ou aucune catégorie avec appliesToAllFormations=false
+// 404 — une des catégories est inconnue
+// 409 — nom déjà utilisé (casse ignorée)
+{ "status": 409, "message": "Ce type de document existe déjà" }
+```
+
+### PUT /api/document-types/{id}
+Modifier un type : **remplace tous les champs** (même corps que `POST`) ; `isActive` n'est pas touché. Les
+formations déjà en cours reflètent le changement (le catalogue est lu en direct).
+```json
+// 200 OK → DocumentTypeResponse
+// 400/404 — mêmes cas que POST, plus 404 si le type est inconnu
+// 409 — nom déjà utilisé par un autre type
+```
+
+### PATCH /api/document-types/{id}/activate
+Réactiver un type désactivé (idempotent).
+```json
+// 200 OK → DocumentTypeResponse
+// 404 — type inconnu
+```
+
+### PATCH /api/document-types/{id}/deactivate
+Désactiver un type (idempotent) ; il n'est plus proposé, mais les documents déjà déposés sont conservés.
+```json
+// 200 OK → DocumentTypeResponse
+// 404 — type inconnu
+```
+
 ---
 
 ## 4. Formations

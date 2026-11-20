@@ -29,6 +29,26 @@ Catégorie de classement d'une formation (ex : "Estime de soi en travail social"
 - **Pas de suppression** : uniquement activation/désactivation (pas d'endpoint DELETE) — une
   formation, même archivée, doit toujours pouvoir résoudre sa catégorie
 
+### document_types
+Type de document attendu d'un stagiaire (ex : « Pièce d'identité », « Certificat médical »), tenu par la
+chargée de formation (TICKET-051).
+- PK : `id` (BIGSERIAL)
+- `nom` : NOT NULL, unique **sans tenir compte de la casse** (index `uk_document_types_nom_upper` sur `UPPER(nom)`)
+- `aide` : texte d'aide optionnel affiché au stagiaire (500 caractères au plus)
+- `is_required` : obligatoire ou facultatif ; `is_sensitive` : le formateur voit l'état mais pas les fichiers
+- `applies_to_all` : `true` = toutes les formations ; `false` = les formations des catégories liées dans
+  `document_type_categories` (au moins une)
+- `deadline_days` + `deadline_anchor` : délai optionnel relatif aux dates de la formation (N jours avant le
+  début, `BEFORE_START`, ou après la fin, `AFTER_END`), les deux colonnes ensemble ou aucune, jours de 0 à 365
+  (contraintes CHECK)
+- `allowed_formats` : sous-ensemble de `pdf,jpg,jpeg,png,docx,xlsx` séparé par des virgules ; NULL = règle générale
+- `is_active` : désactivation, pas de suppression (pas d'endpoint DELETE)
+
+### document_type_categories
+Liaison entre un type de document et les catégories qu'il concerne. PK composite (`document_type_id`,
+`category_id`) ; supprimée avec son type (`ON DELETE CASCADE`) ; une catégorie liée ne peut pas être supprimée
+(elle ne l'est jamais, voir `categories`).
+
 ### formations
 Une session de formation planifiée.
 - PK : `id` (BIGSERIAL)
@@ -101,6 +121,7 @@ Tokens d'activation de compte et de réinitialisation de mot de passe.
 | Table A | Relation | Table B | Description |
 |---|---|---|---|
 | categories | 1:N | formations | Une catégorie classe plusieurs formations |
+| document_types | N:N | categories | Un type de document concerne une ou plusieurs catégories (via `document_type_categories`), ou toutes les formations (`applies_to_all`) |
 | users | 1:N | formations | Un formateur est assigné à plusieurs formations |
 | users | 1:N | formations | Un Super Admin crée plusieurs formations |
 | users | 1:N | inscriptions | Un stagiaire a plusieurs inscriptions |
@@ -128,6 +149,9 @@ Tokens d'activation de compte et de réinitialisation de mot de passe.
   persister. `conversationId` côté API = l'`id` de l'autre participant (voir `tech.md`).
 - **Deux FK nullables dans `documents`** : pattern "polymorphic association" — `formation_id` XOR `inscription_id` non-null, garanti par une contrainte CHECK en SQL
 - **`deleted_from_bell` dans `notifications`** : évite une table de jonction — simple flag pour distinguer la vue cloche (non lues, supprimables) de l'historique (tout conservé)
+- **`document_types` : portée et délai relatifs, pas de copie par formation** : la liste des pièces d'une formation
+  est calculée à partir du catalogue (types « toutes » + types de sa catégorie) ; aucune table ne copie ce
+  catalogue par formation, donc un changement du catalogue s'applique tout de suite aux formations non archivées.
 - **`categories.is_active` plutôt que suppression** : même pattern que `users.is_active` — une catégorie
   utilisée par une formation archivée ne doit jamais devenir orpheline ; la désactivation la retire du
   sélecteur de création sans casser l'historique. Pas de table de jonction : `category_id` est directement

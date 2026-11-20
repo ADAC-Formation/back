@@ -24,6 +24,26 @@ erDiagram
         timestamptz updated_at
     }
 
+    document_types {
+        bigserial id PK
+        varchar nom "NOT NULL — unicité insensible à la casse (index sur UPPER(nom))"
+        varchar aide "nullable — texte d'aide montré au stagiaire, 500 au plus"
+        boolean is_required "NOT NULL — obligatoire ou facultatif"
+        boolean is_sensitive "DEFAULT false — le formateur voit l'état, pas les fichiers"
+        boolean applies_to_all "NOT NULL — true = toutes les formations, false = catégories liées"
+        integer deadline_days "nullable — 0 à 365, avec deadline_anchor"
+        varchar deadline_anchor "BEFORE_START | AFTER_END — nullable, avec deadline_days"
+        varchar allowed_formats "nullable — ex pdf,jpg ; NULL = règle générale"
+        boolean is_active "DEFAULT true — désactivation, jamais de suppression"
+        timestamptz created_at "DEFAULT NOW()"
+        timestamptz updated_at
+    }
+
+    document_type_categories {
+        bigint document_type_id PK,FK
+        bigint category_id PK,FK
+    }
+
     formations {
         bigserial id PK
         varchar intitule "NOT NULL"
@@ -100,6 +120,8 @@ erDiagram
 
     %% ── Relations ──────────────────────────────────────
     categories ||--o{ formations : "classe (category_id)"
+    document_types ||--o{ document_type_categories : "s'applique aux catégories"
+    categories ||--o{ document_type_categories : "porte des types de document"
     users ||--o{ formations : "est formateur de (formateur_id)"
     users ||--o{ formations : "a créé (created_by)"
     users ||--o{ inscriptions : "est inscrit comme stagiaire"
