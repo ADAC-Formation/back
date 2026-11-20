@@ -584,6 +584,10 @@ Envoyer un message individuel ou groupé.
 //                    pas de formationId.
 //   MANUAL        → SUPER_ADMIN uniquement
 //
+// Qui reçoit un message groupé (pour tous les rôles) : les comptes actifs ET les comptes jamais activés (le
+// message les attend dans leur fil et leur cloche, ils le voient à la première connexion). Les comptes
+// SUSPENDUS (activés un jour, puis désactivés) n'en reçoivent pas. Un envoi individuel garde sa règle propre.
+//
 // 400 — recipientIds/filter : ni l'un ni l'autre, ou les deux ; recipientIds sans exactement un
 //       élément ; formationId manquant pour FORMATION ; userIds manquant/vide pour MANUAL ; ou le
 //       filtre ne résout aucun destinataire (exclusions comprises : tout exclure donne 400)
@@ -601,8 +605,10 @@ rôle/filtre que la branche groupée de `POST /api/messages/send` ci-dessus.
 ```json
 // Query params : ?filterType=FORMATION&formationId=1 | ?filterType=MISSING_DOCS
 //              | ?filterType=MANUAL&userIds=4&userIds=7
-// 200 OK → UserResponse[]
-// 400/403/404 — mêmes règles que POST /api/messages/send (branche groupée)
+// 200 OK → UserResponse[] — un groupe qui ne résout personne répond 200 avec [] (contrairement à l'envoi,
+//          qui répond 400 : l'aperçu sert justement à voir qu'il est vide)
+// 400/403/404 — mêmes règles que POST /api/messages/send (branche groupée) pour les paramètres manquants,
+//          le rôle de l'appelant et la formation introuvable
 ```
 
 ### PATCH /api/messages/{id}/read
