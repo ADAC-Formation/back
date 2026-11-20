@@ -343,7 +343,7 @@ Tous les endpoints sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIR
   "allowedFormats": ["pdf", "jpg"],          // vide = règle générale (§ 6 : pdf, jpg, jpeg, png, docx, xlsx, 10 Mo)
   "isActive": true,
   "createdAt": "2026-11-20T09:00:00Z",
-  "updatedAt": null
+  "updatedAt": "2026-11-20T09:00:00Z"        // renseigné dès la création, comme pour les catégories
 }
 ```
 
