@@ -111,4 +111,28 @@ class DocumentTypeRepositoryTest {
 
         assertThat(actifs).contains("Actif de test").doesNotContain("Désactivé de test");
     }
+
+    @Test
+    void findsTheActiveTypesApplyingToACategoryWithoutDuplicates() {
+        List<Category> categories = categoryRepository.findAll().subList(0, 2);
+        Category concerned = categories.get(0);
+        Category other = categories.get(1);
+        documentTypeRepository.save(aType("Test pour toutes").build());
+        documentTypeRepository.save(aType("Test inactif pour toutes").active(false).build());
+        documentTypeRepository.save(aType("Test des deux catégories").appliesToAll(false)
+                .categories(Set.copyOf(categories)).build());
+        documentTypeRepository.save(aType("Test de la catégorie concernée").appliesToAll(false)
+                .categories(Set.of(concerned)).build());
+        documentTypeRepository.save(aType("Test de l'autre catégorie").appliesToAll(false)
+                .categories(Set.of(other)).build());
+        documentTypeRepository.save(aType("Test inactif de la catégorie").appliesToAll(false).active(false)
+                .categories(Set.of(concerned)).build());
+        documentTypeRepository.flush();
+
+        List<String> names = documentTypeRepository.findActiveApplicableTo(concerned).stream()
+                .map(DocumentType::getNom).toList();
+
+        assertThat(names).filteredOn(name -> name.startsWith("Test"))
+                .containsExactlyInAnyOrder("Test pour toutes", "Test des deux catégories", "Test de la catégorie concernée");
+    }
 }

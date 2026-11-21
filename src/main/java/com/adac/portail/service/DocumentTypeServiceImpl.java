@@ -5,6 +5,7 @@ import com.adac.portail.dto.response.CategoryResponse;
 import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.entity.Category;
 import com.adac.portail.entity.DocumentType;
+import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.enums.DeadlineAnchor;
 import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.DocumentTypeAlreadyExistsException;
@@ -12,6 +13,7 @@ import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.mapper.DocumentTypeMapper;
 import com.adac.portail.repository.CategoryRepository;
 import com.adac.portail.repository.DocumentTypeRepository;
+import com.adac.portail.security.AdacUserDetails;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
     private final DocumentTypeRepository documentTypeRepository;
     private final CategoryRepository categoryRepository;
     private final DocumentTypeMapper documentTypeMapper;
+    private final FormationService formationService;
 
     @Override
     @Transactional
@@ -65,6 +68,17 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
                 ? documentTypeRepository.findAllByActiveTrue()
                 : documentTypeRepository.findAll();
         return types.stream()
+                .sorted((a, b) -> sortKey(a.getNom()).compareTo(sortKey(b.getNom())))
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DocumentTypeResponse> getDocumentTypesForFormation(Long formationId, AdacUserDetails principal) {
+        // Les droits sont ceux de la lecture de la formation : 403 / 404 comme GET /api/formations/{id}.
+        Formation formation = formationService.findVisibleFormationOrThrow(formationId, principal);
+        return documentTypeRepository.findActiveApplicableTo(formation.getCategory()).stream()
                 .sorted((a, b) -> sortKey(a.getNom()).compareTo(sortKey(b.getNom())))
                 .map(this::toResponse)
                 .toList();

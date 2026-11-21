@@ -326,7 +326,9 @@ la chargée de formation. Un type est **obligatoire ou facultatif**, éventuelle
 la formation et une liste de **formats acceptés**. Un type ne se supprime jamais : on le désactive.
 Cette tranche ne relie pas encore les documents déposés à un type (voir les tickets suivants).
 
-Tous les endpoints sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIRE, `401` sans session).
+Tous les endpoints de `/api/document-types` sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIRE, `401` sans
+session). La seule lecture ouverte aux autres rôles est `GET /api/formations/{id}/document-types` (ci-dessous).
+Il n'y a pas de « obligatoire / facultatif » : tout type actif qui s'applique à une formation est une pièce à envoyer.
 
 ```json
 // DocumentTypeResponse
@@ -350,6 +352,14 @@ Tous les endpoints sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIR
 Liste des types, triés par nom (sans tenir compte de la casse ni des accents).
 ```json
 // Query params : ?active=true   // seulement les types actifs
+// 200 OK → DocumentTypeResponse[]
+```
+
+### GET /api/formations/{id}/document-types
+Les types actifs à envoyer pour une formation : ceux de « toutes les formations » et ceux liés à la catégorie de la
+formation, triés par nom (sans tenir compte de la casse ni des accents). Mêmes droits que `GET /api/formations/{id}` :
+la chargée de formation, le formateur de cette formation (`404` pour une autre), le stagiaire inscrit (`403` sinon).
+```json
 // 200 OK → DocumentTypeResponse[]
 ```
 

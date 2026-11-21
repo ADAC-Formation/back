@@ -4,6 +4,9 @@ import com.adac.portail.dto.request.DocumentTypeRequest;
 import com.adac.portail.dto.response.CategoryResponse;
 import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.entity.Category;
+import com.adac.portail.entity.Formation;
+import com.adac.portail.entity.User;
+import com.adac.portail.entity.enums.Role;
 import com.adac.portail.entity.DocumentType;
 import com.adac.portail.entity.enums.DeadlineAnchor;
 import com.adac.portail.exception.BadRequestException;
@@ -12,6 +15,7 @@ import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.mapper.DocumentTypeMapper;
 import com.adac.portail.repository.CategoryRepository;
 import com.adac.portail.repository.DocumentTypeRepository;
+import com.adac.portail.security.AdacUserDetails;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -43,6 +47,9 @@ class DocumentTypeServiceImplTest {
 
     @Mock
     private DocumentTypeMapper documentTypeMapper;
+
+    @Mock
+    private FormationService formationService;
 
     @InjectMocks
     private DocumentTypeServiceImpl service;
@@ -340,5 +347,43 @@ class DocumentTypeServiceImplTest {
         List<DocumentTypeResponse> result = service.getDocumentTypes(null);
 
         assertThat(result).extracting(DocumentTypeResponse::getNom).containsExactly("Attestation", "Élève", "zèbre");
+    }
+
+    // --- Types à envoyer pour une formation ---
+
+    private static AdacUserDetails stagiaire() {
+        User user = User.builder().id(7L).role(Role.STAGIAIRE).email("s@adac.fr").build();
+        return new AdacUserDetails(user);
+    }
+
+    @Test
+    void typesOfAFormationAreTheActiveTypesApplyingToItsCategorySortedByName() {
+        Category category = category(3L, "Secourisme");
+        Formation formation = Formation.builder().id(10L).category(category).build();
+        AdacUserDetails caller = stagiaire();
+        when(formationService.findVisibleFormationOrThrow(10L, caller)).thenReturn(formation);
+        DocumentType zebre = DocumentType.builder().id(1L).nom("zèbre").appliesToAll(true).build();
+        DocumentType attestation = DocumentType.builder().id(2L).nom("Attestation").appliesToAll(true).build();
+        when(documentTypeRepository.findActiveApplicableTo(category)).thenReturn(List.of(zebre, attestation));
+        when(documentTypeMapper.toResponse(any(DocumentType.class))).thenAnswer(invocation -> {
+            DocumentType type = invocation.getArgument(0);
+            return DocumentTypeResponse.builder().id(type.getId()).nom(type.getNom()).build();
+        });
+
+        List<DocumentTypeResponse> result = service.getDocumentTypesForFormation(10L, caller);
+
+        assertThat(result).extracting(DocumentTypeResponse::getNom).containsExactly("Attestation", "zèbre");
+    }
+
+    @Test
+    void typesOfAFormationTheCallerCannotSeeAreRefusedBeforeAnyLookup() {
+        AdacUserDetails caller = stagiaire();
+        when(formationService.findVisibleFormationOrThrow(10L, caller))
+                .thenThrow(new org.springframework.security.access.AccessDeniedException("Accès refusé"));
+
+        assertThatThrownBy(() -> service.getDocumentTypesForFormation(10L, caller))
+                .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+
+        verify(documentTypeRepository, never()).findActiveApplicableTo(any());
     }
 }
