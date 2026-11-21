@@ -28,7 +28,6 @@ erDiagram
         bigserial id PK
         varchar nom "NOT NULL — unicité insensible à la casse (index sur UPPER(nom))"
         varchar aide "nullable — texte d'aide montré au stagiaire, 500 au plus"
-        boolean is_required "NOT NULL — obligatoire ou facultatif"
         boolean is_sensitive "DEFAULT false — le formateur voit l'état, pas les fichiers"
         boolean applies_to_all "NOT NULL — true = toutes les formations, false = catégories liées"
         integer deadline_days "nullable — 0 à 365, avec deadline_anchor"

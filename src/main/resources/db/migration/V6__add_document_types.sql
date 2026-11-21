@@ -8,7 +8,6 @@ CREATE TABLE document_types (
     id               BIGSERIAL PRIMARY KEY,
     nom              VARCHAR(255) NOT NULL,
     aide             VARCHAR(500),
-    is_required      BOOLEAN NOT NULL,
     is_sensitive     BOOLEAN NOT NULL DEFAULT FALSE,
     applies_to_all   BOOLEAN NOT NULL,
     deadline_days    INTEGER,

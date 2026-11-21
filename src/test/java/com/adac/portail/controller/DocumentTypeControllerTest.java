@@ -69,7 +69,6 @@ class DocumentTypeControllerTest {
         Map<String, Object> body = new HashMap<>();
         body.put("nom", "Certificat médical");
         body.put("aide", "Moins de 3 mois");
-        body.put("isRequired", true);
         body.put("isSensitive", true);
         body.put("appliesToAllFormations", false);
         body.put("categoryIds", List.of(1, 2));
@@ -82,7 +81,7 @@ class DocumentTypeControllerTest {
     private static DocumentTypeResponse response() {
         return DocumentTypeResponse.builder()
                 .id(4L).nom("Certificat médical").aide("Moins de 3 mois")
-                .required(true).sensitive(true).appliesToAllFormations(false)
+                .sensitive(true).appliesToAllFormations(false)
                 .categories(List.of(CategoryResponse.builder().id(1L).nom("Secourisme").couleur("#D62828").active(true).build()))
                 .deadlineDays(7).deadlineAnchor(DeadlineAnchor.BEFORE_START)
                 .allowedFormats(List.of("pdf", "jpg")).active(true).build();
@@ -104,7 +103,7 @@ class DocumentTypeControllerTest {
                 .andExpect(jsonPath("$.id").value(4))
                 .andExpect(jsonPath("$.nom").value("Certificat médical"))
                 .andExpect(jsonPath("$.aide").value("Moins de 3 mois"))
-                .andExpect(jsonPath("$.isRequired").value(true))
+                .andExpect(jsonPath("$.isRequired").doesNotExist())
                 .andExpect(jsonPath("$.isSensitive").value(true))
                 .andExpect(jsonPath("$.appliesToAllFormations").value(false))
                 .andExpect(jsonPath("$.categories[0].nom").value("Secourisme"))
@@ -126,7 +125,6 @@ class DocumentTypeControllerTest {
         verify(documentTypeService).createDocumentType(captor.capture());
         DocumentTypeRequest request = captor.getValue();
         assertThat(request.getNom()).isEqualTo("Certificat médical");
-        assertThat(request.getRequired()).isTrue();
         assertThat(request.getSensitive()).isTrue();
         assertThat(request.getAppliesToAllFormations()).isFalse();
         assertThat(request.getCategoryIds()).containsExactly(1L, 2L);
@@ -166,9 +164,9 @@ class DocumentTypeControllerTest {
 
     @Test
     @WithMockUser(roles = "SUPER_ADMIN")
-    void createWithoutTheRequiredFlagsReturnsBadRequest() throws Exception {
+    void createWithoutTheSensitiveFlagReturnsBadRequest() throws Exception {
         Map<String, Object> body = validBody();
-        body.remove("isRequired");
+        body.remove("isSensitive");
 
         mockMvc.perform(post("/api/document-types").contentType(MediaType.APPLICATION_JSON).content(json(body)))
                 .andExpect(status().isBadRequest());

@@ -29,10 +29,6 @@ public class DocumentTypeRequest {
     private String aide;
 
     @NotNull
-    @JsonProperty("isRequired")
-    private Boolean required;
-
-    @NotNull
     @JsonProperty("isSensitive")
     private Boolean sensitive;
 

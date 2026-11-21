@@ -123,7 +123,6 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
         validateDeadline(request.getDeadlineDays(), request.getDeadlineAnchor());
         documentType.setNom(nom);
         documentType.setAide(blankToNull(request.getAide()));
-        documentType.setRequired(request.getRequired());
         documentType.setSensitive(request.getSensitive());
         documentType.setAppliesToAll(request.getAppliesToAllFormations());
         documentType.setCategories(categories);

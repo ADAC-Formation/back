@@ -35,7 +35,8 @@ chargée de formation (TICKET-051).
 - PK : `id` (BIGSERIAL)
 - `nom` : NOT NULL, unique **sans tenir compte de la casse** (index `uk_document_types_nom_upper` sur `UPPER(nom)`)
 - `aide` : texte d'aide optionnel affiché au stagiaire (500 caractères au plus)
-- `is_required` : obligatoire ou facultatif ; `is_sensitive` : le formateur voit l'état mais pas les fichiers
+- `is_sensitive` : le formateur voit l'état mais pas les fichiers. Pas de « obligatoire / facultatif » : tout type
+  qui s'applique à une formation est une pièce à envoyer ; le stagiaire peut envoyer d'autres fichiers en plus
 - `applies_to_all` : `true` = toutes les formations ; `false` = les formations des catégories liées dans
   `document_type_categories` (au moins une)
 - `deadline_days` + `deadline_anchor` : délai optionnel relatif aux dates de la formation (N jours avant le

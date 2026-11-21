@@ -334,7 +334,6 @@ Tous les endpoints sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIR
   "id": 4,
   "nom": "Certificat médical",
   "aide": "Moins de 3 mois",                 // nullable
-  "isRequired": true,
   "isSensitive": true,
   "appliesToAllFormations": false,
   "categories": [ CategoryResponse ],        // vide si appliesToAllFormations ; triées par nom
@@ -357,11 +356,10 @@ Liste des types, triés par nom (sans tenir compte de la casse ni des accents).
 ### POST /api/document-types
 Créer un type.
 ```json
-// Body (isRequired, isSensitive et appliesToAllFormations obligatoires)
+// Body (isSensitive et appliesToAllFormations obligatoires)
 {
   "nom": "string",                    // 255 au plus
   "aide": "string",                   // optionnel, 500 au plus
-  "isRequired": true,
   "isSensitive": false,
   "appliesToAllFormations": false,
   "categoryIds": [1, 2],              // requis (non vide) si appliesToAllFormations=false, vide sinon

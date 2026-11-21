@@ -28,7 +28,7 @@ class DocumentTypeRepositoryTest {
     private CategoryRepository categoryRepository;
 
     private DocumentType.DocumentTypeBuilder aType(String nom) {
-        return DocumentType.builder().nom(nom).required(true).appliesToAll(true);
+        return DocumentType.builder().nom(nom).appliesToAll(true);
     }
 
     @Test
@@ -47,7 +47,6 @@ class DocumentTypeRepositoryTest {
         DocumentType read = documentTypeRepository.findById(saved.getId()).orElseThrow();
 
         assertThat(read.getNom()).isEqualTo("Certificat médical de test");
-        assertThat(read.isRequired()).isTrue();
         assertThat(read.isSensitive()).isTrue();
         assertThat(read.isActive()).isTrue();
         assertThat(read.getCategories()).containsExactlyInAnyOrderElementsOf(categories);

@@ -47,11 +47,10 @@ class DocumentTypeServiceImplTest {
     @InjectMocks
     private DocumentTypeServiceImpl service;
 
-    /** Une requête valide « toutes les formations, obligatoire », à modifier par chaque test. */
+    /** Une requête valide « toutes les formations », à modifier par chaque test. */
     private static DocumentTypeRequest request() {
         DocumentTypeRequest request = new DocumentTypeRequest();
         request.setNom("Pièce d'identité");
-        request.setRequired(true);
         request.setSensitive(false);
         request.setAppliesToAllFormations(true);
         return request;
@@ -87,7 +86,6 @@ class DocumentTypeServiceImplTest {
         DocumentType saved = created();
         assertThat(saved.getNom()).isEqualTo("Pièce d'identité");
         assertThat(saved.getAide()).isEqualTo("Recto-verso");
-        assertThat(saved.isRequired()).isTrue();
         assertThat(saved.isSensitive()).isTrue();
         assertThat(saved.isAppliesToAll()).isTrue();
         assertThat(saved.getCategories()).isEmpty();
@@ -240,7 +238,7 @@ class DocumentTypeServiceImplTest {
 
     @Test
     void updateReplacesEveryFieldAndLeavesTheStateUntouched() {
-        DocumentType existing = DocumentType.builder().id(5L).nom("Ancien").required(false).appliesToAll(false)
+        DocumentType existing = DocumentType.builder().id(5L).nom("Ancien").appliesToAll(false)
                 .categories(new HashSet<>(Set.of(category(1L, "Secourisme"))))
                 .deadlineDays(3).deadlineAnchor(DeadlineAnchor.AFTER_END).allowedFormats("pdf").active(false).build();
         when(documentTypeRepository.findById(5L)).thenReturn(Optional.of(existing));
@@ -251,7 +249,6 @@ class DocumentTypeServiceImplTest {
         service.updateDocumentType(5L, request);
 
         assertThat(existing.getNom()).isEqualTo("Nouveau");
-        assertThat(existing.isRequired()).isTrue();
         assertThat(existing.isAppliesToAll()).isTrue();
         assertThat(existing.getCategories()).isEmpty();
         assertThat(existing.getDeadlineDays()).isNull();

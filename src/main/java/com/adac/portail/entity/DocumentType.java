@@ -47,9 +47,6 @@ public class DocumentType {
     /** Texte d'aide montré au stagiaire. */
     private String aide;
 
-    @Column(name = "is_required", nullable = false)
-    private boolean required;
-
     @Column(name = "is_sensitive", nullable = false)
     private boolean sensitive;
 

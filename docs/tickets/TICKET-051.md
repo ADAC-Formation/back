@@ -16,7 +16,8 @@ catégories (liste, création, `PUT`, activation, désactivation, jamais de supp
 Un type de document porte :
 
 - `nom` (unique sans tenir compte de la casse, 255 au plus) et un texte d'aide optionnel (500 au plus) ;
-- **obligatoire ou facultatif** (`isRequired`) et **sensible** (`isSensitive`, utilisé par les tickets suivants :
+- **sensible** (`isSensitive`) — il n'y a pas d'« obligatoire / facultatif » : tout type qui s'applique à une formation
+  est une pièce à envoyer (utilisé par les tickets suivants :
   le formateur verra l'état mais pas les fichiers) ;
 - sa **portée** : toutes les formations (`appliesToAllFormations`), ou une ou plusieurs catégories
   (`categoryIds`, au moins une) — jamais les deux ;
@@ -75,7 +76,7 @@ Contrat API (`docs/tech.md`, section « Types de document ») :
       catégories de chaque type triées par nom
 - [x] `PATCH …/activate` et `…/deactivate` : idempotents, 404 si le type est inconnu, 403 pour ADMIN
 - [x] aucun endpoint `DELETE` (405)
-- [x] la réponse remplit tous les champs (dont `appliesToAllFormations`, `isRequired`, `isSensitive`, `isActive`)
+- [x] la réponse remplit tous les champs (dont `appliesToAllFormations`, `isSensitive`, `isActive`)
 - [x] la migration n'insère aucune ligne
 
 ## Branch

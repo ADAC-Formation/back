@@ -22,9 +22,6 @@ public class DocumentTypeResponse {
     private String nom;
     private String aide;
 
-    @JsonProperty("isRequired")
-    private boolean required;
-
     @JsonProperty("isSensitive")
     private boolean sensitive;
 

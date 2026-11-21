@@ -37,7 +37,6 @@ class DocumentTypeIntegrationTest {
     private static DocumentTypeRequest request(String nom) {
         DocumentTypeRequest request = new DocumentTypeRequest();
         request.setNom(nom);
-        request.setRequired(true);
         request.setSensitive(false);
         request.setAppliesToAllFormations(true);
         return request;
@@ -92,10 +91,10 @@ class DocumentTypeIntegrationTest {
         Long id = documentTypeService.createDocumentType(create).getId();
 
         DocumentTypeRequest update = request("Évaluation à chaud (test intégration)");
-        update.setRequired(false);
+        update.setSensitive(true);
         DocumentTypeResponse response = documentTypeService.updateDocumentType(id, update);
 
-        assertThat(response.isRequired()).isFalse();
+        assertThat(response.isSensitive()).isTrue();
         assertThat(response.isAppliesToAllFormations()).isTrue();
         assertThat(response.getCategories()).isEmpty();
     }
