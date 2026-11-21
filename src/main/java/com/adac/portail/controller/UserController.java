@@ -102,16 +102,17 @@ public class UserController {
         return ResponseEntity.ok(userService.getById(id, principal));
     }
 
-    @Operation(summary = "List a user's inscriptions", description = "SUPER_ADMIN only. One { id, formation } per formation the user is enrolled in (empty for non-stagiaires).")
+    @Operation(summary = "List a user's inscriptions", description = "SUPER_ADMIN: every formation the user is enrolled in. ADMIN: only the formations he teaches, and only for a stagiaire of his (404 otherwise). One { id, formation } each; empty for non-stagiaires.")
     @ApiResponse(responseCode = "200", description = "OK",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = UserInscriptionResponse.class))))
     @ApiResponse(responseCode = "404", description = "No such user",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @GetMapping("/{id}/inscriptions")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN')")
     public ResponseEntity<List<UserInscriptionResponse>> getInscriptions(
-            @PathVariable @Parameter(description = "User id") Long id) {
-        return ResponseEntity.ok(userService.getInscriptionsOf(id));
+            @PathVariable @Parameter(description = "User id") Long id,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        return ResponseEntity.ok(userService.getInscriptionsOf(id, principal));
     }
 
     @Operation(summary = "Suspend a user", description = "SUPER_ADMIN only. The user can no longer log in. Refuses self-suspension and suspending the last active SUPER_ADMIN.")

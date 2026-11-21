@@ -28,7 +28,7 @@ public interface UserService {
 
     UserResponse reactivate(Long id);
 
-    List<UserInscriptionResponse> getInscriptionsOf(Long userId);
+    List<UserInscriptionResponse> getInscriptionsOf(Long userId, AdacUserDetails principal);
 
     void changePassword(AdacUserDetails principal, ChangePasswordRequest request);
 

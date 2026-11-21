@@ -34,6 +34,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -107,21 +108,33 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getById(Long id, AdacUserDetails principal) {
-        User target = findUserOrThrow(id);
         User caller = principal.getUser();
-
-        if (caller.getRole() == Role.ADMIN && !Objects.equals(target.getId(), caller.getId())) {
-            boolean visible = switch (target.getRole()) {
-                case STAGIAIRE -> target.isActive()
-                        && inscriptionRepository.existsByStagiaireAndFormation_Formateur(target, caller);
-                case ADMIN -> target.isActive();
-                case SUPER_ADMIN -> false;
-            };
-            if (!visible) {
-                throw new ResourceNotFoundException("Utilisateur introuvable");
-            }
-        }
+        User target = caller.getRole() == Role.ADMIN ? getVisibleToAdminOrThrow(id, caller) : findUserOrThrow(id);
         return toResponse(target);
+    }
+
+    // What an ADMIN may look up: himself, an active formateur, or an active stagiaire enrolled in one of his
+    // formations. Anyone else is reported as not found (a 403 would confirm the account exists).
+    private User getVisibleToAdminOrThrow(Long id, User caller) {
+        User target = findUserOrThrow(id);
+        if (Objects.equals(target.getId(), caller.getId())) {
+            return target;
+        }
+        boolean visible = switch (target.getRole()) {
+            case STAGIAIRE -> target.isActive()
+                    && inscriptionRepository.existsByStagiaireAndFormation_Formateur(target, caller);
+            case ADMIN -> target.isActive();
+            case SUPER_ADMIN -> false;
+        };
+        if (!visible) {
+            throw new ResourceNotFoundException("Utilisateur introuvable");
+        }
+        return target;
+    }
+
+    private static boolean isTaughtBy(Inscription inscription, User formateur) {
+        User teacher = inscription.getFormation().getFormateur();
+        return teacher != null && Objects.equals(teacher.getId(), formateur.getId());
     }
 
     private boolean matchesActiveFilter(User user, Boolean active, boolean forceActiveOnly) {
@@ -161,11 +174,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UserInscriptionResponse> getInscriptionsOf(Long userId) {
-        User user = findUserOrThrow(userId);
-        return inscriptionRepository.findAllByStagiaire(user).stream()
-                .map(inscriptionMapper::toUserInscription)
-                .toList();
+    public List<UserInscriptionResponse> getInscriptionsOf(Long userId, AdacUserDetails principal) {
+        User caller = principal.getUser();
+        User user = caller.getRole() == Role.ADMIN ? getVisibleToAdminOrThrow(userId, caller) : findUserOrThrow(userId);
+        Stream<Inscription> inscriptions = inscriptionRepository.findAllByStagiaire(user).stream();
+        if (caller.getRole() == Role.ADMIN) {
+            // A formateur only sees the formations he teaches, never the other formations of the same stagiaire.
+            inscriptions = inscriptions.filter(inscription -> isTaughtBy(inscription, caller));
+        }
+        return inscriptions.map(inscriptionMapper::toUserInscription).toList();
     }
 
     @Override

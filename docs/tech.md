@@ -203,11 +203,13 @@ tiers par id.
 ```
 
 ### GET /api/users/{id}/inscriptions
-Formations auxquelles un utilisateur est inscrit. **SUPER_ADMIN uniquement.**
+Formations auxquelles un utilisateur est inscrit. **SUPER_ADMIN** : toutes. **ADMIN (formateur)** : seulement
+celles qu'il anime, et seulement pour un stagiaire actif de l'une de ses formations (mêmes règles de visibilité
+que `GET /api/users/{id}`).
 ```json
 // 200 — [{ "id": 5, "formation": FormationResponse }]  (tableau vide si aucune inscription)
-// 403 — rôle insuffisant
-// 404 — utilisateur inconnu
+// 403 — appelant STAGIAIRE
+// 404 — utilisateur inconnu ; pour un ADMIN, aussi un utilisateur qu'il ne peut pas voir
 ```
 
 ### PATCH /api/users/me
