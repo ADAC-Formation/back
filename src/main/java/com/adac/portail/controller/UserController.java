@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.AccountImportResponse;
 import com.adac.portail.dto.response.ErrorResponse;
 import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -66,6 +68,21 @@ public class UserController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<UserResponse> createStagiaire(@Valid @RequestBody CreateUserRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createStagiaire(request));
+    }
+
+    @Operation(summary = "Import accounts from Excel", description = "SUPER_ADMIN only. Columns: nom, prenom, email, "
+            + "role (Formateur | Stagiaire); header row ignored, 200 rows max. Each valid row creates a pending account "
+            + "and triggers its activation email; invalid rows are returned in errors (NOTES-09).")
+    @ApiResponse(responseCode = "200", description = "Accounts created and row errors",
+            content = @Content(schema = @Schema(implementation = AccountImportResponse.class)))
+    @ApiResponse(responseCode = "400", description = "Not a readable .xlsx, too large, too many rows, or no account",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "403", description = "Insufficient role",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @PostMapping("/import")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<AccountImportResponse> importAccounts(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(userService.importAccounts(file));
     }
 
     @Operation(summary = "List formateurs", description = "SUPER_ADMIN sees all; ADMIN sees active only regardless of the active param.")

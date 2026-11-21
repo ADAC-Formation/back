@@ -1,6 +1,6 @@
 # Tickets — Portail de Formation ADAC
 
-Dernière mise à jour : 2026-08-24
+Dernière mise à jour : 2026-11-20
 Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 
 ---
@@ -42,6 +42,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-020 | Backend — PATCH /users/me | back | TICKET-019 | 1h | Done |
 | TICKET-021 | Frontend — Gestion des comptes | front | TICKET-019 | 3h | À faire |
 | TICKET-050 | Backend — PUT /users/{id} (édition par SUPER_ADMIN) | back | TICKET-019, TICKET-015 | 1.5h | Done |
+| TICKET-051 | Backend — POST /users/import (comptes par fichier Excel) | back | TICKET-019 | 3h | Done |
 
 ## Phase 2 — Catégories
 
@@ -120,6 +121,12 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
   TICKET-013, TICKET-042
 - **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
   ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
+
+## Note sur cette révision (2026-11-20)
+
+`TICKET-051` ajouté à la demande de Manon (NOTES-09 du front, D66 : changement du back fait sur branche
+et consigné pour Charlotte) : la chargée de formation crée plusieurs comptes d'un coup à partir d'un
+fichier Excel. Voir `docs/tickets/TICKET-051.md`.
 
 ## Note sur cette révision (2026-09-08)
 

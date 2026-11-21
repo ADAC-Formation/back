@@ -4,7 +4,10 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.AccountImportResponse;
+import com.adac.portail.dto.response.ImportErrorResponse;
 import com.adac.portail.dto.response.UserResponse;
+import com.adac.portail.utils.AccountImportParser;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
@@ -28,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
@@ -68,8 +72,37 @@ class UserServiceImplTest {
     @Mock
     private LoginAttemptService loginAttemptService;
 
+    @Mock
+    private AccountImportParser accountImportParser;
+
     @InjectMocks
     private UserServiceImpl userService;
+
+    // NOTES-09 : les lignes valides deviennent des comptes (e-mail d'activation chacun), les erreurs sont renvoyées.
+    @Test
+    void importAccountsCreatesEachValidRowAndReturnsTheRowErrors() {
+        MockMultipartFile file = new MockMultipartFile("file", "comptes.xlsx", "application/octet-stream", new byte[] {1});
+        ImportErrorResponse error = new ImportErrorResponse(4, "email", "e-mail déjà utilisé");
+        when(accountImportParser.parse(file)).thenReturn(new AccountImportParser.Result(List.of(
+                new AccountImportParser.AccountRow(new CreateUserRequest("Durand", "Paul", "paul@adac.fr", null), Role.ADMIN),
+                new AccountImportParser.AccountRow(new CreateUserRequest("Petit", "Léa", "lea@adac.fr", null), Role.STAGIAIRE)),
+                List.of(error)));
+        when(userRepository.findByEmail(any())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(any())).thenReturn("random-hash");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userMapper.toResponse(any(User.class))).thenAnswer(invocation ->
+                UserResponse.builder().email(invocation.<User>getArgument(0).getEmail()).build());
+
+        AccountImportResponse response = userService.importAccounts(file);
+
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(User::getRole).containsExactly(Role.ADMIN, Role.STAGIAIRE);
+        assertThat(captor.getAllValues()).allSatisfy(user -> assertThat(user.isActive()).isFalse());
+        verify(activationService, times(2)).sendActivationCode(any(User.class));
+        assertThat(response.created()).extracting(UserResponse::getEmail).containsExactly("paul@adac.fr", "lea@adac.fr");
+        assertThat(response.errors()).containsExactly(error);
+    }
 
     @Test
     void createFormateurSavesInactiveAdminAndTriggersActivationEmail() {
