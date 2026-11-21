@@ -38,5 +38,12 @@ public class SendMessageRequest {
         private Long formationId;
 
         private List<@NotNull Long> userIds;
+
+        /** Optional, any filter type: resolved recipients with these ids are left out of the send. */
+        private List<@NotNull Long> excludedUserIds;
+
+        public Filter(MessageFilterType type, Long formationId, List<Long> userIds) {
+            this(type, formationId, userIds, null);
+        }
     }
 }

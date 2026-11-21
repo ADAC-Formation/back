@@ -433,6 +433,82 @@ class MessageServiceImplTest {
         verify(messageRecipientRepository, times(1)).save(any());
     }
 
+    private void stubGroupSave(User sender, User... recipients) {
+        Message saved = Message.builder().id(20L).sender(sender).content("Rappel").isGroup(true)
+                .createdAt(OffsetDateTime.now()).build();
+        when(messageRepository.save(any())).thenReturn(saved);
+        when(messageRecipientRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(messageMapper.toResponse(saved)).thenReturn(MessageResponse.builder().id(20L).group(true).build());
+        for (User recipient : recipients) {
+            when(userMapper.toResponse(recipient)).thenReturn(UserResponse.builder().id(recipient.getId()).build());
+        }
+    }
+
+    @Test
+    void sendGroupMessageWithExcludedUserIdsSkipsThemForSuperAdmin() {
+        User superAdmin = user(1L, Role.SUPER_ADMIN, true);
+        Formation formation = Formation.builder().id(5L).build();
+        User s1 = user(10L, Role.STAGIAIRE, true);
+        User s2 = user(11L, Role.STAGIAIRE, true);
+        User s3 = user(12L, Role.STAGIAIRE, true);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(s1, s2, s3));
+        stubGroupSave(superAdmin, s1, s3);
+
+        MessageResponse result = messageService.sendMessage(principal(superAdmin), new SendMessageRequest("Rappel", null,
+                new SendMessageRequest.Filter(MessageFilterType.FORMATION, 5L, null, List.of(11L))));
+
+        verify(messageRecipientRepository, times(2)).save(any());
+        verify(notificationService, never()).notify(eq(11L), any(), any(), any(), any());
+        assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(10L, 12L);
+    }
+
+    @Test
+    void sendGroupMessageWithExcludedUserIdsWorksForAdminOnOwnFormation() {
+        User formateur = user(2L, Role.ADMIN, true);
+        Formation formation = Formation.builder().id(5L).build();
+        User s1 = user(10L, Role.STAGIAIRE, true);
+        User s2 = user(11L, Role.STAGIAIRE, true);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(s1, s2));
+        stubGroupSave(formateur, s1);
+
+        MessageResponse result = messageService.sendMessage(principal(formateur), new SendMessageRequest("Rappel", null,
+                new SendMessageRequest.Filter(MessageFilterType.FORMATION, 5L, null, List.of(11L))));
+
+        assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(10L);
+    }
+
+    @Test
+    void sendGroupMessageWithEveryRecipientExcludedThrowsBadRequest() {
+        Formation formation = Formation.builder().id(5L).build();
+        User s1 = user(10L, Role.STAGIAIRE, true);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(s1));
+
+        assertThatThrownBy(() -> messageService.sendMessage(principal(user(1L, Role.SUPER_ADMIN, true)),
+                new SendMessageRequest("Rappel", null,
+                        new SendMessageRequest.Filter(MessageFilterType.FORMATION, 5L, null, List.of(10L)))))
+                .isInstanceOf(BadRequestException.class);
+
+        verifyNoInteractions(messageRepository);
+    }
+
+    @Test
+    void sendGroupMessageExcludingAnIdOutsideTheGroupChangesNothing() {
+        User superAdmin = user(1L, Role.SUPER_ADMIN, true);
+        Formation formation = Formation.builder().id(5L).build();
+        User s1 = user(10L, Role.STAGIAIRE, true);
+        when(formationService.findVisibleFormationOrThrow(eq(5L), any())).thenReturn(formation);
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of(s1));
+        stubGroupSave(superAdmin, s1);
+
+        MessageResponse result = messageService.sendMessage(principal(superAdmin), new SendMessageRequest("Rappel", null,
+                new SendMessageRequest.Filter(MessageFilterType.FORMATION, 5L, null, List.of(999L))));
+
+        assertThat(result.getRecipients()).extracting(UserResponse::getId).containsExactly(10L);
+    }
+
     @Test
     void sendGroupMessageWithNoResolvedRecipientsThrowsBadRequest() {
         Formation formation = Formation.builder().id(5L).build();

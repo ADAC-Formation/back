@@ -568,7 +568,8 @@ Envoyer un message individuel ou groupé.
   "filter": {
     "type": "FORMATION",         // FORMATION | MISSING_DOCS | MANUAL
     "formationId": 1,            // requis si type=FORMATION
-    "userIds": [4, 7]            // requis (non vide) si type=MANUAL — "sélection libre"
+    "userIds": [4, 7],           // requis (non vide) si type=MANUAL — "sélection libre"
+    "excludedUserIds": [9]       // optionnel, tout type : ces personnes sont retirées des destinataires résolus
   }
 }
 
@@ -585,7 +586,7 @@ Envoyer un message individuel ou groupé.
 //
 // 400 — recipientIds/filter : ni l'un ni l'autre, ou les deux ; recipientIds sans exactement un
 //       élément ; formationId manquant pour FORMATION ; userIds manquant/vide pour MANUAL ; ou le
-//       filtre ne résout aucun destinataire
+//       filtre ne résout aucun destinataire (exclusions comprises : tout exclure donne 400)
 // 403 — le rôle de l'appelant ne peut pas écrire à ce destinataire (individuel) ; STAGIAIRE sur
 //       FORMATION ; ADMIN/STAGIAIRE sur MISSING_DOCS/MANUAL
 // 404 — destinataire (individuel) ou un des userIds (MANUAL) introuvable ; formation introuvable
