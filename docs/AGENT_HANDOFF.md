@@ -358,7 +358,7 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Revue : `/code-review` medium sur `origin/dev..HEAD` ; 9 constats, 0 BLOCKING ; 2 CRITICAL et 2 SUGGESTION
   corrigés, 5 non appliqués avec leur raison (voir la fiche, section Revue).
 - Documentation mise à jour : docs/tech.md (« Types de document »), docs/DB_MODEL.md et .mmd,
-  docs/tickets/TICKET-051.md, docs/TICKETS.md.
+  docs/tickets/TICKET-052.md, docs/TICKETS.md.
 - État Git observé : arbre propre hors la présente documentation ; aucun changement étranger au ticket.
 - Étape suivante : relecture par PR ; puis les tickets de la checklist (dépôt typé, checklist du stagiaire, vue de
   la chargée et du formateur, retrait du filtre MISSING_DOCS).

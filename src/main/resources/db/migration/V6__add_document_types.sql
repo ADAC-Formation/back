@@ -1,4 +1,4 @@
--- TICKET-051 — catalogue des types de document (pièces que les stagiaires fournissent).
+-- TICKET-052 — catalogue des types de document (pièces que les stagiaires fournissent).
 -- Voir docs/DB_MODEL.md. Aucune donnée insérée : la liste réelle vient de l'ADAC, jamais de la migration.
 -- Un type est « toutes les formations » (applies_to_all) ou lié à une ou plusieurs catégories
 -- (document_type_categories). Le délai est relatif aux dates de la formation : N jours avant le début

@@ -318,7 +318,7 @@ formation, mais reste inchangée sur les formations qui la référencent déjà.
 // 200 OK → CategoryResponse
 ```
 
-### Types de document (TICKET-051)
+### Types de document (TICKET-052)
 
 Catalogue des pièces que les stagiaires fournissent (« Pièce d'identité », « Certificat médical »…), tenu par
 la chargée de formation. Un type est **obligatoire ou facultatif**, éventuellement **sensible**, vaut pour

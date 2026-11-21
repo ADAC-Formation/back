@@ -31,7 +31,7 @@ Catégorie de classement d'une formation (ex : "Estime de soi en travail social"
 
 ### document_types
 Type de document attendu d'un stagiaire (ex : « Pièce d'identité », « Certificat médical »), tenu par la
-chargée de formation (TICKET-051).
+chargée de formation (TICKET-052).
 - PK : `id` (BIGSERIAL)
 - `nom` : NOT NULL, unique **sans tenir compte de la casse** (index `uk_document_types_nom_upper` sur `UPPER(nom)`)
 - `aide` : texte d'aide optionnel affiché au stagiaire (500 caractères au plus)
