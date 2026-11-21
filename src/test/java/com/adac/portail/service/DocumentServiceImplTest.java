@@ -177,9 +177,10 @@ class DocumentServiceImplTest {
     @Test
     void uploadOnOwnInscriptionByStagiaireSucceeds() {
         User stagiaire = user(7L, Role.STAGIAIRE);
-        Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire)
-                .formation(Formation.builder().id(1L).build()).build();
+        Formation formation = Formation.builder().id(1L).build();
+        Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire).formation(formation).build();
         when(inscriptionRepository.findById(5L)).thenReturn(Optional.of(inscription));
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
         stubCanonicalMimeType();
         when(storageService.upload(any(), anyString(), anyString())).thenReturn("https://supabase/inscriptions/5/x.pdf");
         when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -230,6 +231,7 @@ class DocumentServiceImplTest {
         Formation formation = Formation.builder().id(1L).build();
         Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire).formation(formation).build();
         when(inscriptionRepository.findById(5L)).thenReturn(Optional.of(inscription));
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
         stubCanonicalMimeType();
         when(storageService.upload(any(), anyString(), anyString())).thenReturn("https://supabase/inscriptions/5/x.pdf");
         when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -248,6 +250,7 @@ class DocumentServiceImplTest {
         Formation formation = Formation.builder().id(1L).build();
         Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire).formation(formation).build();
         when(inscriptionRepository.findById(5L)).thenReturn(Optional.of(inscription));
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
         stubCanonicalMimeType();
         when(storageService.upload(any(), anyString(), anyString())).thenReturn("https://supabase/inscriptions/5/x.pdf");
         when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -539,9 +542,11 @@ class DocumentServiceImplTest {
     @Test
     void uploadOnInscriptionOfArchivedFormationReturnsConflict() {
         User stagiaire = user(7L, Role.STAGIAIRE);
+        Formation archived = archivedFormation(user(2L, Role.ADMIN));
         Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire)
-                .formation(archivedFormation(user(2L, Role.ADMIN))).build();
+                .formation(Formation.builder().id(1L).build()).build();
         when(inscriptionRepository.findById(5L)).thenReturn(Optional.of(inscription));
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(archived));
 
         assertThatThrownBy(() -> documentService.uploadDocument(pdfFile(), null, 5L, principal(stagiaire)))
                 .isInstanceOf(ConflictException.class);
