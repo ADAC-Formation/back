@@ -1,9 +1,12 @@
 package com.adac.portail.controller;
 
 import com.adac.portail.dto.request.CreateUserRequest;
+import com.adac.portail.dto.response.AccountImportResponse;
+import com.adac.portail.dto.response.ImportErrorResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -22,6 +25,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -38,6 +42,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -71,6 +76,54 @@ class UserControllerTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    // NOTES-09 : import de comptes par fichier Excel, réservé à la chargée de formation.
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void importAccountsBySuperAdminReturnsCreatedAccountsAndRowErrors() throws Exception {
+        UserResponse created = UserResponse.builder().id(5L).email("paul@adac.fr").role(Role.ADMIN).build();
+        when(userService.importAccounts(any())).thenReturn(new AccountImportResponse(
+                List.of(created), List.of(new ImportErrorResponse(3, "email", "e-mail déjà utilisé"))));
+
+        mockMvc.perform(multipart("/api/users/import")
+                        .file(new MockMultipartFile("file", "comptes.xlsx", "application/octet-stream", new byte[] {1})))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.created[0].email").value("paul@adac.fr"))
+                .andExpect(jsonPath("$.errors[0].ligne").value(3))
+                .andExpect(jsonPath("$.errors[0].colonne").value("email"))
+                .andExpect(jsonPath("$.errors[0].message").value("e-mail déjà utilisé"));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void importAccountsWithABadFileReturnsBadRequest() throws Exception {
+        when(userService.importAccounts(any()))
+                .thenThrow(new BadRequestException("Format invalide, seuls les fichiers .xlsx sont acceptés"));
+
+        mockMvc.perform(multipart("/api/users/import")
+                        .file(new MockMultipartFile("file", "comptes.csv", "text/csv", new byte[] {1})))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Format invalide, seuls les fichiers .xlsx sont acceptés"));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void importAccountsByFormateurReturnsForbidden() throws Exception {
+        assertImportForbidden();
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void importAccountsByStagiaireReturnsForbidden() throws Exception {
+        assertImportForbidden();
+    }
+
+    private void assertImportForbidden() throws Exception {
+        mockMvc.perform(multipart("/api/users/import")
+                        .file(new MockMultipartFile("file", "comptes.xlsx", "application/octet-stream", new byte[] {1})))
+                .andExpect(status().isForbidden());
+        verify(userService, never()).importAccounts(any());
     }
 
     @Test
@@ -576,7 +629,7 @@ class UserControllerTest {
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getUserInscriptionsReturnsTheList() throws Exception {
-        when(userService.getInscriptionsOf(9L)).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
+        when(userService.getInscriptionsOf(eq(9L), any())).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
 
         mockMvc.perform(get("/api/users/9/inscriptions"))
                 .andExpect(status().isOk())
@@ -585,14 +638,22 @@ class UserControllerTest {
 
     @Test
     @WithMockAdacUser(role = Role.ADMIN)
-    void getUserInscriptionsIsForbiddenForNonSuperAdmin() throws Exception {
+    void getUserInscriptionsIsAllowedForAdmin() throws Exception {
+        when(userService.getInscriptionsOf(eq(9L), any())).thenReturn(List.of(new UserInscriptionResponse(5L, null)));
+
+        mockMvc.perform(get("/api/users/9/inscriptions")).andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void getUserInscriptionsIsForbiddenForStagiaire() throws Exception {
         mockMvc.perform(get("/api/users/9/inscriptions")).andExpect(status().isForbidden());
     }
 
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void getUserInscriptionsOfUnknownUserReturnsNotFound() throws Exception {
-        when(userService.getInscriptionsOf(404L)).thenThrow(new ResourceNotFoundException("Utilisateur introuvable"));
+        when(userService.getInscriptionsOf(eq(404L), any())).thenThrow(new ResourceNotFoundException("Utilisateur introuvable"));
 
         mockMvc.perform(get("/api/users/404/inscriptions")).andExpect(status().isNotFound());
     }

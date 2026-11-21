@@ -4,11 +4,13 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.AccountImportResponse;
 import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.security.AdacUserDetails;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -28,11 +30,13 @@ public interface UserService {
 
     UserResponse reactivate(Long id);
 
-    List<UserInscriptionResponse> getInscriptionsOf(Long userId);
+    List<UserInscriptionResponse> getInscriptionsOf(Long userId, AdacUserDetails principal);
 
     void changePassword(AdacUserDetails principal, ChangePasswordRequest request);
 
     UserResponse updateMe(AdacUserDetails principal, UpdateProfileRequest request);
 
     UserResponse updateUser(Long id, UpdateUserRequest request, AdacUserDetails principal);
+
+    AccountImportResponse importAccounts(MultipartFile file);
 }

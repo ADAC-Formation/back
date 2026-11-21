@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.ChangePasswordRequest;
 import com.adac.portail.dto.request.CreateUserRequest;
 import com.adac.portail.dto.request.UpdateProfileRequest;
 import com.adac.portail.dto.request.UpdateUserRequest;
+import com.adac.portail.dto.response.AccountImportResponse;
 import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
@@ -22,6 +23,7 @@ import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
 import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.security.LoginAttemptService;
+import com.adac.portail.utils.AccountImportParser;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,10 +32,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +54,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final ActivationService activationService;
     private final LoginAttemptService loginAttemptService;
+    private final AccountImportParser accountImportParser;
 
     @Override
     @Transactional
@@ -107,21 +113,33 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse getById(Long id, AdacUserDetails principal) {
-        User target = findUserOrThrow(id);
         User caller = principal.getUser();
-
-        if (caller.getRole() == Role.ADMIN && !Objects.equals(target.getId(), caller.getId())) {
-            boolean visible = switch (target.getRole()) {
-                case STAGIAIRE -> target.isActive()
-                        && inscriptionRepository.existsByStagiaireAndFormation_Formateur(target, caller);
-                case ADMIN -> target.isActive();
-                case SUPER_ADMIN -> false;
-            };
-            if (!visible) {
-                throw new ResourceNotFoundException("Utilisateur introuvable");
-            }
-        }
+        User target = caller.getRole() == Role.ADMIN ? getVisibleToAdminOrThrow(id, caller) : findUserOrThrow(id);
         return toResponse(target);
+    }
+
+    // What an ADMIN may look up: himself, an active formateur, or an active stagiaire enrolled in one of his
+    // formations. Anyone else is reported as not found (a 403 would confirm the account exists).
+    private User getVisibleToAdminOrThrow(Long id, User caller) {
+        User target = findUserOrThrow(id);
+        if (Objects.equals(target.getId(), caller.getId())) {
+            return target;
+        }
+        boolean visible = switch (target.getRole()) {
+            case STAGIAIRE -> target.isActive()
+                    && inscriptionRepository.existsByStagiaireAndFormation_Formateur(target, caller);
+            case ADMIN -> target.isActive();
+            case SUPER_ADMIN -> false;
+        };
+        if (!visible) {
+            throw new ResourceNotFoundException("Utilisateur introuvable");
+        }
+        return target;
+    }
+
+    private static boolean isTaughtBy(Inscription inscription, User formateur) {
+        User teacher = inscription.getFormation().getFormateur();
+        return teacher != null && Objects.equals(teacher.getId(), formateur.getId());
     }
 
     private boolean matchesActiveFilter(User user, Boolean active, boolean forceActiveOnly) {
@@ -161,11 +179,15 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<UserInscriptionResponse> getInscriptionsOf(Long userId) {
-        User user = findUserOrThrow(userId);
-        return inscriptionRepository.findAllByStagiaire(user).stream()
-                .map(inscriptionMapper::toUserInscription)
-                .toList();
+    public List<UserInscriptionResponse> getInscriptionsOf(Long userId, AdacUserDetails principal) {
+        User caller = principal.getUser();
+        User user = caller.getRole() == Role.ADMIN ? getVisibleToAdminOrThrow(userId, caller) : findUserOrThrow(userId);
+        Stream<Inscription> inscriptions = inscriptionRepository.findAllByStagiaire(user).stream();
+        if (caller.getRole() == Role.ADMIN) {
+            // A formateur only sees the formations he teaches, never the other formations of the same stagiaire.
+            inscriptions = inscriptions.filter(inscription -> isTaughtBy(inscription, caller));
+        }
+        return inscriptions.map(inscriptionMapper::toUserInscription).toList();
     }
 
     @Override
@@ -232,6 +254,21 @@ public class UserServiceImpl implements UserService {
         }
 
         return toResponse(saved);
+    }
+
+    // NOTES-09 : chaque ligne valide devient un compte en attente d'activation (e-mail envoyé après le
+    // commit, comme une création unitaire) ; les lignes refusées sont rendues telles quelles.
+    @Override
+    @Transactional
+    public AccountImportResponse importAccounts(MultipartFile file) {
+        AccountImportParser.Result parsed = accountImportParser.parse(file);
+        List<UserResponse> created = new ArrayList<>();
+        for (AccountImportParser.AccountRow row : parsed.rows()) {
+            User user = createPendingUser(row.request(), row.role());
+            sendActivationCodeAfterCommit(user);
+            created.add(toResponse(user));
+        }
+        return new AccountImportResponse(created, parsed.errors());
     }
 
     private User createPendingUser(CreateUserRequest request, Role role) {

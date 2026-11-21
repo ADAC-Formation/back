@@ -341,7 +341,26 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Divergence connue : N+1 léger sur `GET /formations` pour un stagiaire (1 requête par formation
   pour l'inscription), identique au compte d'inscriptions déjà fait par formation.
 
-## Ticket 051 — Catalogue des types de document (CRUD, SUPER_ADMIN)
+## Ticket 051 — POST /users/import (comptes par fichier Excel)
+
+- Outil ayant préparé le rapport : Claude Code (session conduite par Manon, D66 du front)
+- Branche et HEAD observés : feature/user-import (worktree `back-notes09`, depuis origin/dev) / 9a50cac
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-019 (Done)
+- Travail réalisé : `POST /api/users/import` ligne par ligne (création des lignes valides, erreurs
+  `{ligne, colonne, message}` pour les autres) ; `AccountImportParser` ; lecture commune des classeurs
+  extraite dans `ExcelWorkbooks`, import des formations inchangé
+- Tests exécutés : RED constaté (405 sans route, stubs `UnsupportedOperationException`), puis
+  `mvn test` → 579 tests, 0 échec (PostgreSQL 16 jetable et `JWT_SECRET` aléatoire pour les tests de contexte)
+- Revue : `review-code` indisponible dans cet environnement, relecture manuelle ; 0 BLOCKING, 0 CRITICAL ;
+  1 SUGGESTION non appliquée (envoi synchrone des emails d'activation, voir la fiche)
+- Documentation mise à jour : docs/tech.md, docs/TICKETS.md, docs/tickets/TICKET-051.md, ce rapport
+- État Git observé : uniquement les fichiers du ticket ; aucun changement étranger
+- Étape suivante : relecture par Charlotte ; push et PR vers `dev` seulement sur demande de Manon
+- Risques, divergences ou décisions attendues : durée de la requête pour un gros fichier (emails
+  synchrones) ; plafond de 200 lignes à confirmer
+
+## Ticket 052 — Catalogue des types de document (CRUD, SUPER_ADMIN)
 
 - Outil ayant préparé le rapport : Claude Code (session conduite par Manon, plan validé par Manon le 2026-11-20)
 - Branche et HEAD observés : feature/document-types (depuis origin/dev 9a50cac), voir `git log` pour le dernier commit

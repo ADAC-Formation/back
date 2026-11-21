@@ -37,8 +37,10 @@ import org.slf4j.LoggerFactory;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -64,6 +66,7 @@ public class MessageServiceImpl implements MessageService {
     private final FormationService formationService;
     private final InscriptionRepository inscriptionRepository;
     private final PlatformTransactionManager transactionManager;
+    private final ActivationService activationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -221,7 +224,11 @@ public class MessageServiceImpl implements MessageService {
                 yield resolveManualRecipients(filter.getUserIds());
             }
         };
-        return resolved.stream().filter(target -> canMessage(caller.getRole(), target)).toList();
+        Set<Long> excluded = filter.getExcludedUserIds() == null ? Set.of() : new HashSet<>(filter.getExcludedUserIds());
+        return resolved.stream()
+                .filter(target -> !excluded.contains(target.getId()))
+                .filter(target -> canReceiveGroupMessage(caller.getRole(), target))
+                .toList();
     }
 
     private List<User> resolveFormationRecipients(AdacUserDetails principal, Long formationId) {
@@ -290,6 +297,19 @@ public class MessageServiceImpl implements MessageService {
         if (recipientRow.getReadAt() == null) {
             recipientRow.setReadAt(OffsetDateTime.now());
         }
+    }
+
+    // A group message reaches active accounts and accounts that never activated (the message waits in their thread
+    // and bell until their first login), but not suspended ones. Everything else follows canMessage, except that a
+    // never-activated target is no longer refused to an ADMIN sender just for being inactive.
+    private boolean canReceiveGroupMessage(Role senderRole, User target) {
+        if (target.isActive()) {
+            return canMessage(senderRole, target);
+        }
+        if (activationService.hasEverActivated(target)) {
+            return false;
+        }
+        return senderRole == Role.SUPER_ADMIN || (senderRole == Role.ADMIN && target.getRole() != Role.SUPER_ADMIN);
     }
 
     private boolean canMessage(Role senderRole, User target) {

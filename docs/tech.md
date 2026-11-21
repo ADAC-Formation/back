@@ -192,6 +192,37 @@ Créer un stagiaire (SUPER_ADMIN uniquement). Déclenche l'email d'activation.
 // 409 — email déjà utilisé
 ```
 
+### POST /api/users/import
+Créer des comptes depuis un fichier Excel (SUPER_ADMIN uniquement, TICKET-051). **Ligne par ligne** :
+chaque ligne valide crée un compte en attente d'activation et déclenche son email d'activation
+(comme `POST /users/formateurs` et `/stagiaires`) ; une ligne invalide est rapportée dans `errors`
+et ne crée rien. Aucune inscription à une formation.
+
+Une ligne d'en-tête (ignorée), puis une ligne par compte, 200 lignes au plus :
+
+| # | Colonne | Requis | Format |
+|---|---|---|---|
+| A | nom | oui | texte, 255 caractères max |
+| B | prenom | oui | texte, 255 caractères max |
+| C | email | oui | adresse email ; ni déjà utilisée par un compte, ni répétée dans le fichier (casse ignorée) |
+| D | role | oui | `Formateur` \| `Stagiaire` (casse ignorée) |
+
+```json
+// Content-Type: multipart/form-data
+// Body: file (fichier .xlsx, 2 Mo max)
+// 200 OK → AccountImportResponse
+{
+  "created": [ /* UserResponse, dans l'ordre du fichier */ ],
+  "errors": [ { "ligne": 3, "colonne": "email", "message": "e-mail déjà utilisé" } ]
+}
+// "ligne" = numéro de ligne Excel (l'en-tête est la ligne 1) ; "colonne" ∈ nom | prenom | email | role
+// Messages : "valeur manquante", "adresse e-mail invalide", "valeur trop longue (255 caractères au maximum)",
+//   "e-mail déjà utilisé", "e-mail déjà présent ligne N", "valeur invalide \"X\" (attendu Formateur ou Stagiaire)"
+// 400 — fichier refusé en entier (ErrorResponse) : pas un .xlsx lisible, plus de 2 Mo,
+//       plus de 200 lignes, ou aucun compte dans le fichier
+// 403 — rôle insuffisant
+```
+
 ### GET /api/users/{id}
 Profil d'un utilisateur. Réservé à SUPER_ADMIN et ADMIN — un STAGIAIRE consulte son propre profil
 via `PATCH /api/users/me` (pas de `GET /api/users/me` séparé pour l'instant), jamais celui d'un
@@ -203,11 +234,13 @@ tiers par id.
 ```
 
 ### GET /api/users/{id}/inscriptions
-Formations auxquelles un utilisateur est inscrit. **SUPER_ADMIN uniquement.**
+Formations auxquelles un utilisateur est inscrit. **SUPER_ADMIN** : toutes. **ADMIN (formateur)** : seulement
+celles qu'il anime, et seulement pour un stagiaire actif de l'une de ses formations (mêmes règles de visibilité
+que `GET /api/users/{id}`).
 ```json
 // 200 — [{ "id": 5, "formation": FormationResponse }]  (tableau vide si aucune inscription)
-// 403 — rôle insuffisant
-// 404 — utilisateur inconnu
+// 403 — appelant STAGIAIRE
+// 404 — utilisateur inconnu ; pour un ADMIN, aussi un utilisateur qu'il ne peut pas voir
 ```
 
 ### PATCH /api/users/me
@@ -659,7 +692,8 @@ Envoyer un message individuel ou groupé.
   "filter": {
     "type": "FORMATION",         // FORMATION | MISSING_DOCS | MANUAL
     "formationId": 1,            // requis si type=FORMATION
-    "userIds": [4, 7]            // requis (non vide) si type=MANUAL — "sélection libre"
+    "userIds": [4, 7],           // requis (non vide) si type=MANUAL — "sélection libre"
+    "excludedUserIds": [9]       // optionnel, tout type : ces personnes sont retirées des destinataires résolus
   }
 }
 
@@ -674,9 +708,13 @@ Envoyer un message individuel ou groupé.
 //                    pas de formationId.
 //   MANUAL        → SUPER_ADMIN uniquement
 //
+// Qui reçoit un message groupé (pour tous les rôles) : les comptes actifs ET les comptes jamais activés (le
+// message les attend dans leur fil et leur cloche, ils le voient à la première connexion). Les comptes
+// SUSPENDUS (activés un jour, puis désactivés) n'en reçoivent pas. Un envoi individuel garde sa règle propre.
+//
 // 400 — recipientIds/filter : ni l'un ni l'autre, ou les deux ; recipientIds sans exactement un
 //       élément ; formationId manquant pour FORMATION ; userIds manquant/vide pour MANUAL ; ou le
-//       filtre ne résout aucun destinataire
+//       filtre ne résout aucun destinataire (exclusions comprises : tout exclure donne 400)
 // 403 — le rôle de l'appelant ne peut pas écrire à ce destinataire (individuel) ; STAGIAIRE sur
 //       FORMATION ; ADMIN/STAGIAIRE sur MISSING_DOCS/MANUAL
 // 404 — destinataire (individuel) ou un des userIds (MANUAL) introuvable ; formation introuvable
@@ -691,8 +729,10 @@ rôle/filtre que la branche groupée de `POST /api/messages/send` ci-dessus.
 ```json
 // Query params : ?filterType=FORMATION&formationId=1 | ?filterType=MISSING_DOCS
 //              | ?filterType=MANUAL&userIds=4&userIds=7
-// 200 OK → UserResponse[]
-// 400/403/404 — mêmes règles que POST /api/messages/send (branche groupée)
+// 200 OK → UserResponse[] — un groupe qui ne résout personne répond 200 avec [] (contrairement à l'envoi,
+//          qui répond 400 : l'aperçu sert justement à voir qu'il est vide)
+// 400/403/404 — mêmes règles que POST /api/messages/send (branche groupée) pour les paramètres manquants,
+//          le rôle de l'appelant et la formation introuvable
 ```
 
 ### PATCH /api/messages/{id}/read
