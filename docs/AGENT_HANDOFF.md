@@ -378,3 +378,5 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Étape suivante : relecture par Charlotte ; push et PR vers `dev` seulement sur demande de Manon
 - Risques, divergences ou décisions attendues : suppression définitive de documents (preuves Qualiopi)
   à la désinscription, décidée par Manon (J6)
+- Complément (même jour, J10) : `POST /users/stagiaires` refuse une formation archivée dans
+  `formationIds` (400, rien n'est créé) ; `mvn clean test` → 597 tests, 0 échec

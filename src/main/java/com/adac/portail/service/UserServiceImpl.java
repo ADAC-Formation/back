@@ -10,9 +10,11 @@ import com.adac.portail.dto.response.UserResponse;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
+import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
+import com.adac.portail.exception.FormationArchivedException;
 import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.exception.UnauthorizedException;
@@ -297,6 +299,9 @@ public class UserServiceImpl implements UserService {
         List<Formation> formations = formationRepository.findAllById(distinctIds);
         if (formations.size() != distinctIds.size()) {
             throw new ResourceNotFoundException("Une ou plusieurs formations sont introuvables");
+        }
+        if (formations.stream().anyMatch(formation -> formation.getStatus() == FormationStatus.ARCHIVED)) {
+            throw new FormationArchivedException("Formation archivée, inscription impossible");
         }
         for (Formation formation : formations) {
             inscriptionRepository.save(Inscription.builder()

@@ -22,6 +22,11 @@ Décisions de Manon (2026-11-23, `front/docs/decisions/decisions-inscriptions.md
 - **J7** — Sur une formation archivée, la désinscription répond 409 « Formation archivée » (même
   règle que la suppression d'un document) ; l'inscription y est déjà refusée (400).
 
+- **J10** — `POST /api/users/stagiaires` avec `formationIds` (création et inscriptions dans la même
+  transaction) refuse une formation archivée : 400 « Formation archivée, inscription impossible »,
+  rien n'est créé. Le contrôle manquait ; le front envoie désormais les formations choisies à la
+  création par ce champ.
+
 Inchangé : rôle SUPER_ADMIN, idempotence de la désinscription, réponses du `POST`. Pas de migration.
 
 Contrat API (`docs/tech.md`) : section Inscriptions.
@@ -33,6 +38,7 @@ Contrat API (`docs/tech.md`) : section Inscriptions.
 ## Files to create or modify
 
 - `service/InscriptionServiceImpl.java`, `controller/InscriptionController.java` (documentation Swagger)
+- `service/UserServiceImpl.java` (`enroll` : formation archivée refusée, J10)
 - `repository/InscriptionRepository.java` : `findByStagiaire_IdAndFormation_Id` remplace
   `deleteByStagiaire_IdAndFormation_Id` (plus utilisé : la désinscription passe par l'inscription
   pour retrouver ses documents) ; `DocumentRepository.findAllByInscription` existait déjà
@@ -47,6 +53,7 @@ Contrat API (`docs/tech.md`) : section Inscriptions.
 - [x] Échec de suppression d'un fichier dans le stockage : 204 quand même, erreur journalisée
 - [x] Formation archivée : 409 à la désinscription
 - [x] Désinscription d'un stagiaire non inscrit : 204 (idempotent)
+- [x] Création d'un stagiaire avec une formation archivée dans `formationIds` : 400, rien n'est créé
 
 ## Mise en œuvre
 
@@ -69,7 +76,9 @@ Contrat API (`docs/tech.md`) : section Inscriptions.
 - `InscriptionControllerTest#deleteInscriptionOnArchivedFormationReturnsConflict` (contrat : vert
   d'emblée, le gestionnaire de `ConflictException` existait)
 - `InscriptionDeletionIntegrationTest` : désinscription sur une vraie base avec un document
-- Suite complète : `mvn clean test` → 596 tests, 0 échec (PostgreSQL 16 jetable, `JWT_SECRET` aléatoire)
+- `UserServiceImplTest#createStagiaireInAnArchivedFormationThrowsAndEnrollsNothing` (RED constaté :
+  aucune exception)
+- Suite complète : `mvn clean test` → 597 tests, 0 échec (PostgreSQL 16 jetable, `JWT_SECRET` aléatoire)
 
 ## Revue
 
