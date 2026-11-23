@@ -63,4 +63,16 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody().status()).isEqualTo(409);
     }
+
+    @Test
+    void feedbackDeliveryFailureReturnsServiceUnavailableWithoutLeakingTheCause() {
+        FeedbackDeliveryException ex = new FeedbackDeliveryException(
+                new org.springframework.mail.MailSendException("535 auth failed for dev@example.org"));
+
+        ResponseEntity<ErrorResponse> response = handler.handleFeedbackDelivery(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody().status()).isEqualTo(503);
+        assertThat(response.getBody().message()).isEqualTo("Envoi impossible pour le moment, réessayez plus tard.");
+    }
 }
