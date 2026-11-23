@@ -30,7 +30,7 @@ Catégorie de classement d'une formation (ex : "Estime de soi en travail social"
   formation, même archivée, doit toujours pouvoir résoudre sa catégorie
 
 ### document_types
-Type de document attendu d'un stagiaire (ex : « Pièce d'identité », « Certificat médical »), tenu par la
+Type de document attendu pour une formation (ex : « Pièce d'identité », « Feuille d'émargement »), tenu par la
 chargée de formation (TICKET-052).
 - PK : `id` (BIGSERIAL)
 - `nom` : NOT NULL, unique **sans tenir compte de la casse** (index `uk_document_types_nom_upper` sur `UPPER(nom)`)
@@ -43,6 +43,8 @@ chargée de formation (TICKET-052).
   début, `BEFORE_START`, ou après la fin, `AFTER_END`), les deux colonnes ensemble ou aucune, jours de 0 à 365
   (contraintes CHECK)
 - `allowed_formats` : sous-ensemble de `pdf,jpg,jpeg,png,docx,xlsx` séparé par des virgules ; NULL = règle générale
+- `provided_by` : `STAGIAIRE` (pièce de l'inscription, défaut) ou `ADAC` (pièce de la formation, déposée par la chargée
+  de formation ou le formateur) ; contrainte `chk_document_types_provided_by` (V7)
 - `is_active` : désactivation, pas de suppression (pas d'endpoint DELETE)
 
 ### document_type_categories

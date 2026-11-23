@@ -383,3 +383,18 @@ Conserver la branche et les changements existants. Préserver les changements é
   la chargée et du formateur, retrait du filtre MISSING_DOCS).
 - Risques, divergences ou décisions attendues : la migration V6 est le point sensible de la relecture ; décision
   de produit prise par Manon (catégories désactivées liables, GET réservé à SUPER_ADMIN, pas de verrou optimiste).
+
+## Ticket 052 (complément) — Fournisseur d'un type de document (`providedBy`)
+
+- Outil ayant préparé le rapport : Claude Code (session de Manon, D66 du front)
+- Branche et HEAD observés : feature/document-types / 1d4ef38 avant le commit
+- Statut de la fiche et de docs/TICKETS.md : Done (inchangé ; complément décrit dans la fiche)
+- Dépendances vérifiées : TICKET-052 déjà sur la branche ; V7 libre sur `origin/dev` et les branches ouvertes (dernière : V5 ; V6 sur cette branche)
+- Travail réalisé : colonne `provided_by` (V7, défaut STAGIAIRE, CHECK), enum `DocumentProvider`, champ `providedBy` de l'entité, de la requête et de la réponse, défaut appliqué par le service
+- Tests exécutés : `mvn test -Dtest='DocumentType*Test'` sur PostgreSQL 16 jetable : 71 tests verts ; `mvn test` complet : 698 tests, 1 échec attendu (`FlywayMigrationTest` fige la dernière version : passé de V6 à V7, puis vert)
+- Revue : diff relu dans la session (pas d'agent `review-code` disponible : signalé). Aucun BLOCKING ni CRITICAL. SUGGESTION non appliquée : un PUT sans `providedBy` remet `STAGIAIRE` ; voulu, le PUT remplace tous les champs et le front envoie toujours le champ
+- Documentation mise à jour : docs/tech.md, docs/DB_MODEL.md, docs/DB_MODEL.mmd, docs/tickets/TICKET-052.md, ce rapport
+- État Git observé : seuls les fichiers de ce complément sont modifiés
+- Étape suivante : fusion dans `local/integration` pour le back local ; pas de push (Manon décide)
+- Risques, divergences ou décisions attendues : la PR #27 grossit d'une migration ; à relire par Charlotte
+

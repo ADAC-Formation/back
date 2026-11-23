@@ -7,6 +7,7 @@ import com.adac.portail.entity.Category;
 import com.adac.portail.entity.DocumentType;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.enums.DeadlineAnchor;
+import com.adac.portail.entity.enums.DocumentProvider;
 import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.DocumentTypeAlreadyExistsException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -143,6 +144,7 @@ public class DocumentTypeServiceImpl implements DocumentTypeService {
         documentType.setDeadlineDays(request.getDeadlineDays());
         documentType.setDeadlineAnchor(request.getDeadlineAnchor());
         documentType.setAllowedFormats(normalizeFormats(request.getAllowedFormats()));
+        documentType.setProvidedBy(request.getProvidedBy() == null ? DocumentProvider.STAGIAIRE : request.getProvidedBy());
     }
 
     private Set<Category> resolveCategories(DocumentTypeRequest request) {

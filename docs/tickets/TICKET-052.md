@@ -135,3 +135,20 @@ Non appliqués, avec la raison :
 - Pliage de casse Java (`upper()` Hibernate) et SQL (`UPPER`) pouvant différer sur certains accents : le résultat
   reste correct, l'index tranche et donne le même 409.
 - `activate`/`deactivate` sauvegardent à chaque appel : même comportement que les catégories (idempotent).
+
+## Complément du 2026-11-23 — qui fournit le document (`providedBy`)
+
+Demande de Manon (G35 de `decisions-documents.md` du front) : la page d'une formation affiche les pièces que l'ADAC
+doit déposer, en rouge tant qu'elles manquent, comme celles du stagiaire. Un type porte donc son fournisseur.
+
+- Migration `V7__add_document_type_provider.sql` : `provided_by VARCHAR(20) NOT NULL DEFAULT 'STAGIAIRE'`, contrainte
+  `chk_document_types_provided_by` (`STAGIAIRE`, `ADAC`). Les types existants restent des pièces du stagiaire.
+- `DocumentProvider` (enum), champ `providedBy` de l'entité, de la requête (optionnel, absent = `STAGIAIRE`) et de la
+  réponse. `GET /api/formations/{id}/document-types` renvoie les deux sortes ; le front les sépare.
+- Critères : un type `ADAC` est créé, relu et renvoyé avec `providedBy: "ADAC"` ; sans le champ, `STAGIAIRE` ; une valeur
+  inconnue donne `400` ; la base refuse une valeur inconnue et remplit `STAGIAIRE` pour une ligne insérée sans la colonne.
+- Tests ajoutés : `DocumentTypeRepositoryTest` (4), `DocumentTypeServiceImplTest` (2), `DocumentTypeControllerTest`
+  (1 nouveau, 2 enrichis). RED constaté (symbole `DocumentProvider` absent), puis GREEN.
+- Le rattachement d'un fichier à son type reste par le nom de fichier côté front (G33) ; `documentTypeId` sur le dépôt
+  reste une demande à Charlotte.
+

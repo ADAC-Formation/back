@@ -3,6 +3,8 @@ package com.adac.portail.repository;
 import com.adac.portail.entity.Category;
 import com.adac.portail.entity.DocumentType;
 import com.adac.portail.entity.enums.DeadlineAnchor;
+import com.adac.portail.entity.enums.DocumentProvider;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
@@ -26,6 +28,9 @@ class DocumentTypeRepositoryTest {
 
     @Autowired
     private CategoryRepository categoryRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private DocumentType.DocumentTypeBuilder aType(String nom) {
         return DocumentType.builder().nom(nom).appliesToAll(true);
@@ -54,6 +59,44 @@ class DocumentTypeRepositoryTest {
         assertThat(read.getDeadlineAnchor()).isEqualTo(DeadlineAnchor.BEFORE_START);
         assertThat(read.getAllowedFormats()).isEqualTo("pdf,jpg");
         assertThat(read.getCreatedAt()).isNotNull();
+    }
+
+    @Test
+    void savesAnAdacTypeAndReadsItBack() {
+        DocumentType saved = documentTypeRepository.saveAndFlush(aType("Feuille d'émargement de test")
+                .providedBy(DocumentProvider.ADAC)
+                .build());
+
+        assertThat(documentTypeRepository.findById(saved.getId()).orElseThrow().getProvidedBy())
+                .isEqualTo(DocumentProvider.ADAC);
+    }
+
+    @Test
+    void aTypeIsProvidedByTheStagiaireByDefault() {
+        DocumentType saved = documentTypeRepository.saveAndFlush(aType("Justificatif de test").build());
+
+        assertThat(documentTypeRepository.findById(saved.getId()).orElseThrow().getProvidedBy())
+                .isEqualTo(DocumentProvider.STAGIAIRE);
+    }
+
+    // Les types créés avant la colonne (V7) restent des pièces du stagiaire : la base remplit la valeur par défaut.
+    @Test
+    void theDatabaseFillsStagiaireWhenTheColumnIsOmitted() {
+        entityManager.createNativeQuery(
+                "INSERT INTO document_types (nom, applies_to_all) VALUES ('Type ancien de test', TRUE)").executeUpdate();
+
+        Object provider = entityManager.createNativeQuery(
+                "SELECT provided_by FROM document_types WHERE nom = 'Type ancien de test'").getSingleResult();
+
+        assertThat(provider).isEqualTo("STAGIAIRE");
+    }
+
+    @Test
+    void theDatabaseRefusesAnUnknownProvider() {
+        assertThatThrownBy(() -> entityManager.createNativeQuery(
+                "INSERT INTO document_types (nom, applies_to_all, provided_by) VALUES ('Type inconnu de test', TRUE, 'FORMATEUR')")
+                .executeUpdate())
+                .hasStackTraceContaining("chk_document_types_provided_by");
     }
 
     @Test

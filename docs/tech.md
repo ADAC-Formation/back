@@ -362,6 +362,8 @@ Cette tranche ne relie pas encore les documents déposés à un type (voir les t
 Tous les endpoints de `/api/document-types` sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIRE, `401` sans
 session). La seule lecture ouverte aux autres rôles est `GET /api/formations/{id}/document-types` (ci-dessous).
 Il n'y a pas de « obligatoire / facultatif » : tout type actif qui s'applique à une formation est une pièce à envoyer.
+`providedBy` dit **qui** l'envoie : `STAGIAIRE` (pièce de son inscription) ou `ADAC` (pièce de la formation, déposée
+par la chargée de formation ou le formateur).
 
 ```json
 // DocumentTypeResponse
@@ -375,6 +377,7 @@ Il n'y a pas de « obligatoire / facultatif » : tout type actif qui s'applique 
   "deadlineDays": 7,                         // nullable, 0 à 365, avec deadlineAnchor
   "deadlineAnchor": "BEFORE_START",          // BEFORE_START | AFTER_END, nullable
   "allowedFormats": ["pdf", "jpg"],          // vide = règle générale (§ 6 : pdf, jpg, jpeg, png, docx, xlsx, 10 Mo)
+  "providedBy": "STAGIAIRE",                 // STAGIAIRE | ADAC
   "isActive": true,
   "createdAt": "2026-11-20T09:00:00Z",
   "updatedAt": "2026-11-20T09:00:00Z"        // renseigné dès la création, comme pour les catégories
@@ -389,8 +392,8 @@ Liste des types, triés par nom (sans tenir compte de la casse ni des accents).
 ```
 
 ### GET /api/formations/{id}/document-types
-Les types actifs à envoyer pour une formation : ceux de « toutes les formations » et ceux liés à la catégorie de la
-formation, triés par nom (sans tenir compte de la casse ni des accents). Mêmes droits que `GET /api/formations/{id}` :
+Les types actifs à envoyer pour une formation, **des deux fournisseurs** (`providedBy` les distingue) : ceux de
+« toutes les formations » et ceux liés à la catégorie de la formation, triés par nom (sans tenir compte de la casse ni des accents). Mêmes droits que `GET /api/formations/{id}` :
 la chargée de formation, le formateur de cette formation (`404` pour une autre), le stagiaire inscrit (`403` sinon).
 ```json
 // 200 OK → DocumentTypeResponse[]
@@ -408,11 +411,13 @@ Créer un type.
   "categoryIds": [1, 2],              // requis (non vide) si appliesToAllFormations=false, vide sinon
   "deadlineDays": 7,                  // optionnel, 0 à 365 ; avec deadlineAnchor, ou aucun des deux
   "deadlineAnchor": "BEFORE_START",   // BEFORE_START | AFTER_END
-  "allowedFormats": ["pdf", "jpg"]    // optionnel ; pdf, jpg, jpeg, png, docx, xlsx ; vide = règle générale
+  "allowedFormats": ["pdf", "jpg"],   // optionnel ; pdf, jpg, jpeg, png, docx, xlsx ; vide = règle générale
+  "providedBy": "ADAC"                // optionnel, STAGIAIRE | ADAC ; absent = STAGIAIRE
 }
 
 // 201 Created → DocumentTypeResponse
 // 400 — nom vide ou trop long, aide trop longue, drapeau manquant, délai incomplet ou hors bornes, format inconnu,
+//       providedBy inconnu,
 //       catégories données avec appliesToAllFormations=true, ou aucune catégorie avec appliesToAllFormations=false
 // 404 — une des catégories est inconnue
 // 409 — nom déjà utilisé (casse ignorée)

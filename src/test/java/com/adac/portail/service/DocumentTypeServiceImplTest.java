@@ -9,6 +9,7 @@ import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.entity.DocumentType;
 import com.adac.portail.entity.enums.DeadlineAnchor;
+import com.adac.portail.entity.enums.DocumentProvider;
 import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.DocumentTypeAlreadyExistsException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -98,6 +99,26 @@ class DocumentTypeServiceImplTest {
         assertThat(saved.getCategories()).isEmpty();
         assertThat(saved.isActive()).isTrue();
         assertThat(response.getId()).isEqualTo(1L);
+    }
+
+    @Test
+    void createsATypeProvidedByTheAdac() {
+        saveReturnsItsArgument();
+        DocumentTypeRequest request = request();
+        request.setProvidedBy(DocumentProvider.ADAC);
+
+        service.createDocumentType(request);
+
+        assertThat(created().getProvidedBy()).isEqualTo(DocumentProvider.ADAC);
+    }
+
+    @Test
+    void aTypeWithoutProviderIsProvidedByTheStagiaire() {
+        saveReturnsItsArgument();
+
+        service.createDocumentType(request());
+
+        assertThat(created().getProvidedBy()).isEqualTo(DocumentProvider.STAGIAIRE);
     }
 
     @Test

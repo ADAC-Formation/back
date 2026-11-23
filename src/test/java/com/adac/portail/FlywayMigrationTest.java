@@ -29,9 +29,9 @@ class FlywayMigrationTest {
     private EntityManagerFactory entityManagerFactory;
 
     @Test
-    void flywayMigratedV6AndHibernateOnlyValidates() {
+    void flywayMigratedV7AndHibernateOnlyValidates() {
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("6");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("7");
         assertThat(flyway.info().current().getState()).isEqualTo(MigrationState.SUCCESS);
 
         assertThat(entityManagerFactory.getProperties().get("hibernate.hbm2ddl.auto"))
@@ -55,10 +55,10 @@ class FlywayMigrationTest {
     }
 
     @Test
-    void flywaySchemaHistoryContainsSuccessfulV3ThroughV6Migrations() throws Exception {
+    void flywaySchemaHistoryContainsSuccessfulV3ThroughV7Migrations() throws Exception {
         try (Connection connection = dataSource.getConnection();
              Statement statement = connection.createStatement()) {
-            for (String version : new String[] {"3", "4", "5", "6"}) {
+            for (String version : new String[] {"3", "4", "5", "6", "7"}) {
                 try (ResultSet resultSet = statement.executeQuery(
                         "SELECT success FROM flyway_schema_history WHERE version = '" + version + "'")) {
                     assertThat(resultSet.next())

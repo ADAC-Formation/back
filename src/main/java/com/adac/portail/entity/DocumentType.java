@@ -1,6 +1,7 @@
 package com.adac.portail.entity;
 
 import com.adac.portail.entity.enums.DeadlineAnchor;
+import com.adac.portail.entity.enums.DocumentProvider;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -71,6 +72,12 @@ public class DocumentType {
     /** Formats acceptés, en minuscules séparés par des virgules ; {@code null} = règle générale. */
     @Column(name = "allowed_formats")
     private String allowedFormats;
+
+    /** Qui fournit ce document : le stagiaire (défaut) ou l'ADAC. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "provided_by", nullable = false)
+    @Builder.Default
+    private DocumentProvider providedBy = DocumentProvider.STAGIAIRE;
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default

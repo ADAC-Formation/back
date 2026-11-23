@@ -4,6 +4,7 @@ import com.adac.portail.dto.request.DocumentTypeRequest;
 import com.adac.portail.dto.response.CategoryResponse;
 import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.entity.enums.DeadlineAnchor;
+import com.adac.portail.entity.enums.DocumentProvider;
 import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.DocumentTypeAlreadyExistsException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -75,6 +76,7 @@ class DocumentTypeControllerTest {
         body.put("deadlineDays", 7);
         body.put("deadlineAnchor", "BEFORE_START");
         body.put("allowedFormats", List.of("pdf", "jpg"));
+        body.put("providedBy", "ADAC");
         return body;
     }
 
@@ -84,7 +86,7 @@ class DocumentTypeControllerTest {
                 .sensitive(true).appliesToAllFormations(false)
                 .categories(List.of(CategoryResponse.builder().id(1L).nom("Secourisme").couleur("#D62828").active(true).build()))
                 .deadlineDays(7).deadlineAnchor(DeadlineAnchor.BEFORE_START)
-                .allowedFormats(List.of("pdf", "jpg")).active(true).build();
+                .allowedFormats(List.of("pdf", "jpg")).providedBy(DocumentProvider.ADAC).active(true).build();
     }
 
     private String json(Object body) throws Exception {
@@ -110,6 +112,7 @@ class DocumentTypeControllerTest {
                 .andExpect(jsonPath("$.deadlineDays").value(7))
                 .andExpect(jsonPath("$.deadlineAnchor").value("BEFORE_START"))
                 .andExpect(jsonPath("$.allowedFormats[1]").value("jpg"))
+                .andExpect(jsonPath("$.providedBy").value("ADAC"))
                 .andExpect(jsonPath("$.isActive").value(true));
     }
 
@@ -131,6 +134,19 @@ class DocumentTypeControllerTest {
         assertThat(request.getDeadlineDays()).isEqualTo(7);
         assertThat(request.getDeadlineAnchor()).isEqualTo(DeadlineAnchor.BEFORE_START);
         assertThat(request.getAllowedFormats()).containsExactly("pdf", "jpg");
+        assertThat(request.getProvidedBy()).isEqualTo(DocumentProvider.ADAC);
+    }
+
+    @Test
+    @WithMockUser(roles = "SUPER_ADMIN")
+    void createWithAnUnknownProviderReturnsBadRequestWithoutCallingTheService() throws Exception {
+        Map<String, Object> body = validBody();
+        body.put("providedBy", "FORMATEUR");
+
+        mockMvc.perform(post("/api/document-types").contentType(MediaType.APPLICATION_JSON).content(json(body)))
+                .andExpect(status().isBadRequest());
+
+        verify(documentTypeService, never()).createDocumentType(any());
     }
 
     @Test

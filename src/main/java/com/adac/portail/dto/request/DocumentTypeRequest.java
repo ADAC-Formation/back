@@ -1,6 +1,7 @@
 package com.adac.portail.dto.request;
 
 import com.adac.portail.entity.enums.DeadlineAnchor;
+import com.adac.portail.entity.enums.DocumentProvider;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -47,4 +48,7 @@ public class DocumentTypeRequest {
     // 6 formats existent ; la marge laisse passer des doublons que le service écarte.
     @Size(max = 20)
     private List<@NotNull String> allowedFormats;
+
+    /** Absent = STAGIAIRE : les clients qui ne connaissent pas encore ce champ gardent l'ancien comportement. */
+    private DocumentProvider providedBy;
 }
