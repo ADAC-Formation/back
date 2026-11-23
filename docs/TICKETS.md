@@ -43,6 +43,7 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
 | TICKET-021 | Frontend — Gestion des comptes | front | TICKET-019 | 3h | À faire |
 | TICKET-050 | Backend — PUT /users/{id} (édition par SUPER_ADMIN) | back | TICKET-019, TICKET-015 | 1.5h | Done |
 | TICKET-051 | Backend — POST /users/import (comptes par fichier Excel) | back | TICKET-019 | 3h | Done |
+| TICKET-053 | Backend — Inscriptions : stagiaire jamais activé, désinscription avec documents | back | TICKET-023, TICKET-026 | 2h | Done |
 
 ## Phase 2 — Catégories
 
@@ -121,6 +122,12 @@ Détail de chaque ticket → `docs/tickets/TICKET-XXX.md`
   TICKET-013, TICKET-042
 - **Repo séparé** : le code frontend vit dans `ADAC-Formation/front` (Manon) — ce repo (`back`) ne contient
   ni son code ni ses tickets d'implémentation, seulement `docs/tech.md` comme contrat partagé
+
+## Note sur cette révision (2026-11-23)
+
+`TICKET-053` ajouté à la demande de Manon (NOTES-10 du front, décisions J2, J6, J7, D66) : inscrire un
+stagiaire jamais activé, désinscrire avec ses documents, désinscription refusée sur une formation
+archivée. Voir `docs/tickets/TICKET-053.md`.
 
 ## Note sur cette révision (2026-11-20)
 

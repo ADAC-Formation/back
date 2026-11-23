@@ -2,6 +2,7 @@ package com.adac.portail.controller;
 
 import com.adac.portail.dto.response.InscriptionResponse;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateInscriptionException;
 import com.adac.portail.exception.FormationArchivedException;
 import com.adac.portail.exception.ResourceNotFoundException;
@@ -163,6 +164,17 @@ class InscriptionControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(inscriptionService).deleteInscription(1L, 5L);
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void deleteInscriptionOnArchivedFormationReturnsConflict() throws Exception {
+        doThrow(new ConflictException("Formation archivée, désinscription impossible"))
+                .when(inscriptionService).deleteInscription(1L, 5L);
+
+        mockMvc.perform(delete("/api/formations/1/inscriptions/5"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Formation archivée, désinscription impossible"));
     }
 
     @Test

@@ -56,7 +56,7 @@ public class InscriptionController {
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "403", description = "Insufficient role",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @ApiResponse(responseCode = "404", description = "No such formation, or stagiaireId isn't an active STAGIAIRE",
+    @ApiResponse(responseCode = "404", description = "No such formation, or stagiaireId isn't a STAGIAIRE, or is suspended (a never-activated account can be enrolled)",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "409", description = "Already enrolled",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
@@ -69,11 +69,13 @@ public class InscriptionController {
                 .body(inscriptionService.createInscription(formationId, request));
     }
 
-    @Operation(summary = "Unenroll a stagiaire", description = "SUPER_ADMIN only. Idempotent.")
+    @Operation(summary = "Unenroll a stagiaire", description = "SUPER_ADMIN only. Idempotent. Deletes the inscription's documents and their stored files.")
     @ApiResponse(responseCode = "204", description = "No Content")
     @ApiResponse(responseCode = "403", description = "Insufficient role",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "No such formation",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "409", description = "Formation archived",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @DeleteMapping("/{stagiaireId}")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
