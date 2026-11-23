@@ -65,6 +65,11 @@ app:
   # to send (see TICKET-015 review).
   mail:
     from: ${MAIL_FROM:no-reply@adac.fr}
+  # Destinataire des retours envoyés par le bouton « Envoyer un retour » (POST /api/feedback).
+  # Vide par défaut : le démarrage n'échoue pas, mais chaque envoi répond 503 tant qu'il n'est pas
+  # renseigné. À changer à la passation pour l'adresse de la personne qui reprend le projet.
+  feedback:
+    recipient: ${FEEDBACK_RECIPIENT:}
 
 supabase:
   url: ${SUPABASE_URL:}

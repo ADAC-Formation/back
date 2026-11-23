@@ -1,5 +1,7 @@
 package com.adac.portail.utils;
 
+import com.adac.portail.dto.request.FeedbackRequest;
+import com.adac.portail.entity.enums.Role;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
 
@@ -37,6 +39,45 @@ public class EmailTemplateBuilder {
                 <p style="color:%s;font-size:14px;line-height:1.5;margin:0;">%s</p>
                 """.formatted(PRIMARY, TEXT, escapedContent)
                 + footer("Vous recevez cet email suite à une notification sur le portail ADAC."));
+    }
+
+    /** Email reçu par le développeur : chaque champ fourni par l'utilisateur est échappé. */
+    public String buildFeedbackEmail(String authorName, Role authorRole, FeedbackRequest feedback) {
+        String message = escapeText(feedback.message()).replaceAll("\\r?\\n", "<br>");
+        return shell("""
+                <h1 style="color:%s;font-size:20px;margin:0 0 16px;">%s — portail ADAC</h1>
+                <p style="color:%s;font-size:14px;margin:0 0 16px;">De %s (%s)</p>
+                <p style="color:%s;font-size:14px;line-height:1.5;margin:0 0 16px;">%s</p>
+                <table style="color:%s;font-size:12px;border-collapse:collapse;">
+                  %s%s%s%s
+                </table>
+                """.formatted(
+                        PRIMARY, escapeText(feedback.type().label()),
+                        TEXT, escapeText(authorName), roleLabel(authorRole),
+                        TEXT, message,
+                        MUTED,
+                        contextRow("Page", feedback.page()),
+                        contextRow("Navigateur", feedback.userAgent()),
+                        contextRow("Fenêtre", feedback.viewport()),
+                        contextRow("Version", feedback.appVersion())));
+    }
+
+    private static String contextRow(String label, String value) {
+        return "<tr><td style=\"padding:2px 8px 2px 0;\">%s</td><td>%s</td></tr>"
+                .formatted(label, escapeText(value == null ? "" : value));
+    }
+
+    // UTF-8 : n'échappe que le balisage (<, >, &, guillemets) et garde les accents lisibles.
+    private static String escapeText(String value) {
+        return HtmlUtils.htmlEscape(value, "UTF-8");
+    }
+
+    private static String roleLabel(Role role) {
+        return switch (role) {
+            case SUPER_ADMIN -> "Chargée de formation";
+            case ADMIN -> "Formateur";
+            case STAGIAIRE -> "Stagiaire";
+        };
     }
 
     private String buildCodeEmail(String title, String greeting, String lead, String code, String footerText) {
