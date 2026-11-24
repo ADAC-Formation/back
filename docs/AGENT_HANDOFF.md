@@ -359,3 +359,69 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Étape suivante : relecture par Charlotte ; push et PR vers `dev` seulement sur demande de Manon
 - Risques, divergences ou décisions attendues : durée de la requête pour un gros fichier (emails
   synchrones) ; plafond de 200 lignes à confirmer
+
+## Correctif — dépôt sur une inscription : 500 LazyInitializationException (lié TICKET-026)
+
+- Outil ayant préparé le rapport : Claude Code (session conduite par Manon)
+- Contexte : constaté par Manon le 2026-11-21 en local : tout dépôt de document sur une inscription
+  (stagiaire sur la sienne, ou chargée pour un stagiaire) répond 500. `uploadDocument` n'est pas
+  transactionnel (envoi Supabase puis enregistrement avec compensation) et `open-in-view` est à `false` :
+  le contrôle « formation archivée » ajouté par `80a8c54` lisait `getStatus()` sur le proxy paresseux
+  `inscription.getFormation()`, hors session. Le dépôt sur une formation n'était pas touché.
+- Branche et HEAD observés : fix/document-upload-lazy-formation (worktree `back-fix-upload`, depuis
+  origin/dev d43d4c9)
+- Travail réalisé : la formation de l'inscription est relue par `formationRepository.findById` avant le
+  contrôle d'archivage (404 si introuvable, cas théorique). Aucun changement de contrat.
+- Tests exécutés : `DocumentUploadIntegrationTest` (nouveau, vraie session JPA hors transaction : dépôt du
+  stagiaire, dépôt de la chargée, refus 409 sur formation archivée) — RED constaté (3 tests,
+  `LazyInitializationException`), puis GREEN ; `DocumentServiceImplTest` adapté (stub de
+  `formationRepository.findById` sur les chemins inscription) ; suite complète `mvn clean test` sur un
+  PostgreSQL 16 jetable et un `JWT_SECRET` aléatoire : 593 tests, 0 échec (590 sur origin/dev + 3).
+- Revue : `review-code` non installé dans cet environnement ; remplacé par `/code-review` (niveau low) sur le
+  diff, plus une relecture manuelle des autres accès paresseux de `uploadDocument` (seuls des `getId()` sur
+  proxy, sans chargement). 0 BLOCKING, 0 CRITICAL, 0 SUGGESTION. Les fichiers de test n'entrent pas dans
+  la revue de niveau low.
+- Documentation mise à jour : ce rapport ; journal `docs/charlotte/changements-back.md` du front.
+  `docs/tech.md` inchangé (contrat identique).
+- État Git observé : uniquement les fichiers du correctif.
+- Étape suivante : relecture par Charlotte ; push et PR vers `dev` seulement sur demande de Manon.
+- Risques, divergences ou décisions attendues : une requête de plus par dépôt sur inscription ; une
+  requête `join fetch` dans `InscriptionRepository` serait l'alternative.
+## Ticket 052 — Catalogue des types de document (CRUD, SUPER_ADMIN)
+
+- Outil ayant préparé le rapport : Claude Code (session conduite par Manon, plan validé par Manon le 2026-11-20)
+- Branche et HEAD observés : feature/document-types (depuis origin/dev 9a50cac), voir `git log` pour le dernier commit
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-046 (catégories, Done), TICKET-026 (documents, Done)
+- Travail réalisé : migration V6 (`document_types`, `document_type_categories`, index unique sur `UPPER(nom)`,
+  CHECK de délai), entité, dépôt, service, contrôleur `/api/document-types` (SUPER_ADMIN, sur le modèle des
+  catégories), mapper (`unmappedTargetPolicy = ERROR`), 409 dédié. Aucune donnée dans la migration.
+- Tests exécutés : `mvn test -Dtest='DocumentType*Test'` — 61/61 GREEN (RED confirmé à chaque couche : dépôt et
+  contrôleur par erreur de compilation, service par `UnsupportedOperationException`, retouches de revue par échec
+  des nouveaux tests). Suite complète : seuls échouent `CategoryRepositoryTest` (2) et
+  `ActivationTokenRepositoryTest` (1), dépendants des données de la base locale, sans rapport avec ce ticket ;
+  `FlywayMigrationTest` mis à jour pour V6.
+- Revue : `/code-review` medium sur `origin/dev..HEAD` ; 9 constats, 0 BLOCKING ; 2 CRITICAL et 2 SUGGESTION
+  corrigés, 5 non appliqués avec leur raison (voir la fiche, section Revue).
+- Documentation mise à jour : docs/tech.md (« Types de document »), docs/DB_MODEL.md et .mmd,
+  docs/tickets/TICKET-052.md, docs/TICKETS.md.
+- État Git observé : arbre propre hors la présente documentation ; aucun changement étranger au ticket.
+- Étape suivante : relecture par PR ; puis les tickets de la checklist (dépôt typé, checklist du stagiaire, vue de
+  la chargée et du formateur, retrait du filtre MISSING_DOCS).
+- Risques, divergences ou décisions attendues : la migration V6 est le point sensible de la relecture ; décision
+  de produit prise par Manon (catégories désactivées liables, GET réservé à SUPER_ADMIN, pas de verrou optimiste).
+
+## Ticket 052 (complément) — Fournisseur d'un type de document (`providedBy`)
+
+- Outil ayant préparé le rapport : Claude Code (session de Manon, D66 du front)
+- Branche et HEAD observés : feature/document-types / 1d4ef38 avant le commit
+- Statut de la fiche et de docs/TICKETS.md : Done (inchangé ; complément décrit dans la fiche)
+- Dépendances vérifiées : TICKET-052 déjà sur la branche ; V7 libre sur `origin/dev` et les branches ouvertes (dernière : V5 ; V6 sur cette branche)
+- Travail réalisé : colonne `provided_by` (V7, défaut STAGIAIRE, CHECK), enum `DocumentProvider`, champ `providedBy` de l'entité, de la requête et de la réponse, défaut appliqué par le service
+- Tests exécutés : `mvn test -Dtest='DocumentType*Test'` sur PostgreSQL 16 jetable : 71 tests verts ; `mvn test` complet : 698 tests, 1 échec attendu (`FlywayMigrationTest` fige la dernière version : passé de V6 à V7, puis vert)
+- Revue : diff relu dans la session (pas d'agent `review-code` disponible : signalé). Aucun BLOCKING ni CRITICAL. SUGGESTION non appliquée : un PUT sans `providedBy` remet `STAGIAIRE` ; voulu, le PUT remplace tous les champs et le front envoie toujours le champ
+- Documentation mise à jour : docs/tech.md, docs/DB_MODEL.md, docs/DB_MODEL.mmd, docs/tickets/TICKET-052.md, ce rapport
+- État Git observé : seuls les fichiers de ce complément sont modifiés
+- Étape suivante : fusion dans `local/integration` pour le back local ; pas de push (Manon décide)
+- Risques, divergences ou décisions attendues : la PR #27 grossit d'une migration ; à relire par Charlotte
+

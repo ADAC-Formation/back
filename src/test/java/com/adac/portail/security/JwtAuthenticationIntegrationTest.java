@@ -199,6 +199,12 @@ class JwtAuthenticationIntegrationTest {
     }
 
     @Test
+    void documentTypesWithoutCookieAreRejected() throws Exception {
+        mockMvc.perform(get("/api/document-types"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void protectedEndpointWithGarbageCookieIsRejectedNotServerError() throws Exception {
         mockMvc.perform(get("/api/test/ping").cookie(new Cookie("jwt", "not-a-valid-jwt")))
                 .andExpect(status().isUnauthorized());

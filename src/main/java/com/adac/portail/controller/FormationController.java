@@ -3,9 +3,11 @@ package com.adac.portail.controller;
 import com.adac.portail.dto.request.CreateFormationRequest;
 import com.adac.portail.dto.request.UpdateFormationRequest;
 import com.adac.portail.dto.response.ErrorResponse;
+import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.dto.response.FormationResponse;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.security.AdacUserDetails;
+import com.adac.portail.service.DocumentTypeService;
 import com.adac.portail.service.FormationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -40,6 +42,7 @@ import java.util.List;
 public class FormationController {
 
     private final FormationService formationService;
+    private final DocumentTypeService documentTypeService;
 
     @Operation(summary = "Create formation", description = "SUPER_ADMIN only. formateurId null auto-assigns the caller.")
     @ApiResponse(responseCode = "201", description = "Created",
@@ -93,6 +96,20 @@ public class FormationController {
             @PathVariable @Parameter(description = "Formation id") Long id,
             @AuthenticationPrincipal AdacUserDetails principal) {
         return ResponseEntity.ok(formationService.getFormationById(id, principal));
+    }
+
+    @Operation(summary = "Document types to send for a formation",
+            description = "Active types applying to the formation (all formations, or its category), sorted by name. Same access as GET /{id}: SUPER_ADMIN, the formation's formateur, an enrolled STAGIAIRE.")
+    @ApiResponse(responseCode = "200", description = "OK")
+    @ApiResponse(responseCode = "403", description = "STAGIAIRE not enrolled",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @ApiResponse(responseCode = "404", description = "No such formation, or not the caller's formation (ADMIN)",
+            content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    @GetMapping("/{id}/document-types")
+    public ResponseEntity<List<DocumentTypeResponse>> getDocumentTypesOfFormation(
+            @PathVariable @Parameter(description = "Formation id") Long id,
+            @AuthenticationPrincipal AdacUserDetails principal) {
+        return ResponseEntity.ok(documentTypeService.getDocumentTypesForFormation(id, principal));
     }
 
     @Operation(summary = "Update formation", description = "SUPER_ADMIN only. Only the fields present in the body are applied. 400 if the formation is archived.")
