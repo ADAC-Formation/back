@@ -184,12 +184,15 @@ Liste des stagiaires.
 ```
 
 ### POST /api/users/stagiaires
-Créer un stagiaire (SUPER_ADMIN uniquement). Déclenche l'email d'activation.
+Créer un stagiaire (SUPER_ADMIN uniquement). Déclenche l'email d'activation. `formationIds`
+(facultatif) inscrit le stagiaire dans la même transaction : tout ou rien.
 ```json
 // Body
 { "nom": "string", "prenom": "string", "email": "string", "formationIds": [1, 2] }
 
 // 201 Created → UserResponse
+// 400 — une des formations est archivée (« Formation archivée, inscription impossible ») : rien n'est créé
+// 404 — une des formations est introuvable : rien n'est créé
 // 409 — email déjà utilisé
 ```
 
@@ -577,23 +580,28 @@ reste scopé à ses propres formations (404 sinon), même règle que `GET /api/f
 
 ### POST /api/formations/{id}/inscriptions
 Inscrire un stagiaire (SUPER_ADMIN uniquement). `stagiaireId` doit être un compte `STAGIAIRE`
-existant (404 sinon, même traitement qu'un id inconnu).
+existant et non suspendu (404 sinon, même traitement qu'un id inconnu). Un compte **jamais activé**
+(créé, en attente d'activation) peut être inscrit, pour l'inscrire dès sa création ; un compte
+suspendu (inactif après avoir été activé) ne le peut pas.
 ```json
 // Body
 { "stagiaireId": 5 }
 
 // 201 Created → InscriptionResponse
 // 400 — formation archivée
-// 404 — formation ou stagiaire introuvable
+// 404 — formation ou stagiaire introuvable, ou stagiaire suspendu
 // 409 — déjà inscrit
 ```
 
 ### DELETE /api/formations/{id}/inscriptions/{stagiaireId}
 Désinscrire un stagiaire (SUPER_ADMIN uniquement). Idempotent : désinscrire un stagiaire qui ne
-l'était pas renvoie quand même 204.
+l'était pas renvoie quand même 204. **Les documents de l'inscription sont supprimés avec elle**
+(lignes et fichiers du stockage, définitivement) ; un fichier qui ne se supprime pas du stockage est
+journalisé sans faire échouer la désinscription. Refusé sur une formation archivée.
 ```json
 // 204 No Content
 // 404 — formation inconnue
+// 409 — formation archivée (« Formation archivée, désinscription impossible »)
 ```
 
 ---

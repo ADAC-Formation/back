@@ -35,7 +35,7 @@ public interface InscriptionRepository extends JpaRepository<Inscription, Long> 
     @Query("select i.formation from Inscription i where i.stagiaire = :stagiaire")
     List<Formation> findFormationsByStagiaire(@Param("stagiaire") User stagiaire);
 
-    void deleteByStagiaire_IdAndFormation_Id(Long stagiaireId, Long formationId);
+    Optional<Inscription> findByStagiaire_IdAndFormation_Id(Long stagiaireId, Long formationId);
 
     @Query("""
             select distinct i.stagiaire from Inscription i

@@ -360,6 +360,26 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Risques, divergences ou décisions attendues : durée de la requête pour un gros fichier (emails
   synchrones) ; plafond de 200 lignes à confirmer
 
+## Ticket 053 — Inscriptions : stagiaire jamais activé, désinscription avec documents
+
+- Outil ayant préparé le rapport : Claude Code (session conduite par Manon, D66 du front)
+- Branche et HEAD observés : feature/formation-inscriptions (depuis origin/dev) / d43d4c9 avant commit
+- Statut de la fiche et de docs/TICKETS.md : Done (les deux, cohérents)
+- Dépendances vérifiées : TICKET-023 (Done), TICKET-026 (Done)
+- Travail réalisé : `POST …/inscriptions` accepte un stagiaire jamais activé (suspendu refusé) ;
+  `DELETE …/inscriptions/{stagiaireId}` supprime les documents de l'inscription puis l'inscription,
+  puis les fichiers (échec journalisé), et répond 409 sur une formation archivée
+- Tests exécutés : RED constaté (clé étrangère sur base réelle, compte jamais activé refusé), puis
+  `mvn clean test` → 596 tests, 0 échec (PostgreSQL 16 jetable et `JWT_SECRET` aléatoire)
+- Revue : `review-code` indisponible dans cet environnement, relecture manuelle ; 0 BLOCKING, 0 CRITICAL ;
+  1 constat appliqué (chemins vides), 1 SUGGESTION hors ticket (même chemin vide dans `deleteDocument`)
+- Documentation mise à jour : docs/tech.md, docs/TICKETS.md, docs/tickets/TICKET-053.md, ce rapport
+- État Git observé : uniquement les fichiers du ticket ; aucun changement étranger
+- Étape suivante : relecture par Charlotte ; push et PR vers `dev` seulement sur demande de Manon
+- Risques, divergences ou décisions attendues : suppression définitive de documents (preuves Qualiopi)
+  à la désinscription, décidée par Manon (J6)
+- Complément (même jour, J10) : `POST /users/stagiaires` refuse une formation archivée dans
+  `formationIds` (400, rien n'est créé) ; `mvn clean test` → 597 tests, 0 échec
 ## Correctif — dépôt sur une inscription : 500 LazyInitializationException (lié TICKET-026)
 
 - Outil ayant préparé le rapport : Claude Code (session conduite par Manon)

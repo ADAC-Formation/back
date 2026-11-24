@@ -11,9 +11,11 @@ import com.adac.portail.utils.AccountImportParser;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
+import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Role;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
+import com.adac.portail.exception.FormationArchivedException;
 import com.adac.portail.exception.RateLimitException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.exception.UnauthorizedException;
@@ -176,6 +178,24 @@ class UserServiceImplTest {
 
         assertThatThrownBy(() -> userService.createStagiaire(request))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void createStagiaireInAnArchivedFormationThrowsAndEnrollsNothing() {
+        CreateUserRequest request = new CreateUserRequest("Martin", "Léo", "stagiaire@adac.fr", List.of(1L, 2L));
+        Formation active = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
+        Formation archived = Formation.builder().id(2L).status(FormationStatus.ARCHIVED).build();
+        when(userRepository.findByEmail("stagiaire@adac.fr")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(any())).thenReturn("random-hash");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(formationRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(active, archived));
+
+        assertThatThrownBy(() -> userService.createStagiaire(request))
+                .isInstanceOf(FormationArchivedException.class)
+                .hasMessage("Formation archivée, inscription impossible");
+
+        verify(inscriptionRepository, never()).save(any());
+        verify(activationService, never()).sendActivationCode(any());
     }
 
     @Test

@@ -2,15 +2,18 @@ package com.adac.portail.service;
 
 import com.adac.portail.dto.request.InscriptionRequest;
 import com.adac.portail.dto.response.InscriptionResponse;
+import com.adac.portail.entity.Document;
 import com.adac.portail.entity.Formation;
 import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateInscriptionException;
 import com.adac.portail.exception.FormationArchivedException;
 import com.adac.portail.exception.ResourceNotFoundException;
 import com.adac.portail.mapper.InscriptionMapper;
+import com.adac.portail.repository.DocumentRepository;
 import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.repository.UserRepository;
@@ -18,6 +21,7 @@ import com.adac.portail.security.AdacUserDetails;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +33,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +56,15 @@ class InscriptionServiceImplTest {
 
     @Mock
     private FormationService formationService;
+
+    @Mock
+    private ActivationService activationService;
+
+    @Mock
+    private DocumentRepository documentRepository;
+
+    @Mock
+    private StorageService storageService;
 
     @InjectMocks
     private InscriptionServiceImpl inscriptionService;
@@ -204,10 +219,12 @@ class InscriptionServiceImplTest {
     }
 
     @Test
-    void createInscriptionWithDeactivatedStagiaireThrowsResourceNotFound() {
+    void createInscriptionWithSuspendedStagiaireThrowsResourceNotFound() {
         Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
+        User suspended = user(5L, Role.STAGIAIRE, false);
         when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
-        when(userRepository.findById(5L)).thenReturn(Optional.of(user(5L, Role.STAGIAIRE, false)));
+        when(userRepository.findById(5L)).thenReturn(Optional.of(suspended));
+        when(activationService.hasEverActivated(suspended)).thenReturn(true);
 
         InscriptionRequest request = new InscriptionRequest();
         request.setStagiaireId(5L);
@@ -219,23 +236,101 @@ class InscriptionServiceImplTest {
     }
 
     @Test
-    void deleteInscriptionRemovesTheRow() {
-        Formation formation = Formation.builder().id(1L).build();
+    void createInscriptionEnrollsAStagiaireWhoHasNotActivatedYet() {
+        Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
+        User pending = user(5L, Role.STAGIAIRE, false);
         when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        when(userRepository.findById(5L)).thenReturn(Optional.of(pending));
+        when(activationService.hasEverActivated(pending)).thenReturn(false);
+        when(inscriptionRepository.existsByStagiaireAndFormation(pending, formation)).thenReturn(false);
+        Inscription saved = Inscription.builder().id(1L).stagiaire(pending).formation(formation).build();
+        when(inscriptionRepository.save(any())).thenReturn(saved);
+        when(inscriptionRepository.countByFormation(formation)).thenReturn(1L);
+        InscriptionResponse expected = InscriptionResponse.builder().id(1L).build();
+        when(inscriptionMapper.toResponse(saved, 1)).thenReturn(expected);
+
+        InscriptionRequest request = new InscriptionRequest();
+        request.setStagiaireId(5L);
+
+        assertThat(inscriptionService.createInscription(1L, request)).isSameAs(expected);
+    }
+
+    private static Document document(long id, String storagePath) {
+        return Document.builder().id(id).storagePath(storagePath).build();
+    }
+
+    @Test
+    void deleteInscriptionDeletesTheDocumentsThenTheInscriptionThenTheFiles() {
+        Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
+        Inscription inscription = Inscription.builder().id(7L).formation(formation).build();
+        List<Document> documents = List.of(document(1L, "inscriptions/7/a.pdf"), document(2L, "inscriptions/7/b.pdf"));
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        when(inscriptionRepository.findByStagiaire_IdAndFormation_Id(5L, 1L)).thenReturn(Optional.of(inscription));
+        when(documentRepository.findAllByInscription(inscription)).thenReturn(documents);
 
         inscriptionService.deleteInscription(1L, 5L);
 
-        verify(inscriptionRepository).deleteByStagiaire_IdAndFormation_Id(5L, 1L);
+        InOrder order = inOrder(documentRepository, inscriptionRepository, storageService);
+        order.verify(documentRepository).deleteAll(documents);
+        order.verify(inscriptionRepository).delete(inscription);
+        order.verify(storageService).delete("inscriptions/7/a.pdf");
+        order.verify(storageService).delete("inscriptions/7/b.pdf");
+    }
+
+    @Test
+    void deleteInscriptionSucceedsEvenIfAStoredFileCannotBeDeleted() {
+        Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
+        Inscription inscription = Inscription.builder().id(7L).formation(formation).build();
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        when(inscriptionRepository.findByStagiaire_IdAndFormation_Id(5L, 1L)).thenReturn(Optional.of(inscription));
+        when(documentRepository.findAllByInscription(inscription))
+                .thenReturn(List.of(document(1L, "inscriptions/7/a.pdf"), document(2L, "inscriptions/7/b.pdf")));
+        doThrow(new RuntimeException("storage down")).when(storageService).delete("inscriptions/7/a.pdf");
+
+        inscriptionService.deleteInscription(1L, 5L);
+
+        verify(inscriptionRepository).delete(inscription);
+        verify(storageService).delete("inscriptions/7/b.pdf");
+    }
+
+    @Test
+    void deleteInscriptionNeverAsksTheStorageToDeleteABlankPath() {
+        Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
+        Inscription inscription = Inscription.builder().id(7L).formation(formation).build();
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        when(inscriptionRepository.findByStagiaire_IdAndFormation_Id(5L, 1L)).thenReturn(Optional.of(inscription));
+        when(documentRepository.findAllByInscription(inscription))
+                .thenReturn(List.of(document(1L, ""), document(2L, "inscriptions/7/b.pdf")));
+
+        inscriptionService.deleteInscription(1L, 5L);
+
+        verify(storageService, never()).delete("");
+        verify(storageService).delete("inscriptions/7/b.pdf");
     }
 
     @Test
     void deleteInscriptionIsIdempotentEvenIfNotEnrolled() {
-        Formation formation = Formation.builder().id(1L).build();
+        Formation formation = Formation.builder().id(1L).status(FormationStatus.ACTIVE).build();
         when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        when(inscriptionRepository.findByStagiaire_IdAndFormation_Id(404L, 1L)).thenReturn(Optional.empty());
 
         inscriptionService.deleteInscription(1L, 404L);
 
-        verify(inscriptionRepository).deleteByStagiaire_IdAndFormation_Id(404L, 1L);
+        verify(inscriptionRepository, never()).delete(any());
+        verify(storageService, never()).delete(any());
+    }
+
+    @Test
+    void deleteInscriptionOnArchivedFormationThrowsConflict() {
+        Formation formation = Formation.builder().id(1L).status(FormationStatus.ARCHIVED).build();
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+
+        assertThatThrownBy(() -> inscriptionService.deleteInscription(1L, 5L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("Formation archivée, désinscription impossible");
+
+        verify(inscriptionRepository, never()).delete(any());
+        verify(documentRepository, never()).deleteAll(any());
     }
 
     @Test
@@ -245,6 +340,6 @@ class InscriptionServiceImplTest {
         assertThatThrownBy(() -> inscriptionService.deleteInscription(404L, 5L))
                 .isInstanceOf(ResourceNotFoundException.class);
 
-        verify(inscriptionRepository, never()).deleteByStagiaire_IdAndFormation_Id(any(), any());
+        verify(inscriptionRepository, never()).delete(any());
     }
 }
