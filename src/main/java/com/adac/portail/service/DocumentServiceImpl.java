@@ -78,7 +78,8 @@ public class DocumentServiceImpl implements DocumentService {
             inscription = inscriptionRepository.findById(inscriptionId)
                     .orElseThrow(() -> new ResourceNotFoundException(INSCRIPTION_NOT_FOUND));
             assertCanUploadToInscription(inscription, caller);
-            assertNotArchived(inscription.getFormation());
+            assertNotArchived(formationRepository.findById(inscription.getFormation().getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(FORMATION_NOT_FOUND)));
             path = "inscriptions/%d/%s-%s".formatted(inscriptionId, UUID.randomUUID(), file.getOriginalFilename());
         }
 
