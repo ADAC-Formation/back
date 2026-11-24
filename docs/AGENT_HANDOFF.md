@@ -445,3 +445,16 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Étape suivante : fusion dans `local/integration` pour le back local ; pas de push (Manon décide)
 - Risques, divergences ou décisions attendues : la PR #27 grossit d'une migration ; à relire par Charlotte
 
+## Correctif — Clé de stockage sans accent (`fix/storage-key-accents`)
+
+- Outil ayant préparé le rapport : Claude Code (session de Manon, D66 du front)
+- Branche et HEAD observés : fix/storage-key-accents / 82e74d6 (= `origin/dev`) avant le commit
+- Statut de la fiche et de docs/TICKETS.md : sans ticket (correctif, comme `fix/document-upload-lazy-formation`)
+- Dépendances vérifiées : aucune ; part de `origin/dev` à jour (PR #27 à #30 mergées)
+- Travail réalisé : un dépôt dont le nom contient un accent (« CV à jour.docx », ou tout dépôt depuis un créneau « Pièce d'identité - … ») répondait `502 « Service de stockage indisponible »` : Supabase refuse la clé d'objet (`400 InvalidKey`). Nouveau `utils/StorageKeys.safeFileName` (accents retirés, ligatures écrites en deux lettres, tout caractère hors `[A-Za-z0-9._-]` remplacé par `_`, séparateurs en bord retirés, 120 caractères au plus en gardant l'extension, `fichier` si rien ne reste) ; utilisé pour les clés `formations/…` et `inscriptions/…` de `DocumentServiceImpl`. Le nom enregistré (`fileName`) et affiché reste celui d'origine ; le téléchargement l'envoie déjà en UTF-8 (`ContentDisposition`)
+- Tests exécutés : RED vérifié (`StorageKeysTest` 17 échecs sur 18 avec un bouchon, 2 échecs dans `DocumentServiceImplTest`), puis GREEN ; `mvn test` complet sur PostgreSQL 16 jetable : 735 tests, 0 échec
+- Revue : diff relu dans la session (pas d'agent `review-code` disponible : signalé). Aucun BLOCKING ni CRITICAL. Effet de bord utile : une barre oblique dans le nom ne peut plus sortir du dossier de la formation ou de l'inscription. SUGGESTION non appliquée : un message `502` plus parlant quand Supabase répond `4xx` (point déjà ouvert pour Charlotte, carte #62 du front)
+- Documentation mise à jour : ce rapport ; journal du front `docs/charlotte/changements-back.md`. Pas de changement de contrat (`tech.md` inchangé), ni de schéma ; les fichiers déjà stockés gardent leur clé
+- État Git observé : seuls les fichiers de ce correctif sont modifiés
+- Étape suivante : back local sur cette branche pour que Manon refasse le dépôt ; push et PR seulement sur demande de Manon
+- Risques, divergences ou décisions attendues : aucun

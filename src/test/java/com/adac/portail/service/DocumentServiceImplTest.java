@@ -277,6 +277,60 @@ class DocumentServiceImplTest {
         assertThat(pathCaptor.getValue()).matches(Pattern.compile("^formations/1/[0-9a-f-]{36}-programme\\.pdf$"));
     }
 
+    // Supabase refuse une clé d'objet qui contient un accent (« InvalidKey ») : la clé n'utilise que des
+    // caractères sûrs, le nom affiché garde celui d'origine.
+    @Test
+    void uploadOnInscriptionStoresUnderASafeKeyAndKeepsTheOriginalName() {
+        User stagiaire = user(7L, Role.STAGIAIRE);
+        Formation formation = Formation.builder().id(1L).build();
+        Inscription inscription = Inscription.builder().id(5L).stagiaire(stagiaire).formation(formation).build();
+        when(inscriptionRepository.findById(5L)).thenReturn(Optional.of(inscription));
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        stubCanonicalMimeType();
+        when(storageService.upload(any(), anyString(), anyString())).thenReturn("https://supabase/inscriptions/5/x.docx");
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentMapper.toResponse(any())).thenReturn(DocumentResponse.builder().id(11L).build());
+
+        documentService.uploadDocument(accentedFile(), null, 5L, principal(stagiaire));
+
+        ArgumentCaptor<String> pathCaptor = ArgumentCaptor.forClass(String.class);
+        verify(storageService).upload(any(), pathCaptor.capture(), anyString());
+        assertThat(pathCaptor.getValue())
+                .matches(Pattern.compile("^inscriptions/5/[0-9a-f-]{36}-CV_a_jour_-_perfil_profesional\\.docx$"));
+        ArgumentCaptor<Document> captor = ArgumentCaptor.forClass(Document.class);
+        verify(documentRepository).save(captor.capture());
+        assertThat(captor.getValue().getFileName()).isEqualTo(ACCENTED_NAME);
+        assertThat(captor.getValue().getStoragePath()).isEqualTo(pathCaptor.getValue());
+    }
+
+    @Test
+    void uploadOnFormationStoresUnderASafeKeyAndKeepsTheOriginalName() {
+        Formation formation = Formation.builder().id(1L).build();
+        when(formationRepository.findById(1L)).thenReturn(Optional.of(formation));
+        stubCanonicalMimeType();
+        when(storageService.upload(any(), anyString(), anyString())).thenReturn("https://supabase/formations/1/x.docx");
+        when(documentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(documentMapper.toResponse(any())).thenReturn(DocumentResponse.builder().id(12L).build());
+        when(inscriptionRepository.findStagiairesByFormation(formation)).thenReturn(List.of());
+
+        documentService.uploadDocument(accentedFile(), 1L, null, principal(user(1L, Role.SUPER_ADMIN)));
+
+        ArgumentCaptor<String> pathCaptor = ArgumentCaptor.forClass(String.class);
+        verify(storageService).upload(any(), pathCaptor.capture(), anyString());
+        assertThat(pathCaptor.getValue())
+                .matches(Pattern.compile("^formations/1/[0-9a-f-]{36}-CV_a_jour_-_perfil_profesional\\.docx$"));
+        ArgumentCaptor<Document> captor = ArgumentCaptor.forClass(Document.class);
+        verify(documentRepository).save(captor.capture());
+        assertThat(captor.getValue().getFileName()).isEqualTo(ACCENTED_NAME);
+    }
+
+    private static final String ACCENTED_NAME = "CV à jour - perfil profesional.docx";
+
+    private static MockMultipartFile accentedFile() {
+        return new MockMultipartFile("file", ACCENTED_NAME,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "contenu".getBytes());
+    }
+
     @Test
     void uploadSucceedsEvenWhenNotificationFails() {
         Formation formation = Formation.builder().id(1L).build();

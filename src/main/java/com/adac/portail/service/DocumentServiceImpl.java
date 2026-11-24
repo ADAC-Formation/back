@@ -19,6 +19,7 @@ import com.adac.portail.repository.FormationRepository;
 import com.adac.portail.repository.InscriptionRepository;
 import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.utils.FileValidator;
+import com.adac.portail.utils.StorageKeys;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,14 +74,14 @@ public class DocumentServiceImpl implements DocumentService {
                     .orElseThrow(() -> new ResourceNotFoundException(FORMATION_NOT_FOUND));
             assertCanUploadToFormation(formation, caller);
             assertNotArchived(formation);
-            path = "formations/%d/%s-%s".formatted(formationId, UUID.randomUUID(), file.getOriginalFilename());
+            path = "formations/%d/%s-%s".formatted(formationId, UUID.randomUUID(), StorageKeys.safeFileName(file.getOriginalFilename()));
         } else {
             inscription = inscriptionRepository.findById(inscriptionId)
                     .orElseThrow(() -> new ResourceNotFoundException(INSCRIPTION_NOT_FOUND));
             assertCanUploadToInscription(inscription, caller);
             assertNotArchived(formationRepository.findById(inscription.getFormation().getId())
                     .orElseThrow(() -> new ResourceNotFoundException(FORMATION_NOT_FOUND)));
-            path = "inscriptions/%d/%s-%s".formatted(inscriptionId, UUID.randomUUID(), file.getOriginalFilename());
+            path = "inscriptions/%d/%s-%s".formatted(inscriptionId, UUID.randomUUID(), StorageKeys.safeFileName(file.getOriginalFilename()));
         }
 
         String fileUrl = storageService.upload(file, path, mimeType);
