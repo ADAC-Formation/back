@@ -40,6 +40,7 @@
 | Non autorisé (rôle insuffisant) | 403 |
 | Ressource introuvable | 404 |
 | Erreur serveur | 500 |
+| Envoi d'un retour impossible (serveur de mail) — `POST /api/feedback` seulement | 503 |
 
 ---
 
@@ -792,6 +793,46 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 ```json
 // 204 No Content
 ```
+
+---
+
+## 9. Retours (bouton « Envoyer un retour »)
+
+### POST /api/feedback
+Envoyer un bug ou une suggestion au développeur, par email. **Rien n'est stocké** (ni base, ni
+stockage de fichiers, ni journal applicatif).
+```
+// Content-Type: multipart/form-data
+// Body:
+//   type: "BUG" | "SUGGESTION" (casse indifférente)
+//   message: string — 10 à 2000 caractères après suppression des espaces de début et de fin
+//   page: string — chemin de la page, sans paramètres (indicatif, tronqué à 500 caractères)
+//   userAgent: string — navigateur (indicatif, tronqué à 500 caractères)
+//   viewport: string — taille de fenêtre, ex. "1280x720" (indicatif, tronqué à 500 caractères)
+//   appVersion: string — version du front (indicatif, tronqué à 500 caractères)
+//   screenshot: File (facultatif) — png, jpeg ou webp d'après la signature du fichier, 3 Mo max
+
+// Rôles : SUPER_ADMIN, ADMIN. L'auteur (nom, email, rôle) est l'utilisateur de session ;
+// toute partie "email" ou "role" envoyée par le client est ignorée.
+
+// 201 Created — pas de corps, l'email est parti
+// 400 — type invalide :            "Type de retour invalide (Bug ou Suggestion)"
+//       message hors limites :     "Le message doit contenir entre 10 et 2000 caractères"
+//       image trop lourde :        "Image trop lourde (3 Mo maximum)"
+//       image d'un autre format :  "Format d'image non autorisé (png, jpeg ou webp)"
+// 401 — non authentifié
+// 403 — STAGIAIRE
+// 413 — requête au-delà de la limite globale d'upload (20 Mo) : "Fichier trop volumineux"
+// 429 — plus de 10 retours en une heure glissante pour cet utilisateur :
+//       "Trop de retours envoyés. Réessayez dans une heure."
+//       (compteur en mémoire, remis à zéro au redémarrage ; un envoi en échec ne compte pas)
+// 503 — l'email n'a pas pu partir (serveur de mail, destinataire non configuré) :
+//       "Envoi impossible pour le moment, réessayez plus tard."
+```
+Email envoyé : à `FEEDBACK_RECIPIENT` (propriété `app.feedback.recipient`, vide par défaut — chaque
+envoi répond alors 503), expéditeur `MAIL_FROM`, `Reply-To` = email de l'auteur, sujet
+`[ADAC][Bug|Suggestion] Prénom Nom — <page>`, corps HTML avec tous les champs échappés, capture en
+pièce jointe (`capture.png|jpg|webp`).
 
 ---
 

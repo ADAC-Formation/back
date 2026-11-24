@@ -38,6 +38,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -186,6 +187,14 @@ class JwtAuthenticationIntegrationTest {
     @Test
     void protectedEndpointWithoutCookieIsRejected() throws Exception {
         mockMvc.perform(get("/api/test/ping"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void feedbackWithoutCookieIsRejected() throws Exception {
+        mockMvc.perform(multipart("/api/feedback")
+                        .param("type", "BUG")
+                        .param("message", "Le bouton Enregistrer ne répond pas"))
                 .andExpect(status().isUnauthorized());
     }
 
