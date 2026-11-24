@@ -40,6 +40,7 @@
 | Non autorisé (rôle insuffisant) | 403 |
 | Ressource introuvable | 404 |
 | Erreur serveur | 500 |
+| Envoi d'un retour impossible (serveur de mail) — `POST /api/feedback` seulement | 503 |
 
 ---
 
@@ -352,6 +353,102 @@ Désactiver une catégorie (SUPER_ADMIN uniquement) — disparaît du sélecteur
 formation, mais reste inchangée sur les formations qui la référencent déjà.
 ```json
 // 200 OK → CategoryResponse
+```
+
+### Types de document (TICKET-052)
+
+Catalogue des pièces que les stagiaires fournissent (« Pièce d'identité », « Certificat médical »…), tenu par
+la chargée de formation. Un type est **obligatoire ou facultatif**, éventuellement **sensible**, vaut pour
+**toutes les formations** ou pour une ou plusieurs **catégories**, peut avoir un **délai** relatif aux dates de
+la formation et une liste de **formats acceptés**. Un type ne se supprime jamais : on le désactive.
+Cette tranche ne relie pas encore les documents déposés à un type (voir les tickets suivants).
+
+Tous les endpoints de `/api/document-types` sont **SUPER_ADMIN uniquement** (`403` pour ADMIN et STAGIAIRE, `401` sans
+session). La seule lecture ouverte aux autres rôles est `GET /api/formations/{id}/document-types` (ci-dessous).
+Il n'y a pas de « obligatoire / facultatif » : tout type actif qui s'applique à une formation est une pièce à envoyer.
+`providedBy` dit **qui** l'envoie : `STAGIAIRE` (pièce de son inscription) ou `ADAC` (pièce de la formation, déposée
+par la chargée de formation ou le formateur).
+
+```json
+// DocumentTypeResponse
+{
+  "id": 4,
+  "nom": "Certificat médical",
+  "aide": "Moins de 3 mois",                 // nullable
+  "isSensitive": true,
+  "appliesToAllFormations": false,
+  "categories": [ CategoryResponse ],        // vide si appliesToAllFormations ; triées par nom
+  "deadlineDays": 7,                         // nullable, 0 à 365, avec deadlineAnchor
+  "deadlineAnchor": "BEFORE_START",          // BEFORE_START | AFTER_END, nullable
+  "allowedFormats": ["pdf", "jpg"],          // vide = règle générale (§ 6 : pdf, jpg, jpeg, png, docx, xlsx, 10 Mo)
+  "providedBy": "STAGIAIRE",                 // STAGIAIRE | ADAC
+  "isActive": true,
+  "createdAt": "2026-11-20T09:00:00Z",
+  "updatedAt": "2026-11-20T09:00:00Z"        // renseigné dès la création, comme pour les catégories
+}
+```
+
+### GET /api/document-types
+Liste des types, triés par nom (sans tenir compte de la casse ni des accents).
+```json
+// Query params : ?active=true   // seulement les types actifs
+// 200 OK → DocumentTypeResponse[]
+```
+
+### GET /api/formations/{id}/document-types
+Les types actifs à envoyer pour une formation, **des deux fournisseurs** (`providedBy` les distingue) : ceux de
+« toutes les formations » et ceux liés à la catégorie de la formation, triés par nom (sans tenir compte de la casse ni des accents). Mêmes droits que `GET /api/formations/{id}` :
+la chargée de formation, le formateur de cette formation (`404` pour une autre), le stagiaire inscrit (`403` sinon).
+```json
+// 200 OK → DocumentTypeResponse[]
+```
+
+### POST /api/document-types
+Créer un type.
+```json
+// Body (isSensitive et appliesToAllFormations obligatoires)
+{
+  "nom": "string",                    // 255 au plus
+  "aide": "string",                   // optionnel, 500 au plus
+  "isSensitive": false,
+  "appliesToAllFormations": false,
+  "categoryIds": [1, 2],              // requis (non vide) si appliesToAllFormations=false, vide sinon
+  "deadlineDays": 7,                  // optionnel, 0 à 365 ; avec deadlineAnchor, ou aucun des deux
+  "deadlineAnchor": "BEFORE_START",   // BEFORE_START | AFTER_END
+  "allowedFormats": ["pdf", "jpg"],   // optionnel ; pdf, jpg, jpeg, png, docx, xlsx ; vide = règle générale
+  "providedBy": "ADAC"                // optionnel, STAGIAIRE | ADAC ; absent = STAGIAIRE
+}
+
+// 201 Created → DocumentTypeResponse
+// 400 — nom vide ou trop long, aide trop longue, drapeau manquant, délai incomplet ou hors bornes, format inconnu,
+//       providedBy inconnu,
+//       catégories données avec appliesToAllFormations=true, ou aucune catégorie avec appliesToAllFormations=false
+// 404 — une des catégories est inconnue
+// 409 — nom déjà utilisé (casse ignorée)
+{ "status": 409, "message": "Ce type de document existe déjà" }
+```
+
+### PUT /api/document-types/{id}
+Modifier un type : **remplace tous les champs** (même corps que `POST`) ; `isActive` n'est pas touché. Les
+formations déjà en cours reflètent le changement (le catalogue est lu en direct).
+```json
+// 200 OK → DocumentTypeResponse
+// 400/404 — mêmes cas que POST, plus 404 si le type est inconnu
+// 409 — nom déjà utilisé par un autre type
+```
+
+### PATCH /api/document-types/{id}/activate
+Réactiver un type désactivé (idempotent).
+```json
+// 200 OK → DocumentTypeResponse
+// 404 — type inconnu
+```
+
+### PATCH /api/document-types/{id}/deactivate
+Désactiver un type (idempotent) ; il n'est plus proposé, mais les documents déjà déposés sont conservés.
+```json
+// 200 OK → DocumentTypeResponse
+// 404 — type inconnu
 ```
 
 ---
@@ -704,6 +801,46 @@ Supprimer de la cloche (uniquement — la notification reste dans l'historique).
 ```json
 // 204 No Content
 ```
+
+---
+
+## 9. Retours (bouton « Envoyer un retour »)
+
+### POST /api/feedback
+Envoyer un bug ou une suggestion au développeur, par email. **Rien n'est stocké** (ni base, ni
+stockage de fichiers, ni journal applicatif).
+```
+// Content-Type: multipart/form-data
+// Body:
+//   type: "BUG" | "SUGGESTION" (casse indifférente)
+//   message: string — 10 à 2000 caractères après suppression des espaces de début et de fin
+//   page: string — chemin de la page, sans paramètres (indicatif, tronqué à 500 caractères)
+//   userAgent: string — navigateur (indicatif, tronqué à 500 caractères)
+//   viewport: string — taille de fenêtre, ex. "1280x720" (indicatif, tronqué à 500 caractères)
+//   appVersion: string — version du front (indicatif, tronqué à 500 caractères)
+//   screenshot: File (facultatif) — png, jpeg ou webp d'après la signature du fichier, 3 Mo max
+
+// Rôles : SUPER_ADMIN, ADMIN. L'auteur (nom, email, rôle) est l'utilisateur de session ;
+// toute partie "email" ou "role" envoyée par le client est ignorée.
+
+// 201 Created — pas de corps, l'email est parti
+// 400 — type invalide :            "Type de retour invalide (Bug ou Suggestion)"
+//       message hors limites :     "Le message doit contenir entre 10 et 2000 caractères"
+//       image trop lourde :        "Image trop lourde (3 Mo maximum)"
+//       image d'un autre format :  "Format d'image non autorisé (png, jpeg ou webp)"
+// 401 — non authentifié
+// 403 — STAGIAIRE
+// 413 — requête au-delà de la limite globale d'upload (20 Mo) : "Fichier trop volumineux"
+// 429 — plus de 10 retours en une heure glissante pour cet utilisateur :
+//       "Trop de retours envoyés. Réessayez dans une heure."
+//       (compteur en mémoire, remis à zéro au redémarrage ; un envoi en échec ne compte pas)
+// 503 — l'email n'a pas pu partir (serveur de mail, destinataire non configuré) :
+//       "Envoi impossible pour le moment, réessayez plus tard."
+```
+Email envoyé : à `FEEDBACK_RECIPIENT` (propriété `app.feedback.recipient`, vide par défaut — chaque
+envoi répond alors 503), expéditeur `MAIL_FROM`, `Reply-To` = email de l'auteur, sujet
+`[ADAC][Bug|Suggestion] Prénom Nom — <page>`, corps HTML avec tous les champs échappés, capture en
+pièce jointe (`capture.png|jpg|webp`).
 
 ---
 

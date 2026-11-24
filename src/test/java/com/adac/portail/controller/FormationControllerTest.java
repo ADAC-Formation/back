@@ -1,6 +1,7 @@
 package com.adac.portail.controller;
 
 import com.adac.portail.dto.response.CategoryResponse;
+import com.adac.portail.dto.response.DocumentTypeResponse;
 import com.adac.portail.dto.response.FormationResponse;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Role;
@@ -11,6 +12,7 @@ import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.security.CustomUserDetailsService;
 import com.adac.portail.security.JwtTokenService;
 import com.adac.portail.security.WithMockAdacUser;
+import com.adac.portail.service.DocumentTypeService;
 import com.adac.portail.service.FormationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -61,6 +63,9 @@ class FormationControllerTest {
 
     @MockitoBean
     private FormationService formationService;
+
+    @MockitoBean
+    private DocumentTypeService documentTypeService;
 
     @MockitoBean
     private JwtTokenService jwtTokenService;
@@ -391,5 +396,38 @@ class FormationControllerTest {
                         .content("{\"formateurId\":2}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void getDocumentTypesOfAFormationReturnsTheTypesToSend() throws Exception {
+        when(documentTypeService.getDocumentTypesForFormation(eq(1L), any()))
+                .thenReturn(List.of(DocumentTypeResponse.builder().id(4L).nom("Pièce d'identité").active(true).build()));
+
+        mockMvc.perform(get("/api/formations/1/document-types"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(4))
+                .andExpect(jsonPath("$[0].nom").value("Pièce d'identité"))
+                .andExpect(jsonPath("$[0].isActive").value(true));
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.STAGIAIRE)
+    void getDocumentTypesOfAFormationWhereTheStagiaireIsNotEnrolledReturnsForbidden() throws Exception {
+        when(documentTypeService.getDocumentTypesForFormation(eq(1L), any()))
+                .thenThrow(new AccessDeniedException("Accès refusé"));
+
+        mockMvc.perform(get("/api/formations/1/document-types"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockAdacUser(role = Role.ADMIN)
+    void getDocumentTypesOfAFormationOfAnotherFormateurReturnsNotFound() throws Exception {
+        when(documentTypeService.getDocumentTypesForFormation(eq(1L), any()))
+                .thenThrow(new ResourceNotFoundException("Formation introuvable"));
+
+        mockMvc.perform(get("/api/formations/1/document-types"))
+                .andExpect(status().isNotFound());
     }
 }
