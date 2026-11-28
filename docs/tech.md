@@ -258,6 +258,8 @@ Modifier son propre profil (tous les rôles).
 // 200 OK → UserResponse
 ```
 
+> `emailNotificationsEnabled` est accepté et enregistré, mais **n'empêche plus l'envoi** depuis NOTES-04 : les notifications par e-mail partent toujours, pour tous les rôles (suivi Qualiopi, ind. 30). Le front n'affiche plus ce réglage.
+
 ### PATCH /api/users/me/password
 Changer son propre mot de passe (tous les rôles).
 ```json
@@ -858,7 +860,7 @@ pièce jointe (`capture.png|jpg|webp`).
 | role | Role (enum) | `'SUPER_ADMIN' \| 'ADMIN' \| 'STAGIAIRE'` | |
 | isActive | boolean | boolean | |
 | activated | boolean | boolean | `true` si le compte a déjà été activé au moins une fois. `isActive=false` + `activated=false` → « Jamais activé » (action : renvoyer le code) ; `isActive=false` + `activated=true` → « Suspendu » (action : réactiver) |
-| emailNotificationsEnabled | boolean | boolean | |
+| emailNotificationsEnabled | boolean | boolean | conservé pour compatibilité ; sans effet sur l'envoi des notifications depuis NOTES-04 (voir `PATCH /api/users/me`) |
 | createdAt | LocalDateTime | string | ISO 8601 |
 
 ### CategoryResponse

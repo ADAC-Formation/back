@@ -139,13 +139,18 @@ class EmailServiceImplTest {
         assertThat(sent.getSubject()).isEqualTo("Nouvelle notification ADAC");
     }
 
+    // NOTES-04 (décision de Manon, 2026-11-27) : les notifications par e-mail partent toujours, pour tous les rôles
+    // (Qualiopi ind. 30). Le champ emailNotificationsEnabled reste stocké mais n'empêche plus l'envoi.
     @Test
-    void sendNotificationEmailWithToggleDisabledSendsNothing() {
+    void sendNotificationEmailAlwaysSendsEvenWithNotificationsDisabled() throws Exception {
         user.setEmailNotificationsEnabled(false);
+        when(templateBuilder.buildNotificationEmail("Nouveau message")).thenReturn("<html>Nouveau message</html>");
 
         emailService.sendNotificationEmail(user, "Nouveau message");
 
-        verify(mailSender, never()).send(any(MimeMessage.class));
+        MimeMessage sent = captureSentMessage();
+        assertThat(sent.getSubject()).isEqualTo("Nouvelle notification ADAC");
+        assertThat(sent.getAllRecipients()[0].toString()).isEqualTo("stagiaire@adac.fr");
     }
 
     private static final byte[] PNG_BYTES =

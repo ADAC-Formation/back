@@ -459,6 +459,19 @@ Conserver la branche et les changements existants. Préserver les changements é
 - Étape suivante : back local sur cette branche pour que Manon refasse le dépôt ; push et PR seulement sur demande de Manon
 - Risques, divergences ou décisions attendues : aucun
 
+## Correctif — Notifications par e-mail toujours envoyées (`fix/notification-emails-always`, NOTES-04)
+
+- Outil ayant préparé le rapport : Claude Code (session de Manon, D66 du front ; plan validé par Manon le 2026-11-28)
+- Branche et HEAD observés : fix/notification-emails-always / fd81682 (= `origin/dev`) avant le commit
+- Statut de la fiche et de docs/TICKETS.md : sans ticket (correctif décidé par Manon : NOTES-04, #74 du front ; Q17 de `points-pour-charlotte.md`)
+- Dépendances vérifiées : aucune ; part de `origin/dev` à jour
+- Travail réalisé : `EmailServiceImpl.sendNotificationEmail` n'abandonne plus l'envoi quand `emailNotificationsEnabled = false` : les notifications partent toujours, pour tous les rôles. Le champ reste dans l'entité, `UserResponse` et `PATCH /api/users/me` (aucun endpoint cassé, aucune migration) ; les comptes qui l'avaient coupé reçoivent de nouveau les e-mails sans changement de données
+- Tests exécutés : `EmailServiceImplTest.sendNotificationEmailWithToggleDisabledSendsNothing` remplacé par `sendNotificationEmailAlwaysSendsEvenWithNotificationsDisabled` : RED (« Wanted but not invoked »), puis GREEN (13/13) ; `mvn test` complet sur PostgreSQL 16 jetable : 745 tests, 2 échecs **déjà présents sur `origin/dev` `fd81682`** (vérifié sans ce correctif) : `FlywayMigrationTest.flywayMigratedV7AndHibernateOnlyValidates` attend V7 alors que `origin/dev` contient V8 (à mettre à jour par qui a ajouté V8), et `NotificationRepositoryTest.bellQueryOrdersMostRecentFirst`, instable (dates égales, déjà signalé le 2026-11-23)
+- Revue : pas d'agent `review-code` disponible dans cet environnement : signalé. `/code-review` a revu un autre diff (écarts `dev` / `main` : `docker-compose.yml`, `.env.example`), pas ce correctif ; diff relu à la main. Aucun BLOCKING ni CRITICAL. Constat : `sendNotificationEmail` n'a **aucun appelant** sur `origin/dev` : aucune notification n'est envoyée par e-mail aujourd'hui ; la règle s'appliquera dès que l'envoi sera branché (NOTES-28 à 30 du front). Hors de ce correctif, relevé par `/code-review` sans vérification au déploiement : `MAIL_FROM: ${MAIL_FROM}` dans `docker-compose.yml` passe une chaîne vide si `.env` ne le définit pas, et le défaut `no-reply@adac.fr` d'`application.yml` est alors ignoré
+- Documentation mise à jour : docs/tech.md (`PATCH /api/users/me`, `UserResponse`), description Swagger de `PATCH /me`, ce rapport ; journal du front `docs/charlotte/changements-back.md`
+- État Git observé : seuls les fichiers de ce correctif sont modifiés
+- Étape suivante : push et PR seulement sur demande de Manon
+- Risques, divergences ou décisions attendues : à décider plus tard avec Charlotte : retirer le champ (contrat cassé, D66 cas 4) ou le garder inutilisé
 ## Correctif — Formation obligatoire à la création d'un stagiaire (`fix/stagiaire-requires-formation`, NOTES-25)
 
 - Outil ayant préparé le rapport : Claude Code (session de Manon, D66 du front ; plan validé par Manon le 2026-11-28)
