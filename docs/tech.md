@@ -185,12 +185,14 @@ Liste des stagiaires.
 
 ### POST /api/users/stagiaires
 Créer un stagiaire (SUPER_ADMIN uniquement). Déclenche l'email d'activation. `formationIds`
-(facultatif) inscrit le stagiaire dans la même transaction : tout ou rien.
+(**obligatoire, au moins une formation** depuis NOTES-25) inscrit le stagiaire dans la même transaction : tout ou rien.
+L'import Excel (`POST /api/users/import`) reste l'exception : il crée des stagiaires sans inscription.
 ```json
 // Body
 { "nom": "string", "prenom": "string", "email": "string", "formationIds": [1, 2] }
 
 // 201 Created → UserResponse
+// 400 — `formationIds` absent ou vide (« Au moins une formation est obligatoire ») : rien n'est créé
 // 400 — une des formations est archivée (« Formation archivée, inscription impossible ») : rien n'est créé
 // 404 — une des formations est introuvable : rien n'est créé
 // 409 — email déjà utilisé
