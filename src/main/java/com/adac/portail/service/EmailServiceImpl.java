@@ -41,11 +41,10 @@ public class EmailServiceImpl implements EmailService {
         send(user.getEmail(), PASSWORD_RESET_SUBJECT, templateBuilder.buildPasswordResetEmail(user.getPrenom(), code));
     }
 
+    // Envoyée quel que soit emailNotificationsEnabled (NOTES-04) : le suivi Qualiopi exige que tous les comptes
+    // reçoivent les notifications ; le champ reste stocké pour ne pas casser PATCH /api/users/me.
     @Override
     public void sendNotificationEmail(User user, String content) {
-        if (!user.isEmailNotificationsEnabled()) {
-            return;
-        }
         send(user.getEmail(), NOTIFICATION_SUBJECT, templateBuilder.buildNotificationEmail(content));
     }
 

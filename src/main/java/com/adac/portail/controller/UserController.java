@@ -178,7 +178,7 @@ public class UserController {
         return ResponseEntity.ok(userService.updateUser(id, request, principal));
     }
 
-    @Operation(summary = "Update own profile", description = "Any authenticated role. Partial update — only emailNotificationsEnabled for now (docs/tech.md). No GET /api/users/me: GET /api/auth/me already returns the caller's full profile.")
+    @Operation(summary = "Update own profile", description = "Any authenticated role. Partial update — only emailNotificationsEnabled for now (docs/tech.md); stored but no longer stops notification emails, which are always sent (NOTES-04). No GET /api/users/me: GET /api/auth/me already returns the caller's full profile.")
     @ApiResponse(responseCode = "200", description = "OK",
             content = @Content(schema = @Schema(implementation = UserResponse.class)))
     @ApiResponse(responseCode = "401", description = "Not authenticated",
