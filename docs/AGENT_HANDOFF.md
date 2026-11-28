@@ -472,3 +472,16 @@ Conserver la branche et les changements existants. Préserver les changements é
 - État Git observé : seuls les fichiers de ce correctif sont modifiés
 - Étape suivante : push et PR seulement sur demande de Manon
 - Risques, divergences ou décisions attendues : à décider plus tard avec Charlotte : retirer le champ (contrat cassé, D66 cas 4) ou le garder inutilisé
+## Correctif — Formation obligatoire à la création d'un stagiaire (`fix/stagiaire-requires-formation`, NOTES-25)
+
+- Outil ayant préparé le rapport : Claude Code (session de Manon, D66 du front ; plan validé par Manon le 2026-11-28)
+- Branche et HEAD observés : fix/stagiaire-requires-formation / fd81682 (= `origin/dev`) avant le commit
+- Statut de la fiche et de docs/TICKETS.md : sans ticket (décision de Manon : NOTES-25, #96 du front ; Q20 de `points-pour-charlotte.md`)
+- Dépendances vérifiées : aucune ; part de `origin/dev` à jour
+- Travail réalisé : `UserServiceImpl.createStagiaire` refuse `formationIds` absent ou vide (`400 « Au moins une formation est obligatoire »`) avant de créer le compte : rien n'est créé, inscrit ni envoyé. Le contrôle est dans le service, car `CreateUserRequest` sert aussi à `createFormateur`. `POST /api/users/formateurs` et `POST /api/users/import` (qui crée des stagiaires sans inscription) sont inchangés
+- Tests exécutés : `UserServiceImplTest.createStagiaireWithNoFormationIdsSkipsEnrollment` remplacé par `createStagiaireWithoutFormationThrowsBadRequestAndCreatesNothing` (paramétré : `null` et `[]`) : RED (2 échecs), puis GREEN ; `UserControllerTest.createStagiaireWithoutFormationReturnsBadRequestWithMessage` documente le contrat (`400` et message) : vert dès l'écriture, puisque le `400` de `BadRequestException` existait déjà ; `mvn test` complet sur PostgreSQL 16 jetable : 747 tests, 1 échec **déjà présent sur `origin/dev` `fd81682`** (`FlywayMigrationTest.flywayMigratedV7AndHibernateOnlyValidates` attend V7 alors que `dev` contient V8 ; vérifié sans ce correctif le même jour)
+- Revue : pas d'agent `review-code` disponible dans cet environnement : signalé ; diff relu à la main. Aucun BLOCKING ni CRITICAL
+- Documentation mise à jour : docs/tech.md (`POST /api/users/stagiaires`), description Swagger, ce rapport ; journal du front `docs/charlotte/changements-back.md`
+- État Git observé : seuls les fichiers de ce correctif sont modifiés
+- Étape suivante : push et PR seulement sur demande de Manon
+- Risques, divergences ou décisions attendues : changement de contrat (`formationIds` devient obligatoire) : tout autre client qui créait un stagiaire sans formation reçoit désormais `400`. Le seul client connu est le front, déjà à jour (J11)

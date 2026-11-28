@@ -240,6 +240,23 @@ class UserControllerTest {
                 .andExpect(status().isForbidden());
     }
 
+    // NOTES-25 : le service refuse un stagiaire sans formation ; le contrat est un 400 avec le message du service.
+    @Test
+    @WithMockAdacUser(role = Role.SUPER_ADMIN)
+    void createStagiaireWithoutFormationReturnsBadRequestWithMessage() throws Exception {
+        when(userService.createStagiaire(any()))
+                .thenThrow(new BadRequestException("Au moins une formation est obligatoire"));
+
+        mockMvc.perform(post("/api/users/stagiaires")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("nom", "Martin", "prenom", "Léo", "email", "stagiaire@adac.fr",
+                                        "formationIds", List.of()))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Au moins une formation est obligatoire"));
+    }
+
     @Test
     @WithMockAdacUser(role = Role.SUPER_ADMIN)
     void createStagiaireWithBlankNomReturnsBadRequest() throws Exception {

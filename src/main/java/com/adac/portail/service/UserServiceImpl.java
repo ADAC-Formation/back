@@ -12,6 +12,7 @@ import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.FormationArchivedException;
@@ -69,6 +70,10 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserResponse createStagiaire(CreateUserRequest request) {
+        // NOTES-25 : un stagiaire créé à la main a toujours une formation (l'import Excel reste l'exception).
+        if (request.getFormationIds() == null || request.getFormationIds().isEmpty()) {
+            throw new BadRequestException("Au moins une formation est obligatoire");
+        }
         User user = createPendingUser(request, Role.STAGIAIRE);
         enroll(user, request.getFormationIds());
         sendActivationCodeAfterCommit(user);

@@ -57,10 +57,10 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(userService.createFormateur(request));
     }
 
-    @Operation(summary = "Create stagiaire", description = "SUPER_ADMIN only. Enrolls in formationIds and triggers the activation email.")
+    @Operation(summary = "Create stagiaire", description = "SUPER_ADMIN only. Enrolls in formationIds (at least one is required, NOTES-25) and triggers the activation email.")
     @ApiResponse(responseCode = "201", description = "Created",
             content = @Content(schema = @Schema(implementation = UserResponse.class)))
-    @ApiResponse(responseCode = "400", description = "One of formationIds is archived; nothing is created",
+    @ApiResponse(responseCode = "400", description = "formationIds missing or empty, or one of them is archived; nothing is created",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     @ApiResponse(responseCode = "404", description = "One of formationIds does not exist; nothing is created",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
