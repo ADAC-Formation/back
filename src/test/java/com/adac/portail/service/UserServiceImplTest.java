@@ -13,6 +13,7 @@ import com.adac.portail.entity.Inscription;
 import com.adac.portail.entity.User;
 import com.adac.portail.entity.enums.FormationStatus;
 import com.adac.portail.entity.enums.Role;
+import com.adac.portail.exception.BadRequestException;
 import com.adac.portail.exception.ConflictException;
 import com.adac.portail.exception.DuplicateEmailException;
 import com.adac.portail.exception.FormationArchivedException;
@@ -28,6 +29,8 @@ import com.adac.portail.security.AdacUserDetails;
 import com.adac.portail.dto.response.UserInscriptionResponse;
 import com.adac.portail.mapper.InscriptionMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -213,17 +216,20 @@ class UserServiceImplTest {
         verify(inscriptionRepository, times(1)).save(any());
     }
 
-    @Test
-    void createStagiaireWithNoFormationIdsSkipsEnrollment() {
-        CreateUserRequest request = new CreateUserRequest("Martin", "Léo", "stagiaire@adac.fr", null);
-        when(userRepository.findByEmail("stagiaire@adac.fr")).thenReturn(Optional.empty());
-        when(passwordEncoder.encode(any())).thenReturn("random-hash");
-        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(userMapper.toResponse(any(User.class))).thenReturn(UserResponse.builder().build());
+    // NOTES-25 (décision de Manon, 2026-11-28) : un stagiaire créé à la main a toujours au moins une formation.
+    // L'import Excel (POST /api/users/import) reste l'exception : il crée des comptes sans inscription.
+    @ParameterizedTest
+    @NullAndEmptySource
+    void createStagiaireWithoutFormationThrowsBadRequestAndCreatesNothing(List<Long> formationIds) {
+        CreateUserRequest request = new CreateUserRequest("Martin", "Léo", "stagiaire@adac.fr", formationIds);
 
-        userService.createStagiaire(request);
+        assertThatThrownBy(() -> userService.createStagiaire(request))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("Au moins une formation est obligatoire");
 
+        verify(userRepository, never()).save(any());
         verify(inscriptionRepository, never()).save(any());
+        verify(activationService, never()).sendActivationCode(any());
     }
 
     @Test
